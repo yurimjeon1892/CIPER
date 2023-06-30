@@ -1,0 +1,74 @@
+# configuration file for training
+infer: False
+
+resume_flag: False  
+resume_path: None
+
+seed: 42
+num_workers: 2
+
+world_size: 1 # number of distributed processes
+dist_url: env:// # url used to set up distributed training
+
+base:
+
+  task: IR # IR / IL 
+  device: cuda # device to use for training / testing 
+  batch_size: 32
+
+  grnd_img_size: [128, 640] # [112, 616]
+  # arl_img_size: [256, 256]
+  arl_img_size: [320, 320]
+
+  down_ratio: 32  
+
+train:
+  lr: 0.0001
+  lr_backbone: 0.00001
+  
+  weight_decay: 0.0001
+  
+  lr_drop: 200
+  clip_max_norm: 0.1 # gradient clipping max norm
+
+  ckpt_dir: ./ckpts
+
+  start_epoch: 1
+  epochs: 250
+
+dataset:
+  
+  data_name: cvusa
+  data_root: /storage2/public/cvusa/  
+  fov: 0
+
+  # cvusa only
+  train_pt_list: ./datasets/splits/cvusa/train-mini.csv
+  val_pt_list: ./datasets/splits/cvusa/train-mini.csv
+  test_pt_list: ./datasets/splits/cvusa/train-19zl.csv
+
+  # train_pt_list: ./datasets/splits/cvusa/train-19zl.csv
+  # val_pt_list: ./datasets/splits/cvusa/val-19zl.csv
+  # test_pt_list: ./datasets/splits/cvusa/val-19zl.csv
+  
+model:
+
+  backbone: resnet18 # Name of the convolutional backbone to use
+  dilation: False # If true, we replace stride with dilation in the last convolutional block (DC5)
+  position_embedding: sine # (sine, learned) Type of positional embedding to use on top of the image features
+
+  enc_layers: 6 # Number of encoding layers in the transformer
+  dec_layers: 6 # Number of decoding layers in the transformer
+  dim_feedforward: 2048 # Intermediate size of the feedforward layers in the transformer blocks
+  
+  dropout: 0.1 # Dropout applied in the transformer
+  nheads: 8 # Number of attention heads inside the transformer's attentions
+  num_queries: 100 # Number of query slots
+  pre_norm: False
+
+  hidden_dim: 512 # Size of the embeddings (dimension of the transformer)
+
+criterion:
+  losses: ["retrieval"]
+  lambda:
+    retrieval: 10.
