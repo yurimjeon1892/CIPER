@@ -41,7 +41,7 @@ dataset:
   down_ratio: 32  
 
   arl_zoom_ratio: 2.0
-  spare_pixel: 3
+  spare_pixel: 2
 
   fov: 0
 
@@ -75,6 +75,6 @@ model:
 criterion:
   losses: ["ir", "loc/class", "loc/bbox"]
   lambda:
-    ir: 0.
+    ir: 1.
     loc/class: 1.
     loc/bbox: 0.01

@@ -5,7 +5,7 @@ resume_flag: False
 resume_path: None
 
 seed: 42
-num_workers: 2
+num_workers: 4
 
 world_size: 1 # number of distributed processes
 dist_url: env:// # url used to set up distributed training

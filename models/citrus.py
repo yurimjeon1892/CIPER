@@ -27,7 +27,7 @@ class CITRUS(nn.Module):
         
         self._initialize_weights()
                         
-    def _initialize_weights(self):        
+    def _initialize_weights(self):  
         for m in self.modules():            
             if isinstance(m, nn.Linear):
                 nn.init.xavier_uniform_(m.weight)

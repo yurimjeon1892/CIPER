@@ -27,7 +27,6 @@ def main():
         args = yaml.safe_load(stream)            
                 
     utils_misc.init_distributed_mode(args) # Multi-GPU 사용할 거라면, args.gpu / args.world_size / args.rank 가 여기서 정의 된다.
-    print("git:\n  {}\n".format(utils_misc.get_sha()))
 
     device = torch.device(args["device"])
     
@@ -39,9 +38,10 @@ def main():
     random.seed(seed)
     
     is_loc_task = args["task"] == "LOC"
+    print("is_loc_task", is_loc_task)
 
-    model = build_model(args["model"], is_loc_task, args["device"])
-    criterion = build_criterion(args["criterion"], is_loc_task, args["device"])
+    model = build_model(args["model"], is_loc_task, device)
+    criterion = build_criterion(args["criterion"], is_loc_task, device)
 
     model_without_ddp = model
     if args["distributed"]:
@@ -81,7 +81,9 @@ def main():
         
         # 특히 data_loader_train에서 batch_size를 정의하지 않고, BatchSampler라는 함수를 사용했다.
         # utils_misc.collate_fn 함수에 의해서, (image, label) -> (NestedTensor(tensor,mask), label) 로 바뀐다
-        data_loader_train = DataLoader(dataset_train, batch_size=args["batch_size"], shuffle=(sampler_train is None), sampler=sampler_train,  drop_last=True,
+        # data_loader_train = DataLoader(dataset_train, batch_size=args["batch_size"], shuffle=(sampler_train is None), sampler=sampler_train,  drop_last=True,
+        #                                 collate_fn=utils_misc.collate_fn, num_workers=args["num_workers"]) 
+        data_loader_train = DataLoader(dataset_train, batch_size=args["batch_size"], shuffle=False, sampler=sampler_train,  drop_last=True,
                                         collate_fn=utils_misc.collate_fn, num_workers=args["num_workers"]) 
         data_loader_val_q = DataLoader(dataset_val_q, batch_size=32, shuffle=False,
                                         drop_last=False, num_workers=args["num_workers"])
@@ -99,7 +101,7 @@ def main():
                                         collate_fn=utils_misc.collate_fn, num_workers=args["num_workers"]) 
             data_loader_valid["val"] = data_loader_val
         
-        out_dir = os.path.join(args["train"]["ckpt_dir"], args["task"],
+        out_dir = os.path.join(args["train"]["ckpt_dir"], 
                                args["dataset"]["data_name"] + "-" + datetime.datetime.today().strftime('%d-%m-%y-%H:%M:%S'))
         summary = SummaryWriter(out_dir, 'tb')
         shutil.copyfile(sys.argv[1], os.path.join(out_dir, 'config.yaml'))  
@@ -142,8 +144,8 @@ def main():
         "epoch": -1,
         "device": device,
         "best_metric": -1,
-        "dim_embed": args["model"]["dim_embed"],        
         "is_loc_task": is_loc_task,
+        "dim_embed": args["model"]["dim_embed"],        
     }
      
     for epoch in range(args["train"]["start_epoch"], args["train"]["epochs"]):

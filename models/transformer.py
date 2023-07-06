@@ -320,7 +320,6 @@ def build_transformer_encoder(args):
         num_heads=args["num_heads"],
         dim_feedforward=args["dim_feedforward"],
         num_encoder_layers=args["num_enc_layers"],
-        # num_decoder_layers=args["dec_layers"],
         normalize_before=args["pre_norm"],
     )
 
@@ -330,7 +329,6 @@ def build_transformer_decoder(args):
         dropout=args["dropout"],
         num_heads=args["num_heads"],
         dim_feedforward=args["dim_feedforward"],
-        # num_encoder_layers=args["enc_layers"],
         num_decoder_layers=args["num_dec_layers"],
         normalize_before=args["pre_norm"],
     )
