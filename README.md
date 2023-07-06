@@ -2,8 +2,6 @@
 
 Cross-view Image geo-localization TRansformer 
 
-This is what you came for!!
-
 ## Environment
 
 ### Step 1: Requirements
@@ -20,6 +18,36 @@ pip install -r requirements.txt
 
 ## Data
 
+### KITTI
+
+First, download KITTI raw data (ground images) (https://www.cvlibs.net/datasets/kitti/raw_data.php)
+
+Next, download KITTI satellite images (https://github.com/shiyujiao/HighlyAccurate)
+
+The folder structure is as follows:
+```
+kitti
+├── raw
+|   ├── 2011_09_26
+|   |   ├── 2011_09_26_drive_0001_sync
+|   |   |   ├── image_00
+|   |   |   ├── image_01
+|   |   |   ├── image_02
+|   |   |   ├── image_03
+|   |   |   └── oxts    
+|   |   ├── 2011_09_26_drive_0002_sync    
+|   |   └── ..
+|   ├── 2011_09_28
+|   └── ..
+└── satellite
+    ├── 2011_09_26
+    |   ├── 2011_09_26_drive_0001_sync
+    |   ├── 2011_09_26_drive_0002_sync
+    |   └── ..
+    ├── 2011_09_28
+    └── ..
+
+```
 
 ## Train 
 Set `data_root` and `ckpt_root` in the `train.yaml` file and run:

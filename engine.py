@@ -43,7 +43,7 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
         for k in loss_dict.keys(): losses_meter[k].update(loss_dict[k].item(), bs)
         
         if i == sample_ind: 
-            plot_imgs = plot_estimation_result(img_grnd, img_arl, gts, outputs)
+            plot_imgs = plot_estimation_result(img_grnd, img_arl, gts, outputs, 0.1)
         
         # compute gradient and do SGD step        
         optimizer.zero_grad()
@@ -55,7 +55,7 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
         iters += bs
         
     imgs = {}
-    for k in plot_imgs.keys(): imgs["image/train/" + k] = plot_imgs[k]
+    for k in plot_imgs.keys(): imgs["image/" + k] = plot_imgs[k]
     
     stats = {}
     loss_total = 0
@@ -80,13 +80,13 @@ def valid_one_epoch(model: torch.nn.Module,
     
     # retrieval validation
     imgs, stats = valid_retrieval(model, loader_dict["qry"], loader_dict["ref"], valid_infos)
-    valid_infos["metric"] = stats["acc/retrieval/top1"]    
+    valid_infos["metric"] = stats["acc/ir/top1"]    
     
-    if valid_infos["task"] == "RUNNGUN":  
+    if valid_infos["is_loc_task"]:  
         imgs2, stats2 = valid_estimation(model, criterion, loader_dict["val"], valid_infos)        
         imgs.update(imgs2)
         stats.update(stats2)
-        # valid_infos["metric"] = stats["acc/estimation/top1"]  
+        # valid_infos["metric"] = stats["acc/loc/top1"]  
     
     update_summary(summary, imgs, stats, valid_infos["epoch"], "valid")
     
@@ -106,22 +106,23 @@ def valid_retrieval(model: torch.nn.Module,
     
     model_query.eval()
     model_reference.eval()
-
-    qry_feat = np.zeros([len(qry_loader.dataset), valid_infos["hidden_dim"]])
+    
     qry_label = np.zeros([len(qry_loader.dataset)])
-    ref_feat = np.zeros([len(ref_loader.dataset), valid_infos["hidden_dim"]])
+    qry_feat = np.zeros([len(qry_loader.dataset), valid_infos["dim_embed"]])    
+    ref_feat = np.zeros([len(ref_loader.dataset), valid_infos["dim_embed"]])
     
     img_grnd_, img_arl_ = None, None
     with torch.no_grad():
         # query features
-        for i, (img_grnd, idx_grnd, labels) in enumerate(qry_loader):
+        description = '[i] Valid qry'
+        for i, (img_grnd, idx_grnd, labels) in enumerate(tqdm(qry_loader, desc=description, unit="batches")):
             
             img_grnd = img_grnd.to(valid_infos["device"])
             idx_grnd = idx_grnd.to(valid_infos["device"])
             labels = labels.to(valid_infos["device"])
             
             # compute output
-            out_emb_grnd, _ = model_query(img_grnd)
+            out_emb_grnd, _, _, _ = model_query(img_grnd)
 
             qry_feat[idx_grnd.cpu().numpy(), :] = out_emb_grnd.cpu().numpy()
             qry_label[idx_grnd.cpu().numpy()] = labels.cpu().numpy()
@@ -129,22 +130,24 @@ def valid_retrieval(model: torch.nn.Module,
             if i == 0: img_grnd_ = img_grnd[0, :, :, :]
             
         # reference features
-        for i, (img_arl, idx_arl, _) in enumerate(ref_loader):
+        description = '[i] Valid ref'
+        for i, (img_arl, idx_arl, _) in enumerate(tqdm(ref_loader, desc=description, unit="batches")):
             
             img_arl = img_arl.to(valid_infos["device"])            
-            out_emb_arl, _ = model_reference(img_arl)  # delta            
+            out_emb_arl, _, _, _ = model_reference(img_arl)  # delta           
+             
             ref_feat[idx_arl.cpu().numpy(), :] = out_emb_arl.detach().cpu().numpy()
             if i == 0: img_arl_ = img_arl[0, :, :, :]
 
         [top1, top5] = accuracy(qry_feat, ref_feat, qry_label.astype(int))
         
     imgs = {
-        # "image/retrieval/grnd": img_grnd_,
-        # "image/retrieval/arl": img_arl_,
+        # "image/ir/grnd": img_grnd_,
+        # "image/ir/arl": img_arl_,
     }
     stats = {
-        "acc/retrieval/top1": top1,
-        "acc/retrieval/top5": top5,
+        "acc/ir/top1": top1,
+        "acc/ir/top5": top5,
     }
              
     return imgs, stats
@@ -162,29 +165,28 @@ def valid_estimation(model: torch.nn.Module,
     
     sample_ind = random.choice(range(len(data_loader)))    
     with torch.no_grad():
-        for i, (img_grnd, img_arl, gts) in enumerate(data_loader):
+        description = '[i] Valid loc'
+        for i, (img_grnd, img_arl, gts) in enumerate(tqdm(data_loader, desc=description, unit="batches")):
             
             img_grnd = img_grnd.to(valid_infos["device"])
             img_arl = img_arl.to(valid_infos["device"])
             
             outputs = model(im_grnd=img_grnd, im_arl=img_arl)
-            
-            bs = img_grnd.tensors.size(0)
 
             loss_dict = criterion(outputs, gts)      
-            for k in loss_dict.keys(): losses_meter[k].update(loss_dict[k].item(), bs)
+            for k in loss_dict.keys(): losses_meter[k].update(loss_dict[k].item(), img_grnd.tensors.size(0))
             
             if i == sample_ind: 
-                plot_imgs = plot_estimation_result(img_grnd, img_arl, gts, outputs)
+                plot_imgs = plot_estimation_result(img_grnd, img_arl, gts, outputs, 0.1)
                 
     imgs = {}
-    for k in plot_imgs.keys(): imgs["image/estimation/" + k] = plot_imgs[k]
+    for k in plot_imgs.keys(): imgs["image/" + k] = plot_imgs[k]
     
     stats = {}
     loss_total = 0
     for k in losses_meter.keys():
-        stats["loss/estimation/" + k] =  losses_meter[k].avg
+        stats["loss/" + k] =  losses_meter[k].avg
         loss_total += losses_meter[k].avg
-    stats["loss/estimation/total"] = loss_total
+    stats["loss/total"] = loss_total
              
     return imgs, stats

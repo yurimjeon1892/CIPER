@@ -83,9 +83,12 @@ class Backbone(BackboneBase):
                 #  train_backbone: bool,
                 #  return_interm_layers: bool,
                  dilation: bool):
+        if name == "resnet18": weight_name = "ResNet18_Weights.DEFAULT"
+        elif name == "resnet34": weight_name = "ResNet34_Weights.DEFAULT"
+        else: print("error: ", name , "is not supported now."); exit()
         backbone = getattr(torchvision.models, name)(
             replace_stride_with_dilation=[False, False, dilation],
-            pretrained=is_main_process(), norm_layer=FrozenBatchNorm2d)
+            weights=weight_name, norm_layer=FrozenBatchNorm2d)
         num_channels = 512 if name in ('resnet18', 'resnet34') else 2048
         # super().__init__(backbone, train_backbone, num_channels, return_interm_layers)
         super().__init__(backbone, num_channels)

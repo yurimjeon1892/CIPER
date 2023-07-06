@@ -15,7 +15,6 @@ import sys; sys.path.append('../')
 import common.utils_misc as utils_misc
 
 from common.utils import save_state
-
 from datasets import build_dataset
 from models import build_model, build_criterion
 from engine import train_one_epoch, valid_one_epoch
@@ -26,14 +25,11 @@ def main():
     global args
     with open(sys.argv[1], 'r') as stream:        
         args = yaml.safe_load(stream)            
-        for k_i in args["base"].keys():
-            for k_j in ["dataset", "model", "criterion"]:
-                args[k_j][k_i] = args["base"][k_i]
                 
     utils_misc.init_distributed_mode(args) # Multi-GPU 사용할 거라면, args.gpu / args.world_size / args.rank 가 여기서 정의 된다.
     print("git:\n  {}\n".format(utils_misc.get_sha()))
 
-    device = torch.device(args["base"]["device"])
+    device = torch.device(args["device"])
     
     # Multi-GPU 사용할 거라면, fix the seed for reproducibility 
     # fix the seed for reproducibility
@@ -41,9 +37,11 @@ def main():
     torch.manual_seed(seed)
     np.random.seed(seed)
     random.seed(seed)
+    
+    is_loc_task = args["task"] == "LOC"
 
-    model = build_model(args["model"])
-    criterion = build_criterion(args["criterion"])
+    model = build_model(args["model"], is_loc_task, args["device"])
+    criterion = build_criterion(args["criterion"], is_loc_task, args["device"])
 
     model_without_ddp = model
     if args["distributed"]:
@@ -79,11 +77,11 @@ def main():
         else: sampler_train = None
             
         # # data_loader에서는 1장씩만 뱉어주면 된다. BatchSampler가 Batch로 묶어 준다.
-        # batch_sampler_train = torch.utils_misc.data.BatchSampler(sampler_train, args["base"]["batch_size"], drop_last=True)
+        # batch_sampler_train = torch.utils_misc.data.BatchSampler(sampler_train, args["batch_size"], drop_last=True)
         
         # 특히 data_loader_train에서 batch_size를 정의하지 않고, BatchSampler라는 함수를 사용했다.
         # utils_misc.collate_fn 함수에 의해서, (image, label) -> (NestedTensor(tensor,mask), label) 로 바뀐다
-        data_loader_train = DataLoader(dataset_train, batch_size=args["base"]["batch_size"], shuffle=(sampler_train is None), sampler=sampler_train,  drop_last=True,
+        data_loader_train = DataLoader(dataset_train, batch_size=args["batch_size"], shuffle=(sampler_train is None), sampler=sampler_train,  drop_last=True,
                                         collate_fn=utils_misc.collate_fn, num_workers=args["num_workers"]) 
         data_loader_val_q = DataLoader(dataset_val_q, batch_size=32, shuffle=False,
                                         drop_last=False, num_workers=args["num_workers"])
@@ -95,13 +93,13 @@ def main():
             "ref": data_loader_val_r
         }
             
-        if args["base"]["task"] == "IR":            
+        if is_loc_task:            
             dataset_val = build_dataset(mode="valid", args=args["dataset"])
-            data_loader_val = DataLoader(dataset_val, batch_size=args["base"]["batch_size"], shuffle=False, drop_last=True,
+            data_loader_val = DataLoader(dataset_val, batch_size=args["batch_size"], shuffle=False, drop_last=True,
                                         collate_fn=utils_misc.collate_fn, num_workers=args["num_workers"]) 
             data_loader_valid["val"] = data_loader_val
         
-        out_dir = os.path.join(args["train"]["ckpt_dir"], args["base"]["task"],
+        out_dir = os.path.join(args["train"]["ckpt_dir"], args["task"],
                                args["dataset"]["data_name"] + "-" + datetime.datetime.today().strftime('%d-%m-%y-%H:%M:%S'))
         summary = SummaryWriter(out_dir, 'tb')
         shutil.copyfile(sys.argv[1], os.path.join(out_dir, 'config.yaml'))  
@@ -110,9 +108,9 @@ def main():
         dataset_val_q = build_dataset(mode='test_query', args=args["dataset"])
         dataset_val_r = build_dataset(mode='test_reference', args=args["dataset"])
 
-        data_loader_val_q = DataLoader(dataset_val_q, args["base"]["batch_size"], shuffle=False,
+        data_loader_val_q = DataLoader(dataset_val_q, args["batch_size"], shuffle=False,
                                        collate_fn=utils_misc.collate_fn, num_workers=args["num_workers"], pin_memory=True)
-        data_loader_val_r = DataLoader(dataset_val_r, args["base"]["batch_size"], shuffle=False,
+        data_loader_val_r = DataLoader(dataset_val_r, args["batch_size"], shuffle=False,
                                        collate_fn=utils_misc.collate_fn, num_workers=args["num_workers"], pin_memory=True)
 
     # TODO ##########################################################################################################
@@ -144,8 +142,8 @@ def main():
         "epoch": -1,
         "device": device,
         "best_metric": -1,
-        "hidden_dim": args["model"]["hidden_dim"],        
-        "task": args["base"]["task"],
+        "dim_embed": args["model"]["dim_embed"],        
+        "is_loc_task": is_loc_task,
     }
      
     for epoch in range(args["train"]["start_epoch"], args["train"]["epochs"]):

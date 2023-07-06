@@ -38,9 +38,9 @@ def minmax_color_img_from_img_numpy(img, cmap=plt.cm.plasma):
     :param cmap: plt color map
     :return img: minmax colored image (numpy array, H x W x 3)
     """
-    img = (img - np.min(img)) / (np.max(img) - np.min(img)) 
+    # img = (img - np.min(img)) / (np.max(img) - np.min(img)) 
     minmax_img = 255 * cmap(img)[:, :, :3]
-    # minmax_img = minmax_img.astype('uint8')
+    minmax_img = minmax_img.astype('uint8')
     return minmax_img
 
 def plot_estimation_result(img_gnd, img_arl, gts, outputs, score_th=0.5):
@@ -52,63 +52,71 @@ def plot_estimation_result(img_gnd, img_arl, gts, outputs, score_th=0.5):
     if "pred_logits" in outputs.keys():
         
         bs, n = outputs['pred_logits'].shape[:2]
-        n_sqrt = int(np.sqrt(n))        
+        logit_img_size = int(np.sqrt(n))        
         
         arl_img_size = img_arl_.shape[-1]
         
-        src_logits = outputs['pred_logits'][rand_ind, :, :].view((n_sqrt, n_sqrt, -1)).detach().cpu().numpy()
-        src_boxes = outputs['pred_boxes'][rand_ind, :, :].view((n_sqrt, n_sqrt, -1)).detach().cpu().numpy()
+        src_logits = torch.sigmoid(outputs['pred_logits'])        
+        src_logits = src_logits[rand_ind, :, :].detach().cpu().numpy()
+        src_boxes = outputs['pred_boxes'][rand_ind, :, :].detach().cpu().numpy()
+        src_boxes[:, 2:] = src_boxes[:, 2:] / np.expand_dims(np.sqrt(np.sum(np.power(src_boxes[:, 2:], 2), 1)), -1)
                         
         target_classes = torch.cat([v["labels"] for v in gts]).view((bs, n, -1))
         target_boxes = torch.cat([v["boxes"] for v in gts]).view((bs, n, -1)) 
-        target_classes = target_classes[rand_ind, :, :].view((n_sqrt, n_sqrt, -1)).float().detach().cpu().numpy()
-        target_boxes = target_boxes[rand_ind, :, :].view((n_sqrt, n_sqrt, -1)).detach().cpu().numpy()
+        target_classes = target_classes[rand_ind, :, :].float().detach().cpu().numpy()
+        target_boxes = target_boxes[rand_ind, :, :].detach().cpu().numpy()
+                
+        pred_logit = minmax_color_img_from_img_numpy(np.reshape(src_logits[:, 0], (logit_img_size, logit_img_size)), plt.cm.jet)
+        gt_label = minmax_color_img_from_img_numpy(np.reshape(target_classes[:, 0], (logit_img_size, logit_img_size)), plt.cm.jet)
         
-        pred_logit = minmax_color_img_from_img_numpy(src_logits[:, :, 0], plt.cm.gray)
-        gt_label = minmax_color_img_from_img_numpy(target_classes[:, :, 0], plt.cm.gray)
+        # print(np.max(src_logits[:, 0]), np.min(src_logits[:, 0]))
         
-        pred_mask = src_logits[:, :, 0] > score_th
-        gt_mask = target_classes[:, :, 0] > 0.5
-        
-        src_boxes = src_boxes[pred_mask]
-        target_boxes = target_boxes[gt_mask]
+        pred_mask = src_logits[:, 0] > score_th
+        gt_mask = target_classes[:, 0] > 0.5        
         
         img_arl_ = np.transpose(img_arl_, (1, 2, 0)).copy() 
         img_arl_ = (img_arl_ - np.min(img_arl_)) / (np.max(img_arl_) - np.min(img_arl_))  
-        
-        radius = 5   
         
         pred_bbox = Image.fromarray(np.uint8(np.array(img_arl_).copy()*255))
         gt_bbox = Image.fromarray(np.uint8(np.array(img_arl_).copy()*255))
         
         draw1 = ImageDraw.Draw(pred_bbox)
         for i in range(src_boxes.shape[0]):
-            px, py = int(src_boxes[i, 0] * arl_img_size), int(src_boxes[i, 1] * arl_img_size)
-            draw1.ellipse([(py - radius, px - radius), (py + radius, px + radius)], fill="blue")
+            if pred_mask[i] == False: continue            
+            draw1 = dot(draw1, src_boxes, i, logit_img_size, arl_img_size, "cyan")
             
         draw2 = ImageDraw.Draw(gt_bbox)
         for i in range(target_boxes.shape[0]):
-            px, py = int(target_boxes[i, 0] * arl_img_size), int(target_boxes[i, 1] * arl_img_size)
-            draw2.ellipse([(py - radius, px - radius), (py + radius, px + radius)], fill="red")        
-            theta_rad = float(target_boxes[i, 2])
-            draw2.line([(py, px), (py + 25 * np.sin(theta_rad), px + 25 * np.cos(theta_rad ))], fill="red", width=3)
+            if gt_mask[i] == False: continue
+            draw2 = dot(draw2, target_boxes, i, logit_img_size, arl_img_size, "red")
             
         pred_bbox = np.array(pred_bbox)
         gt_bbox = np.array(gt_bbox)
         
+        img_logit = np.concatenate([pred_logit, gt_label], 1)
+        img_bbox = np.concatenate([pred_bbox, gt_bbox], 1)
+        
         imgs = {
-            "gnd": img_gnd_,
+            "1_gnd": img_gnd_,
             # "arl": img_arl_,
             
-            # "pred_logit": pred_logit,
-            "gt_label": gt_label,
-            
-            # "pred_bbox": pred_bbox,
-            "gt_bbox": gt_bbox,
+            "2_logit": img_logit,
+            "2_bbox": img_bbox,
         }
     else:        
         imgs = {
-            "gnd": img_gnd_,
-            "arl": img_arl_,
+            "1_gnd": img_gnd_,
+            "1_arl": img_arl_,
         }
     return imgs
+
+def dot(draw, boxes, i, logit_img_size, arl_img_size, color, radius=5):    
+    x_, y_ = divmod(i, logit_img_size)
+    ax, ay = float(x_ / logit_img_size) , float(y_ / logit_img_size)
+    dx, dy = boxes[i, 0], boxes[i, 1]
+    px, py = (dx + ax) * arl_img_size, (dy + ay) * arl_img_size 
+    draw.ellipse([(py - radius, px - radius), (py + radius, px + radius)], fill=color)        
+    
+    theta_rad = float(np.arctan2(boxes[i, 3] , boxes[i, 2]))
+    draw.line([(py, px), (py + 25 * np.sin(theta_rad), px + 25 * np.cos(theta_rad ))], fill=color, width=3)
+    return draw

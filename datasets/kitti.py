@@ -71,7 +71,7 @@ class KITTI(torch.utils.data.Dataset):
     def read_data(self, index):
         
         if "train" in self.mode: 
-            file_name = self.sample_list[index]
+            file_name = self.sample_list[index].split(' ')[0]
             # day_dir = file_name[:10]
             drive_dir = file_name[:38]
             image_no = file_name[38:]            
@@ -90,7 +90,7 @@ class KITTI(torch.utils.data.Dataset):
             image_no = file_name[38:]
             
         # =================== read ground image ===================================      
-        left_img_name = os.path.join(self.root, drive_dir, "image_02/data", image_no.lower())      
+        left_img_name = os.path.join(self.root, "raw", drive_dir, "image_02/data", image_no.lower())      
         with Image.open(left_img_name, 'r') as grnd_img:
             grnd_img = grnd_img.convert('RGB')   
 
@@ -101,7 +101,7 @@ class KITTI(torch.utils.data.Dataset):
 
         # =================== initialize some required variables ============================
         # oxt: such as 0000000000.txt
-        oxts_file_name = os.path.join(self.root, drive_dir, "oxts/data",
+        oxts_file_name = os.path.join(self.root, "raw", drive_dir, "oxts/data",
                                       image_no.lower().replace('.png', '.txt'))
         with open(oxts_file_name, 'r') as f:
             content = f.readline().split(' ')
@@ -145,6 +145,7 @@ class KITTI(torch.utils.data.Dataset):
         
         tgt_y = (self.arl_img_size[0] / 2 + (gt_shift_x * self.shift_range_pixels_lon / self.arl_zoom_ratio)) / self.arl_img_size[0]
         tgt_x = (self.arl_img_size[1] / 2 + (gt_shift_y * self.shift_range_pixels_lat / self.arl_zoom_ratio)) / self.arl_img_size[1]
+        tgt_rad = np.deg2rad(theta * self.rotation_range + 180.)
         
         patch_x = int(tgt_x * (self.arl_img_size[0] / self.down_ratio))
         patch_y = int(tgt_y * (self.arl_img_size[1] / self.down_ratio))
@@ -153,16 +154,21 @@ class KITTI(torch.utils.data.Dataset):
         
         tgt_class = np.zeros((num_query, 2))
         tgt_class[:, -1] = 1
-        tgt_bbox = np.zeros((num_query, 3))
+        tgt_bbox = np.zeros((num_query, 4))
         
         for x_ in range(patch_x - self.spare_pixel, patch_x + self.spare_pixel ):
             for y_ in range(patch_y - self.spare_pixel, patch_y + self.spare_pixel ):
-                idx_ = int(x_ * (self.arl_img_size[0] / self.down_ratio) + y_)
-                tgt_class[idx_, 0] = 1
-                tgt_class[idx_, 1] = 0
-                tgt_bbox[idx_, 0] = tgt_x
-                tgt_bbox[idx_, 1] = tgt_y                
-                tgt_bbox[idx_, 2] = np.deg2rad(theta * self.rotation_range + 180.)
+                i_ = int(x_ * (self.arl_img_size[0] / self.down_ratio) + y_)
+                tgt_class[i_, 0] = 1
+                tgt_class[i_, 1] = 0
+                
+                ax, ay = x_ / (self.arl_img_size[0] / self.down_ratio), y_ / (self.arl_img_size[1] / self.down_ratio)
+                dx, dy = tgt_x - ax, tgt_y - ay
+                # print(tgt_x, tgt_y, ax, ay, dx, dy)
+                tgt_bbox[i_, 0] = dx
+                tgt_bbox[i_, 1] = dy                
+                tgt_bbox[i_, 2] = np.cos(tgt_rad)
+                tgt_bbox[i_, 3] = np.sin(tgt_rad)
         
         gt = {"labels": torch.tensor(tgt_class),
               "boxes":  torch.tensor(tgt_bbox),
@@ -171,14 +177,11 @@ class KITTI(torch.utils.data.Dataset):
     
     def __getitem__(self, index):
 
-        if self.mode in ["train", "valid"]:
-            
+        if self.mode in ["train", "valid"]:            
             idx = index % len(self.sample_list)            
             grnd_img, arl_img, gt_shift_x, gt_shift_y, theta = self.read_data(idx)        
-            img_qry, img_ref = self.prep_data(grnd_img, arl_img, gt_shift_x, gt_shift_y, theta)
-            
-            gt = self.prep_gt(gt_shift_x, gt_shift_y, theta)
-            
+            img_qry, img_ref = self.prep_data(grnd_img, arl_img, gt_shift_x, gt_shift_y, theta)            
+            gt = self.prep_gt(gt_shift_x, gt_shift_y, theta)            
             return img_qry, img_ref, gt
 
         elif self.mode == "valid_ref":                 

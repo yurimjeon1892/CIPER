@@ -40,15 +40,15 @@ def save_state(save_path, model, is_best, best_metric, epoch, filename="checkpoi
     torch.save(state_dict, os.path.join(save_path, filename))
     shutil.copyfile(
         os.path.join(save_path, filename),
-        os.path.join(save_path, 'checkpoint_' + str(epoch)+'.pth.tar'))
-    print("[i] checkpoint saved in ", save_path)
+        os.path.join(save_path, 'epoch_' + str(epoch)+'.pth.tar'))
+    print("[i] checkpoint saved in ", os.path.join(save_path, 'epoch_' + str(epoch)+'.pth.tar'))
     if is_best:
         shutil.copyfile(
             os.path.join(save_path, filename),
             os.path.join(save_path, 'model_best.pth.tar'))
     if epoch > 3:
         prev_checkpoint_filename = os.path.join(
-            save_path, 'checkpoint_' + str(epoch - 3) + '.pth.tar')
+            save_path, 'epoch_' + str(epoch - 3) + '.pth.tar')
         if os.path.exists(prev_checkpoint_filename):
             os.remove(prev_checkpoint_filename)
 

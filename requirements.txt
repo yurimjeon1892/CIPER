@@ -1,4 +1,4 @@
 torch==1.12.1
 tensorboardX==2.5.1
-PyYAML
-tqdm
+PyYAML==6.0
+tqdm==4.65.0
