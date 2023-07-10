@@ -12,10 +12,14 @@ dist_url: env:// # url used to set up distributed training
 
 batch_size: 32
 
-task: IR # IR / LOC 
+task: RETR # RETR / LOCAL 
 device: cuda # device to use for training / testing 
 
 train:
+
+  ckpt_dir: ./ckpts
+  epochs: 100
+
   lr: 0.0001
   lr_backbone: 0.00001
   
@@ -24,10 +28,7 @@ train:
   lr_drop: 200
   clip_max_norm: 0.1 # gradient clipping max norm
 
-  ckpt_dir: ./ckpts
-
   start_epoch: 1
-  epochs: 250
 
 dataset:
   
@@ -42,13 +43,13 @@ dataset:
   down_ratio: 32  
 
   # cvusa only
-  # train_pt_list: ./datasets/splits/cvusa/train-mini.csv
-  # val_pt_list: ./datasets/splits/cvusa/train-mini.csv
-  # test_pt_list: ./datasets/splits/cvusa/train-mini.csv
+  train_pt_list: ./datasets/splits/cvusa/train-mini.csv
+  val_pt_list: ./datasets/splits/cvusa/train-mini.csv
+  test_pt_list: ./datasets/splits/cvusa/train-mini.csv
 
-  train_pt_list: ./datasets/splits/cvusa/train-19zl.csv
-  val_pt_list: ./datasets/splits/cvusa/val-19zl.csv
-  test_pt_list: ./datasets/splits/cvusa/val-19zl.csv
+  # train_pt_list: ./datasets/splits/cvusa/train-19zl.csv
+  # val_pt_list: ./datasets/splits/cvusa/val-19zl.csv
+  # test_pt_list: ./datasets/splits/cvusa/val-19zl.csv
   
 model:
 
@@ -65,8 +66,3 @@ model:
   num_enc_layers: 6 # Number of encoding layers in the transformer
   num_dec_layers: 6 # Number of decoding layers in the transformer
   pre_norm: False
-
-criterion:
-  losses: ["ir"]
-  lambda:
-    ir: 1.

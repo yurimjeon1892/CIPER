@@ -27,9 +27,6 @@ class KITTI(torch.utils.data.Dataset):
         shift_range_lat = float(args["shift_range_lat"])
         shift_range_lon = float(args["shift_range_lon"])
         rotation_range = float(args["rotation_range"])
-        
-        self.down_ratio = float(args["down_ratio"])
-        self.spare_pixel = int(args["spare_pixel"])
 
         self.meter_per_pixel = get_meter_per_pixel(scale=1/self.arl_zoom_ratio)
         self.shift_range_meters_lat = shift_range_lat  # in terms of meters
@@ -53,7 +50,7 @@ class KITTI(torch.utils.data.Dataset):
         ] # due to download error. broken zip file 
         ignore_file_list = [
             "2011_09_26/2011_09_26_drive_0022_sync/0000000340.png",
-            "2011_10_03/2011_10_03_drive_0047_sync/0000000678.png"
+            "2011_10_03/2011_10_03_drive_0047_sync/0000000678.png",
         ]
         
         with open(self.pt_list, 'r') as f:
@@ -143,46 +140,37 @@ class KITTI(torch.utils.data.Dataset):
     
     def prep_gt(self, gt_shift_x, gt_shift_y, theta):
         
-        tgt_y = (self.arl_img_size[0] / 2 + (gt_shift_x * self.shift_range_pixels_lon / self.arl_zoom_ratio)) / self.arl_img_size[0]
-        tgt_x = (self.arl_img_size[1] / 2 + (gt_shift_y * self.shift_range_pixels_lat / self.arl_zoom_ratio)) / self.arl_img_size[1]
+        # tgt_y = (self.arl_img_size[0] / 2 + (gt_shift_x * self.shift_range_pixels_lon / self.arl_zoom_ratio)) / self.arl_img_size[0]
+        # tgt_x = (self.arl_img_size[1] / 2 + (gt_shift_y * self.shift_range_pixels_lat / self.arl_zoom_ratio)) / self.arl_img_size[1]
+        tgt_y = (gt_shift_x * self.shift_range_pixels_lon / self.arl_zoom_ratio) / self.arl_img_size[1]
+        tgt_x = (gt_shift_y * self.shift_range_pixels_lat / self.arl_zoom_ratio) / self.arl_img_size[0]
+        
         tgt_rad = np.deg2rad(theta * self.rotation_range + 180.)
+        tgt_cos = np.cos(tgt_rad)
+        tgt_sin = np.sin(tgt_rad)
         
-        patch_x = int(tgt_x * (self.arl_img_size[0] / self.down_ratio))
-        patch_y = int(tgt_y * (self.arl_img_size[1] / self.down_ratio))
-        
-        num_query = int((self.arl_img_size[0] / self.down_ratio) * (self.arl_img_size[1] / self.down_ratio))
-        
-        tgt_class = np.zeros((num_query, 2))
-        tgt_class[:, -1] = 1
-        tgt_bbox = np.zeros((num_query, 4))
-        
-        for x_ in range(patch_x - self.spare_pixel, patch_x + self.spare_pixel ):
-            for y_ in range(patch_y - self.spare_pixel, patch_y + self.spare_pixel ):
-                i_ = int(x_ * (self.arl_img_size[0] / self.down_ratio) + y_)
-                tgt_class[i_, 0] = 1
-                tgt_class[i_, 1] = 0
-                
-                ax, ay = x_ / (self.arl_img_size[0] / self.down_ratio), y_ / (self.arl_img_size[1] / self.down_ratio)
-                dx, dy = tgt_x - ax, tgt_y - ay
-                # print(tgt_x, tgt_y, ax, ay, dx, dy)
-                tgt_bbox[i_, 0] = dx
-                tgt_bbox[i_, 1] = dy                
-                tgt_bbox[i_, 2] = np.cos(tgt_rad)
-                tgt_bbox[i_, 3] = np.sin(tgt_rad)
-        
-        gt = {"labels": torch.tensor(tgt_class),
-              "boxes":  torch.tensor(tgt_bbox),
-              }    
-        return gt
+        target = {
+            "boxes": torch.tensor(
+                [[tgt_x, tgt_y, tgt_cos, tgt_sin]]
+            ),
+            "labels": torch.tensor([0]),
+            "orig_size": torch.as_tensor([int(self.arl_img_size[0]), int(self.arl_img_size[1])]),   
+            "arl_zoom_ratio": torch.tensor([self.arl_zoom_ratio]),     
+            "meter_per_pixel": torch.tensor([self.meter_per_pixel]),         
+            # "shift_range_lon": torch.tensor([self.shift_range_pixels_lon / self.arl_zoom_ratio]),
+            # "shift_range_lat": torch.tensor([self.shift_range_pixels_lat / self.arl_zoom_ratio]),
+            # "rotation_range": torch.tensor([self.rotation_range]),
+        }
+        return target
     
     def __getitem__(self, index):
 
-        if self.mode in ["train", "valid"]:            
+        if self.mode in "train":            
             idx = index % len(self.sample_list)            
             grnd_img, arl_img, gt_shift_x, gt_shift_y, theta = self.read_data(idx)        
             img_qry, img_ref = self.prep_data(grnd_img, arl_img, gt_shift_x, gt_shift_y, theta)            
-            gt = self.prep_gt(gt_shift_x, gt_shift_y, theta)            
-            return img_qry, img_ref, gt
+            target = self.prep_gt(gt_shift_x, gt_shift_y, theta)            
+            return img_qry, img_ref, target
 
         elif self.mode == "valid_ref":                 
             _, arl_img, gt_shift_x, gt_shift_y, theta = self.read_data(index)        
@@ -193,6 +181,13 @@ class KITTI(torch.utils.data.Dataset):
             grnd_img, _, _, _, _ = self.read_data(index)            
             img_qry, _ = self.prep_data(grnd_img=grnd_img)
             return img_qry, torch.tensor(index), torch.tensor(index)
+        
+        elif self.mode == "valid":
+            idx = index % len(self.sample_list)            
+            grnd_img, arl_img, gt_shift_x, gt_shift_y, theta = self.read_data(idx)        
+            img_qry, img_ref = self.prep_data(grnd_img, arl_img, gt_shift_x, gt_shift_y, theta)            
+            target = self.prep_gt(gt_shift_x, gt_shift_y, theta)            
+            return img_qry, img_ref, target
         
         else:
             print('not implemented!!')

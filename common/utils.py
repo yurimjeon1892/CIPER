@@ -63,7 +63,7 @@ def save_image(img, fname):
     im = Image.fromarray(img)
     im.save(fname)
 
-def accuracy(qry_feat, ref_feat, qry_label, topk=[1,5,10]):
+def retr_accuracy(qry_feat, ref_feat, qry_label, topk=[1, 5, 10]):
     """Computes the accuracy over the k top predictions for the specified values of k"""
 
     N = qry_feat.shape[0]
@@ -104,3 +104,90 @@ def accuracy(qry_feat, ref_feat, qry_label, topk=[1,5,10]):
     # print('Percentage-top1:{:.2f}, top5:{:.2f}, top10:{:.2f}, top1%:{:.2f}'.format(results[0], results[1], results[2], results[-1]))
     return results[:2]
 
+def local_accuracy(targets, results):
+    
+    # shift_range_lons, shift_range_lats, rotation_ranges = [], [], []
+    
+    gts, preds = [], []
+    for b in range(len(results)):
+        
+        arl_img_size = targets[b]["orig_size"].detach().cpu().numpy()
+        arl_zoom_ratio = targets[b]["arl_zoom_ratio"][0].detach().cpu().numpy()
+        meter_per_pixel = targets[b]["meter_per_pixel"][0].detach().cpu().numpy()
+                
+        tgt = targets[b]["boxes"][0].detach().cpu().numpy()
+        tgt = np.array([[tgt[0] * arl_img_size[0] * arl_zoom_ratio * meter_per_pixel,
+                         tgt[1] * arl_img_size[1] * arl_zoom_ratio * meter_per_pixel, 
+                         np.rad2deg(np.arctan2(tgt[3], tgt[2]))]])
+        gts.append(tgt)
+                         
+        scores = results[b]["scores"].detach().cpu().numpy()
+        shifts = results[b]["boxes"].detach().cpu().numpy()
+        shifts_max = shifts[np.argmax(scores), :]
+        shifts_max = np.array([[shifts_max[0], shifts_max[1], np.rad2deg(shifts_max[2])]])
+        preds.append(shifts_max)
+        
+    gts = np.concatenate(gts, 0)
+    preds = np.concatenate(preds, 0)
+    
+    gt_shifts, gt_headings = gts[:, :2], gts[:, 2]    
+    pred_shifts, pred_headings = preds[:, :2], preds[:, 2]
+    
+    distance = np.sqrt(np.sum((pred_shifts - gt_shifts) ** 2, axis=1))  # [N]
+    angle_diff = np.remainder(np.abs(pred_headings - gt_headings), 360)
+    idx0 = angle_diff > 180
+    angle_diff[idx0] = 360 - angle_diff[idx0]
+
+    init_dis = np.sqrt(np.sum(gt_shifts ** 2, axis=1))
+    init_angle = np.abs(gt_headings)
+   
+    metrics = [1, 3, 5]
+    angles = [1, 3, 5]
+    
+    shift_acc = {}
+    for idx in range(len(metrics)):
+        pred = np.sum(distance < metrics[idx]) / distance.shape[0] * 100
+        init = np.sum(init_dis < metrics[idx]) / init_dis.shape[0] * 100
+        shift_acc[str(metrics[idx])] = pred
+
+        # line = 'distance within ' + str(metrics[idx]) + ' meters (pred, init): ' + str(pred) + ' ' + str(init)
+        # print(line)
+
+    diff_shifts = np.abs(pred_shifts - gt_shifts)
+    for idx in range(len(metrics)):
+        pred = np.sum(diff_shifts[:, 0] < metrics[idx]) / diff_shifts.shape[0] * 100
+        init = np.sum(np.abs(gt_shifts[:, 0]) < metrics[idx]) / init_dis.shape[0] * 100
+
+        line = 'lateral      within ' + str(metrics[idx]) + ' meters (pred, init): ' + str(pred) + ' ' + str(init)
+        print(line)
+        # f.write(line + '\n')
+
+        pred = np.sum(diff_shifts[:, 1] < metrics[idx]) / diff_shifts.shape[0] * 100
+        init = np.sum(np.abs(gt_shifts[:, 1]) < metrics[idx]) / diff_shifts.shape[0] * 100
+
+        line = 'longitudinal within ' + str(metrics[idx]) + ' meters (pred, init): ' + str(pred) + ' ' + str(init)
+        print(line)
+        # f.write(line + '\n')
+    
+    angle_acc = {}
+    for idx in range(len(angles)):
+        pred = np.sum(angle_diff < angles[idx]) / angle_diff.shape[0] * 100
+        init = np.sum(init_angle < angles[idx]) / angle_diff.shape[0] * 100
+        angle_acc[str(angles[idx])] = pred
+        
+        line = 'angle within ' + str(angles[idx]) + ' degrees (pred, init): ' + str(pred) + ' ' + str(init)
+        print(line)
+
+    for idx in range(len(angles)):
+        pred = np.sum((angle_diff < angles[idx]) & (diff_shifts[:, 0] < metrics[idx])) / angle_diff.shape[0] * 100
+        init = np.sum((init_angle < angles[idx]) & (np.abs(gt_shifts[:, 0]) < metrics[idx])) / angle_diff.shape[0] * 100
+        line = 'lat within ' + str(metrics[idx]) + ' & angle within ' + str(angles[idx]) + \
+               ' (pred, init): ' + str(pred) + ' ' + str(init)
+        print(line)
+
+    # result = np.sum((distance < metrics[0]) & (angle_diff < angles[0])) / distance.shape[0] * 100
+    
+    acc1 = np.sum((distance < metrics[0]) & (angle_diff < angles[0]))
+    acc5 = np.sum((distance < metrics[2]) & (angle_diff < angles[2]))
+    
+    return acc1, acc5

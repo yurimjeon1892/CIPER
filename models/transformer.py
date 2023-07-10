@@ -26,8 +26,15 @@ class TransformerEncoderWrapper(nn.Module):
         encoder_norm = nn.LayerNorm(dim_embed) if normalize_before else None
         self.encoder = TransformerEncoder(encoder_layer, num_encoder_layers, encoder_norm)        
         
-        self.cls_token = nn.Parameter(torch.zeros(1, 1, dim_embed))     
         self.head = nn.Linear(dim_embed, dim_embed)
+        self.cls_token = nn.Parameter(torch.zeros(1, 1, dim_embed))             
+        
+        self._reset_parameters()
+        
+    def _reset_parameters(self):
+        for p in self.parameters():
+            if p.dim() > 1:
+                nn.init.xavier_uniform_(p)
         
     def forward(self, src, mask, pos_embed):
         """
@@ -71,6 +78,13 @@ class TransformerDecoderWrapper(nn.Module):
         decoder_norm = nn.LayerNorm(dim_embed)
         self.decoder = TransformerDecoder(decoder_layer, num_decoder_layers, decoder_norm,
                                           return_intermediate=return_intermediate_dec)
+        
+        self._reset_parameters()
+        
+    def _reset_parameters(self):
+        for p in self.parameters():
+            if p.dim() > 1:
+                nn.init.xavier_uniform_(p)
     
     def forward(self, tgt, memory,
                 tgt_mask: Optional[Tensor] = None,

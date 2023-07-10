@@ -12,7 +12,7 @@ dist_url: env:// # url used to set up distributed training
 
 batch_size: 32
 
-task: LOC  # IR / LOC 
+task: LOCAL  # RETR / LOCAL 
 device: cuda # device to use for training / testing 
 
 train:
@@ -38,16 +38,13 @@ dataset:
   grnd_img_size: [128, 512]
   arl_img_size: [320, 320]
 
-  down_ratio: 32  
-
   arl_zoom_ratio: 2.0
-  spare_pixel: 2
 
   fov: 0
 
-  shift_range_lat: 0 # 20
-  shift_range_lon: 0 # 20
-  rotation_range: 0 # 10
+  shift_range_lat: 50 # 20
+  shift_range_lon: 50 # 20
+  rotation_range: 50 # 10
 
   # kitti only
   train_pt_list: ./datasets/splits/kitti/test1_mini.txt
@@ -70,11 +67,12 @@ model:
   num_dec_layers: 6 # Number of decoding layers in the transformer
   pre_norm: False
 
-  num_queries: 100 # Number of query slots
+  num_queries: 64 # Number of query slots
 
-criterion:
-  losses: ["ir", "loc/class", "loc/bbox"]
-  lambda:
-    ir: 1.
-    loc/class: 1.
-    loc/bbox: 0.01
+  set_cost_class: 1 # Class coefficient in the matching cost
+  set_cost_bbox: 5 # L1 box coefficient in the matching cost
+
+  label_loss_coef: 1
+  bbox_loss_coef: 0.1
+
+  eos_coef: 0.1 # Relative classification weight of the no-object class

@@ -16,8 +16,8 @@ import common.utils_misc as utils_misc
 
 from common.utils import save_state
 from datasets import build_dataset
-from models import build_model, build_criterion
-from engine import train_one_epoch, valid_one_epoch
+from models import build
+from engine import train_one_epoch, valid_one_epoch, evaluate
 
 def main():
     
@@ -37,18 +37,16 @@ def main():
     np.random.seed(seed)
     random.seed(seed)
     
-    is_loc_task = args["task"] == "LOC"
-    print("is_loc_task", is_loc_task)
+    is_local = args["task"] == "LOCAL"
 
-    model = build_model(args["model"], is_loc_task, device)
-    criterion = build_criterion(args["criterion"], is_loc_task, device)
+    model, criterion, postprocessors = build(args["model"], is_local, device)
 
     model_without_ddp = model
     if args["distributed"]:
         model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args["gpu"]])
         model_without_ddp = model.module
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    print("[i] number of params:", n_parameters)
+    print("[i] number of params:", n_parameters // 10 ** 6 , "M")
     
     if not args["infer"] :
         
@@ -62,8 +60,10 @@ def main():
         ]
         
         ## optimizer와 ir_scheduler 설정
-        optimizer = torch.optim.Adam(param_dicts, lr=args["train"]["lr"], betas=(0.9, 0.999), eps=1e-08, 
-                                    weight_decay=args["train"]["weight_decay"])
+        # optimizer = torch.optim.Adam(param_dicts, lr=args["train"]["lr"], betas=(0.9, 0.999), eps=1e-08, 
+        #                             weight_decay=args["train"]["weight_decay"])
+        optimizer = torch.optim.AdamW(param_dicts, lr=args["train"]["lr"],
+                                  weight_decay=args["train"]["weight_decay"])
         lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, args["train"]["lr_drop"])
         
         ## data_loader 만들어 주기 
@@ -81,10 +81,10 @@ def main():
         
         # 특히 data_loader_train에서 batch_size를 정의하지 않고, BatchSampler라는 함수를 사용했다.
         # utils_misc.collate_fn 함수에 의해서, (image, label) -> (NestedTensor(tensor,mask), label) 로 바뀐다
-        # data_loader_train = DataLoader(dataset_train, batch_size=args["batch_size"], shuffle=(sampler_train is None), sampler=sampler_train,  drop_last=True,
-        #                                 collate_fn=utils_misc.collate_fn, num_workers=args["num_workers"]) 
-        data_loader_train = DataLoader(dataset_train, batch_size=args["batch_size"], shuffle=False, sampler=sampler_train,  drop_last=True,
+        data_loader_train = DataLoader(dataset_train, batch_size=args["batch_size"], shuffle=(sampler_train is None), sampler=sampler_train,  drop_last=True,
                                         collate_fn=utils_misc.collate_fn, num_workers=args["num_workers"]) 
+        # data_loader_train = DataLoader(dataset_train, batch_size=args["batch_size"], shuffle=False, sampler=sampler_train,  drop_last=True,
+        #                                 collate_fn=utils_misc.collate_fn, num_workers=args["num_workers"]) 
         data_loader_val_q = DataLoader(dataset_val_q, batch_size=32, shuffle=False,
                                         drop_last=False, num_workers=args["num_workers"])
         data_loader_val_r = DataLoader(dataset_val_r, batch_size=64, shuffle=False,
@@ -95,7 +95,7 @@ def main():
             "ref": data_loader_val_r
         }
             
-        if is_loc_task:            
+        if is_local:            
             dataset_val = build_dataset(mode="valid", args=args["dataset"])
             data_loader_val = DataLoader(dataset_val, batch_size=args["batch_size"], shuffle=False, drop_last=True,
                                         collate_fn=utils_misc.collate_fn, num_workers=args["num_workers"]) 
@@ -114,6 +114,17 @@ def main():
                                        collate_fn=utils_misc.collate_fn, num_workers=args["num_workers"], pin_memory=True)
         data_loader_val_r = DataLoader(dataset_val_r, args["batch_size"], shuffle=False,
                                        collate_fn=utils_misc.collate_fn, num_workers=args["num_workers"], pin_memory=True)
+        
+        data_loader_valid = {
+            "qry": data_loader_val_q,
+            "ref": data_loader_val_r
+        }
+        
+        if is_local:            
+            dataset_val = build_dataset(mode="valid", args=args["dataset"])
+            data_loader_val = DataLoader(dataset_val, batch_size=args["batch_size"], shuffle=False, drop_last=True,
+                                        collate_fn=utils_misc.collate_fn, num_workers=args["num_workers"]) 
+            data_loader_valid["val"] = data_loader_val
 
     # TODO ##########################################################################################################
     #                                                                                                               #
@@ -127,7 +138,12 @@ def main():
             args["train"]["start_epoch"] = checkpoint['epoch'] + 1        
 
     if args["infer"]:
-        # evaluate(model, criterion, data_loader_val, base_ds, device, args.output_dir)
+        eval_infos = {
+        "device": device,
+        "is_local": is_local,
+        "dim_embed": args["model"]["dim_embed"],        
+        }        
+        evaluate(model, criterion, postprocessors, data_loader_valid, eval_infos)
         return
     #                                                                                                               #
     #                                                                                                               #
@@ -138,13 +154,14 @@ def main():
         "iter" : 0,
         "epoch": -1,
         "device": device,
+        "is_local": is_local,
         "clip_max_norm": args["train"]["clip_max_norm"],
     }
     valid_infos = {
         "epoch": -1,
         "device": device,
         "best_metric": -1,
-        "is_loc_task": is_loc_task,
+        "is_local": is_local,
         "dim_embed": args["model"]["dim_embed"],        
     }
      
@@ -154,11 +171,11 @@ def main():
 
         train_infos["epoch"] = epoch
         train_infos = train_one_epoch(
-                model, criterion, data_loader_train, optimizer, train_infos, summary)
+                model, criterion, postprocessors, data_loader_train, optimizer, train_infos, summary)
         lr_scheduler.step() 
             
         valid_infos["epoch"] = epoch
-        valid_infos = valid_one_epoch(model, criterion, data_loader_valid, valid_infos, summary)   
+        valid_infos = valid_one_epoch(model, criterion, postprocessors, data_loader_valid, valid_infos, summary)   
         
         is_best = False
         if valid_infos["metric"] > valid_infos["best_metric"]:
