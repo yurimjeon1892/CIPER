@@ -59,9 +59,10 @@ class KITTI(torch.utils.data.Dataset):
 
         self.sample_list = []
         for file_ in file_name_list :
+            file_ = file_[:-1]
             if file_[:38] in ignore_drive_list: continue
             if file_ in ignore_file_list: continue
-            self.sample_list.append(file_[:-1])
+            self.sample_list.append(file_)
 
         print("[i] {} data loaded, size:{}".format(self.mode, len(self.sample_list)))
         
@@ -89,12 +90,14 @@ class KITTI(torch.utils.data.Dataset):
         # =================== read ground image ===================================      
         left_img_name = os.path.join(self.root, "raw", drive_dir, "image_02/data", image_no.lower())      
         with Image.open(left_img_name, 'r') as grnd_img:
-            grnd_img = grnd_img.convert('RGB')   
+            try: grnd_img = grnd_img.convert('RGB')   
+            except: print(left_img_name)
 
         # =================== read satellite map ===================================
         arl_img_name = os.path.join(self.root, "satellite", file_name)
         with Image.open(arl_img_name, 'r') as arl_img:
-            arl_img = arl_img.convert('RGB')
+            try: arl_img = arl_img.convert('RGB')
+            except: print(arl_img_name)
 
         # =================== initialize some required variables ============================
         # oxt: such as 0000000000.txt
@@ -166,7 +169,8 @@ class KITTI(torch.utils.data.Dataset):
     def __getitem__(self, index):
 
         if self.mode in "train":            
-            idx = index % len(self.sample_list)            
+            idx = index % len(self.sample_list)       
+            # print(self.sample_list[idx])
             grnd_img, arl_img, gt_shift_x, gt_shift_y, theta = self.read_data(idx)        
             img_qry, img_ref = self.prep_data(grnd_img, arl_img, gt_shift_x, gt_shift_y, theta)            
             target = self.prep_gt(gt_shift_x, gt_shift_y, theta)            

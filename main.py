@@ -26,7 +26,7 @@ def main():
     with open(sys.argv[1], 'r') as stream:        
         args = yaml.safe_load(stream)            
                 
-    utils_misc.init_distributed_mode(args) # Multi-GPU 사용할 거라면, args.gpu / args.world_size / args.rank 가 여기서 정의 된다.
+    # utils_misc.init_distributed_mode(args) # Multi-GPU 사용할 거라면, args.gpu / args.world_size / args.rank 가 여기서 정의 된다.
 
     device = torch.device(args["device"])
     
@@ -42,9 +42,9 @@ def main():
     model, criterion, postprocessors = build(args["model"], is_local, device)
 
     model_without_ddp = model
-    if args["distributed"]:
-        model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args["gpu"]])
-        model_without_ddp = model.module
+    # if args["distributed"]:
+    #     model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args["gpu"]])
+    #     model_without_ddp = model.module
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print("[i] number of params:", n_parameters // 10 ** 6 , "M")
     
@@ -73,8 +73,9 @@ def main():
         dataset_val_q = build_dataset(mode="valid_qry", args=args["dataset"])
         dataset_val_r = build_dataset(mode="valid_ref", args=args["dataset"])
 
-        if args["distributed"]: sampler_train = DistributedSampler(dataset_train)
-        else: sampler_train = None
+        # if args["distributed"]: sampler_train = DistributedSampler(dataset_train)
+        # else: sampler_train = None
+        sampler_train = None
             
         # # data_loader에서는 1장씩만 뱉어주면 된다. BatchSampler가 Batch로 묶어 준다.
         # batch_sampler_train = torch.utils_misc.data.BatchSampler(sampler_train, args["batch_size"], drop_last=True)
@@ -131,11 +132,15 @@ def main():
     #                                                                                                               #
     if args["resume_flag"]:
         checkpoint = torch.load(args["resume_path"], map_location='cpu')
-        model_without_ddp.load_state_dict(checkpoint['model'])
+        model_without_ddp.load_state_dict(checkpoint['net'])
         if not args["infer"] and 'optimizer' in checkpoint and 'lr_scheduler' in checkpoint and 'epoch' in checkpoint:
             optimizer.load_state_dict(checkpoint['optimizer'])
             lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
             args["train"]["start_epoch"] = checkpoint['epoch'] + 1        
+            print("[i] load checkpoint from:", args["resume_path"])
+        else:
+            print("[i] failed to load checkpoint from:", args["resume_path"])
+            return
 
     if args["infer"]:
         eval_infos = {
@@ -149,7 +154,7 @@ def main():
     #                                                                                                               #
     #################################################################################################################
 
-    print("[i] Start training")
+    print("[i] start training ~")
     train_infos = {
         "iter" : 0,
         "epoch": -1,
@@ -166,8 +171,8 @@ def main():
     }
      
     for epoch in range(args["train"]["start_epoch"], args["train"]["epochs"]):
-        if args["distributed"]:
-            sampler_train.set_epoch(epoch)
+        # if args["distributed"]:
+        #     sampler_train.set_epoch(epoch)
 
         train_infos["epoch"] = epoch
         train_infos = train_one_epoch(
@@ -182,7 +187,7 @@ def main():
             valid_infos["best_metric"] = valid_infos["metric"]
             is_best = True       
             
-        save_state(out_dir, model, is_best, valid_infos["best_metric"], epoch)
+        save_state(out_dir, model, optimizer, lr_scheduler, epoch, is_best)
 
 if __name__ == '__main__':
     main()

@@ -1,4 +1,4 @@
-# CITRUS :tangerine:
+# CITR-US :tangerine:
 
 Cross-view Image geo-localization TRansformer 
 

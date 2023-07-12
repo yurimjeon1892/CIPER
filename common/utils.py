@@ -9,8 +9,8 @@ import random
 from PIL import Image, ImageDraw
 
 __all__ = [
-    'save_state',
-    'save_image'
+    "save_state",
+    "save_image"
 ]
 
 class AverageMeter(object):
@@ -29,26 +29,29 @@ class AverageMeter(object):
         self.count += n
         self.avg = self.sum / self.count
 
-def save_state(save_path, model, is_best, best_metric, epoch, filename="checkpoint.pth.tar"):
+def save_state(save_path, model, optimizer, lr_scheduler, epoch, is_best, filename="checkpoint.pth"):
     os.makedirs(save_path, exist_ok=True)
-    model_state_dict = model.state_dict()
     state_dict = {
-        'net': model_state_dict,
-        'epoch': epoch,
-        'best_metric': best_metric
+        # "net": model.state_dict(),
+        "model": model.state_dict(),
+        "optimizer": optimizer.state_dict(),
+        "lr_scheduler": lr_scheduler.state_dict(),
+        "epoch": epoch,
+        # "best_metric": best_metric
     }
     torch.save(state_dict, os.path.join(save_path, filename))
     shutil.copyfile(
         os.path.join(save_path, filename),
-        os.path.join(save_path, 'epoch_' + str(epoch)+'.pth.tar'))
-    print("[i] checkpoint saved in ", os.path.join(save_path, 'epoch_' + str(epoch)+'.pth.tar'))
+        os.path.join(save_path, "epoch_" + str(epoch)+".pth"))
+    print("[i] checkpoint saved in ", os.path.join(save_path, "epoch_" + str(epoch)+".pth"))
     if is_best:
         shutil.copyfile(
             os.path.join(save_path, filename),
-            os.path.join(save_path, 'model_best.pth.tar'))
+            os.path.join(save_path, "model_best.pth"))
+        print("[i] checkpoint saved in ", os.path.join(save_path, "model_best.pth"))
     if epoch > 3:
         prev_checkpoint_filename = os.path.join(
-            save_path, 'epoch_' + str(epoch - 3) + '.pth.tar')
+            save_path, "epoch_" + str(epoch - 3) + ".pth")
         if os.path.exists(prev_checkpoint_filename):
             os.remove(prev_checkpoint_filename)
 
@@ -57,7 +60,7 @@ def save_image(img, fname):
     :param img: image (numpy array, H x W x 3)
     :param fname: file name (string)
     """
-    img = np.array(img).astype('uint8')
+    img = np.array(img).astype("uint8")
     if img.ndim == 3 and img.shape[2] != 3:
         img = np.transpose(img, (1, 2, 0))
     im = Image.fromarray(img)
@@ -101,7 +104,7 @@ def retr_accuracy(qry_feat, ref_feat, qry_label, topk=[1, 5, 10]):
                     if ranking < k:
                         results[j] += 1.        
     results = results/ qry_feat.shape[0] * 100.
-    # print('Percentage-top1:{:.2f}, top5:{:.2f}, top10:{:.2f}, top1%:{:.2f}'.format(results[0], results[1], results[2], results[-1]))
+    # print("Percentage-top1:{:.2f}, top5:{:.2f}, top10:{:.2f}, top1%:{:.2f}".format(results[0], results[1], results[2], results[-1]))
     return results[:2]
 
 def local_accuracy(targets, results):
@@ -150,7 +153,7 @@ def local_accuracy(targets, results):
         init = np.sum(init_dis < metrics[idx]) / init_dis.shape[0] * 100
         shift_acc[str(metrics[idx])] = pred
 
-        # line = 'distance within ' + str(metrics[idx]) + ' meters (pred, init): ' + str(pred) + ' ' + str(init)
+        # line = "distance within " + str(metrics[idx]) + " meters (pred, init): " + str(pred) + " " + str(init)
         # print(line)
 
     diff_shifts = np.abs(pred_shifts - gt_shifts)
@@ -158,16 +161,16 @@ def local_accuracy(targets, results):
         pred = np.sum(diff_shifts[:, 0] < metrics[idx]) / diff_shifts.shape[0] * 100
         init = np.sum(np.abs(gt_shifts[:, 0]) < metrics[idx]) / init_dis.shape[0] * 100
 
-        line = 'lateral      within ' + str(metrics[idx]) + ' meters (pred, init): ' + str(pred) + ' ' + str(init)
+        line = "lateral      within " + str(metrics[idx]) + " meters (pred, init): " + str(pred) + " " + str(init)
         print(line)
-        # f.write(line + '\n')
+        # f.write(line + "\n")
 
         pred = np.sum(diff_shifts[:, 1] < metrics[idx]) / diff_shifts.shape[0] * 100
         init = np.sum(np.abs(gt_shifts[:, 1]) < metrics[idx]) / diff_shifts.shape[0] * 100
 
-        line = 'longitudinal within ' + str(metrics[idx]) + ' meters (pred, init): ' + str(pred) + ' ' + str(init)
+        line = "longitudinal within " + str(metrics[idx]) + " meters (pred, init): " + str(pred) + " " + str(init)
         print(line)
-        # f.write(line + '\n')
+        # f.write(line + "\n")
     
     angle_acc = {}
     for idx in range(len(angles)):
@@ -175,14 +178,14 @@ def local_accuracy(targets, results):
         init = np.sum(init_angle < angles[idx]) / angle_diff.shape[0] * 100
         angle_acc[str(angles[idx])] = pred
         
-        line = 'angle within ' + str(angles[idx]) + ' degrees (pred, init): ' + str(pred) + ' ' + str(init)
+        line = "angle within " + str(angles[idx]) + " degrees (pred, init): " + str(pred) + " " + str(init)
         print(line)
 
     for idx in range(len(angles)):
         pred = np.sum((angle_diff < angles[idx]) & (diff_shifts[:, 0] < metrics[idx])) / angle_diff.shape[0] * 100
         init = np.sum((init_angle < angles[idx]) & (np.abs(gt_shifts[:, 0]) < metrics[idx])) / angle_diff.shape[0] * 100
-        line = 'lat within ' + str(metrics[idx]) + ' & angle within ' + str(angles[idx]) + \
-               ' (pred, init): ' + str(pred) + ' ' + str(init)
+        line = "lat within " + str(metrics[idx]) + " & angle within " + str(angles[idx]) + \
+               " (pred, init): " + str(pred) + " " + str(init)
         print(line)
 
     # result = np.sum((distance < metrics[0]) & (angle_diff < angles[0])) / distance.shape[0] * 100
