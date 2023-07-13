@@ -18,6 +18,30 @@ pip install -r requirements.txt
 
 ## Data
 
+### CVUSA
+
+Download CVUSA data (https://mvrl.cse.wustl.edu/datasets/cvusa)
+
+```
+cvusa
+├── bingmap
+|   ├── 18
+|   |   ├── 0000001.jpg
+|   |   └── ..
+|   ├── 19
+|   └── ..
+├── streetview
+|   ├── annotations
+|   |   ├── 0000001.png
+|   |   └── ..
+|   └── panos
+|       ├── 0000001.jpg
+|       └── ..
+└── splits
+    ├── train-19zl.csv
+    └── val-19zl.csv
+```
+
 ### KITTI
 
 First, download KITTI raw data (ground images) (https://www.cvlibs.net/datasets/kitti/raw_data.php)
@@ -49,38 +73,16 @@ kitti
 
 ```
 
-### CVUSA
+## Run
 
-Download CVUSA data (https://mvrl.cse.wustl.edu/datasets/cvusa)
-
-```
-cvusa
-├── bingmap
-|   ├── 18
-|   |   ├── 0000001.jpg
-|   |   └── ..
-|   ├── 19
-|   └── ..
-├── streetview
-|   ├── annotations
-|   |   ├── 0000001.png
-|   |   └── ..
-|   └── panos
-|       ├── 0000001.jpg
-|       └── ..
-└── splits
-    ├── train-19zl.csv
-    └── val-19zl.csv
-```
-
-## Train 
+### Train 
 Set `data_root` and `ckpt_root` in the `train.yaml` file and run:
 ```
 python main.py configs/train.yaml
 ```
 
-## Test
+### Test
 Set `resume_path` in the `test.yaml` file and run:
 ```
-python test.py configs/test.yaml
+python main.py configs/test.yaml
 ```
