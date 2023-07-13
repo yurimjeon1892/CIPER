@@ -70,8 +70,8 @@ def retr_accuracy(qry_feat, ref_feat, qry_label, topk=[1, 5, 10]):
     """Computes the accuracy over the k top predictions for the specified values of k"""
 
     N = qry_feat.shape[0]
-    # M = ref_feat.shape[0]
-    # topk.append(M//100)
+    M = ref_feat.shape[0]
+    topk.append(M//100)
     results = np.zeros([len(topk)])
     # for CVUSA, CVACT
     if N < 5000:
@@ -105,7 +105,7 @@ def retr_accuracy(qry_feat, ref_feat, qry_label, topk=[1, 5, 10]):
                         results[j] += 1.        
     results = results/ qry_feat.shape[0] * 100.
     # print("Percentage-top1:{:.2f}, top5:{:.2f}, top10:{:.2f}, top1%:{:.2f}".format(results[0], results[1], results[2], results[-1]))
-    return results[:2]
+    return results
 
 def local_accuracy(targets, results):
     

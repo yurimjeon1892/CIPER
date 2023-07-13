@@ -11,7 +11,7 @@ from tensorboardX import SummaryWriter
 
 import shutil
 
-import sys; sys.path.append('../')
+import sys; sys.path.append("../")
 import common.utils_misc as utils_misc
 
 from common.utils import save_state
@@ -23,7 +23,7 @@ def main():
     
     # parse arguments
     global args
-    with open(sys.argv[1], 'r') as stream:        
+    with open(sys.argv[1], "r") as stream:        
         args = yaml.safe_load(stream)            
                 
     # utils_misc.init_distributed_mode(args) # Multi-GPU 사용할 거라면, args.gpu / args.world_size / args.rank 가 여기서 정의 된다.
@@ -103,18 +103,18 @@ def main():
             data_loader_valid["val"] = data_loader_val
         
         out_dir = os.path.join(args["train"]["ckpt_dir"], 
-                               args["dataset"]["data_name"] + "-" + datetime.datetime.today().strftime('%d-%m-%y-%H:%M:%S'))
-        summary = SummaryWriter(out_dir, 'tb')
-        shutil.copyfile(sys.argv[1], os.path.join(out_dir, 'config.yaml'))  
+                               args["dataset"]["data_name"] + "-" + datetime.datetime.today().strftime("%d-%m-%y-%H:%M:%S"))
+        summary = SummaryWriter(out_dir, "tb")
+        shutil.copyfile(sys.argv[1], os.path.join(out_dir, "config.yaml"))  
             
     else:
-        dataset_val_q = build_dataset(mode='test_query', args=args["dataset"])
-        dataset_val_r = build_dataset(mode='test_reference', args=args["dataset"])
+        dataset_val_q = build_dataset(mode="valid_qry", args=args["dataset"])
+        dataset_val_r = build_dataset(mode="valid_ref", args=args["dataset"])
 
-        data_loader_val_q = DataLoader(dataset_val_q, args["batch_size"], shuffle=False,
-                                       collate_fn=utils_misc.collate_fn, num_workers=args["num_workers"], pin_memory=True)
-        data_loader_val_r = DataLoader(dataset_val_r, args["batch_size"], shuffle=False,
-                                       collate_fn=utils_misc.collate_fn, num_workers=args["num_workers"], pin_memory=True)
+        data_loader_val_q = DataLoader(dataset_val_q, batch_size=32, shuffle=False,
+                                        drop_last=False, num_workers=args["num_workers"])
+        data_loader_val_r = DataLoader(dataset_val_r, batch_size=64, shuffle=False,
+                                        drop_last=False, num_workers=args["num_workers"])
         
         data_loader_valid = {
             "qry": data_loader_val_q,
@@ -131,13 +131,15 @@ def main():
     #                                                                                                               #
     #                                                                                                               #
     if args["resume_flag"]:
-        checkpoint = torch.load(args["resume_path"], map_location='cpu')
-        model_without_ddp.load_state_dict(checkpoint['net'])
-        if not args["infer"] and 'optimizer' in checkpoint and 'lr_scheduler' in checkpoint and 'epoch' in checkpoint:
-            optimizer.load_state_dict(checkpoint['optimizer'])
-            lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
-            args["train"]["start_epoch"] = checkpoint['epoch'] + 1        
-            print("[i] load checkpoint from:", args["resume_path"])
+        checkpoint = torch.load(args["resume_path"], map_location="cpu")
+        model_without_ddp.load_state_dict(checkpoint["model"])
+        if args["infer"]:
+            print("[i] load checkpoint from:", args["resume_path"], "for inference")
+        elif "optimizer" in checkpoint and "lr_scheduler" in checkpoint and "epoch" in checkpoint:
+            optimizer.load_state_dict(checkpoint["optimizer"])
+            lr_scheduler.load_state_dict(checkpoint["lr_scheduler"])
+            args["train"]["start_epoch"] = checkpoint["epoch"] + 1        
+            print("[i] load checkpoint from:", args["resume_path"], "for train")
         else:
             print("[i] failed to load checkpoint from:", args["resume_path"])
             return
@@ -170,7 +172,7 @@ def main():
         "dim_embed": args["model"]["dim_embed"],        
     }
      
-    for epoch in range(args["train"]["start_epoch"], args["train"]["epochs"]):
+    for epoch in range(args["train"]["start_epoch"], args["train"]["epochs"] + 1):
         # if args["distributed"]:
         #     sampler_train.set_epoch(epoch)
 
@@ -189,5 +191,5 @@ def main():
             
         save_state(out_dir, model, optimizer, lr_scheduler, epoch, is_best)
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

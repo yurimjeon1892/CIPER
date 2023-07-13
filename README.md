@@ -1,6 +1,6 @@
-# CITR-US :tangerine:
+# CIPER :round_pushpin:
 
-Cross-view Image geo-localization TRansformer 
+Cross-view Image-retrieval and Pose-estimation transformER 
 
 ## Environment
 
@@ -11,8 +11,8 @@ Cross-view Image geo-localization TRansformer
 
 ### Step 2: Create conda environment
 ```
-conda create -n citrus python=3.8
-conda activate citrus
+conda create -n ciper python=3.8
+conda activate ciper
 pip install -r requirements.txt
 ```
 

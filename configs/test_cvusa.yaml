@@ -1,8 +1,8 @@
 # configuration file for training
-infer: False
+infer: True
 
-resume_flag: False  
-resume_path: None
+resume_flag: True  
+resume_path: ./ckpts/cvusa-12-07-23-15:58:27/model_best.pth
 
 seed: 42
 num_workers: 4
@@ -12,35 +12,18 @@ batch_size: 32
 task: RETR # RETR / LOCAL 
 device: cuda # device to use for training / testing 
 
-train:
-
-  ckpt_dir: ./ckpts
-  epochs: 100
-
-  lr: 0.0001
-  lr_backbone: 0.0001
-  
-  weight_decay: 0.0001
-  
-  lr_drop: 200
-  clip_max_norm: 0.1 # gradient clipping max norm
-
-  start_epoch: 1
-
 dataset:
   
   data_name: cvusa
   data_root: /storage2/public/cvusa/  
   fov: 0
 
-  grnd_img_size: [112, 616] # [112, 616]
-  arl_img_size: [256, 256]
+  grnd_img_size: [128, 640] # [112, 616]
+  # arl_img_size: [256, 256]
+  arl_img_size: [320, 320]
 
   # cvusa only
-  # train_pt_list: ./datasets/splits/cvusa/train-mini.csv
   # val_pt_list: ./datasets/splits/cvusa/train-mini.csv
-
-  train_pt_list: ./datasets/splits/cvusa/train-19zl.csv
   val_pt_list: ./datasets/splits/cvusa/val-19zl.csv
   
 model:
@@ -48,7 +31,7 @@ model:
   backbone: resnet18 # Name of the convolutional backbone to use
   dilation: False # If true, we replace stride with dilation in the last convolutional block (DC5)
   
-  position_embedding: sine # (sine, learned) Type of positional embedding to use on top of the image features
+  position_embedding: learned # (sine, learned) Type of positional embedding to use on top of the image features
 
   dim_embed: 256 # Size of the embeddings (dimension of the transformer)
 
@@ -57,4 +40,4 @@ model:
   dim_feedforward: 2048 # Intermediate size of the feedforward layers in the transformer blocks  
   num_enc_layers: 6 # Number of encoding layers in the transformer
   num_dec_layers: 6 # Number of decoding layers in the transformer
-  pre_norm: False
+  pre_norm: False;

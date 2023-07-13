@@ -143,24 +143,26 @@ def valid_retr(model: torch.nn.Module,
             ref_feat[idx_arl.cpu().numpy(), :] = out_emb_arl.detach().cpu().numpy()
             if i == 0: img_arl_ = img_arl[0, :, :, :]
 
-        [top1, top5] = retr_accuracy(qry_feat, ref_feat, qry_label.astype(int))
+        retr_acc = retr_accuracy(qry_feat, ref_feat, qry_label.astype(int))
         
     imgs = {
         # "image/ir/grnd": img_grnd_,
         # "image/ir/arl": img_arl_,
     }
     stats = {
-        "acc/retr_top1": top1,
-        "acc/retr_top5": top5,
+        "acc/retr_top1": retr_acc[0],
+        "acc/retr_top5": retr_acc[1],
+        "acc/retr_top10": retr_acc[2],
+        "acc/retr_top1%": retr_acc[3],
     }
              
     return imgs, stats
 
 def valid_local(model: torch.nn.Module, 
-                     criterion: torch.nn.Module,
-                     postprocessors: torch.nn.Module,
-                     data_loader: Iterable, 
-                     valid_infos: dict):
+                criterion: torch.nn.Module,
+                postprocessors: torch.nn.Module,
+                data_loader: Iterable, 
+                valid_infos: dict):
     
     model.eval()
     criterion.eval()
@@ -223,9 +225,9 @@ def evaluate(model: torch.nn.Module,
     model_query.eval()
     model_reference.eval()
     
-    qry_label = np.zeros([len(qry_loader.dataset)])
-    qry_feat = np.zeros([len(qry_loader.dataset), eval_infos["dim_embed"]])    
-    ref_feat = np.zeros([len(ref_loader.dataset), eval_infos["dim_embed"]])
+    qry_label = np.zeros([len(loader_dict["qry"].dataset)])
+    qry_feat = np.zeros([len(loader_dict["qry"].dataset), eval_infos["dim_embed"]])    
+    ref_feat = np.zeros([len(loader_dict["ref"].dataset), eval_infos["dim_embed"]])
     
     img_grnd_, img_arl_ = None, None
     # query features
@@ -253,46 +255,50 @@ def evaluate(model: torch.nn.Module,
         ref_feat[idx_arl.cpu().numpy(), :] = out_emb_arl.detach().cpu().numpy()
         if i == 0: img_arl_ = img_arl[0, :, :, :]
 
-    [top1, top5] = retr_accuracy(qry_feat, ref_feat, qry_label.astype(int))
+    retr_acc = retr_accuracy(qry_feat, ref_feat, qry_label.astype(int))
         
     stats = {
-        "acc/retr_top1": top1,
-        "acc/retr_top5": top5,
-    }    
+        "acc/retr_top1": retr_acc[0],
+        "acc/retr_top5": retr_acc[1],
+        "acc/retr_top10": retr_acc[2],
+        "acc/retr_top1%": retr_acc[3],
+    }   
     
-    model.eval()
-    criterion.eval()
+    if eval_infos["is_local"]:   
     
-    losses_meter = {}
-    for k in criterion.losses: losses_meter[k] = AverageMeter()
-    
-    acc1s, acc5s, denoms = 0, 0, 0
-    description = "[i] Eval loc"
-    for i, (img_grnd, img_arl, targets) in enumerate(tqdm(loader_dict["val"], desc=description, unit="batches")):
+        model.eval()
+        criterion.eval()
         
-        img_grnd = img_grnd.to(eval_infos["device"])
-        img_arl = img_arl.to(eval_infos["device"])
-        targets = [{k: v.to(eval_infos["device"]) for k, v in t.items()} for t in targets]
+        losses_meter = {}
+        for k in criterion.losses: losses_meter[k] = AverageMeter()
         
-        outputs = model(im_grnd=img_grnd, im_arl=img_arl)
-        results = postprocessors["bbox"](outputs, targets)
-
-        loss_dict = criterion(outputs, targets)      
-        for k in loss_dict.keys(): losses_meter[k].update(loss_dict[k].item(), img_grnd.tensors.size(0))
+        acc1s, acc5s, denoms = 0, 0, 0
+        description = "[i] Eval loc"
+        for i, (img_grnd, img_arl, targets) in enumerate(tqdm(loader_dict["val"], desc=description, unit="batches")):
             
-        acc1, acc5 = local_accuracy(targets, results)
-        acc1s += acc1
-        acc5s += acc5
-        denoms += img_grnd.tensors.size(0)
+            img_grnd = img_grnd.to(eval_infos["device"])
+            img_arl = img_arl.to(eval_infos["device"])
+            targets = [{k: v.to(eval_infos["device"]) for k, v in t.items()} for t in targets]
+            
+            outputs = model(im_grnd=img_grnd, im_arl=img_arl)
+            results = postprocessors["bbox"](outputs, targets)
+
+            loss_dict = criterion(outputs, targets)      
+            for k in loss_dict.keys(): losses_meter[k].update(loss_dict[k].item(), img_grnd.tensors.size(0))
+                
+            acc1, acc5 = local_accuracy(targets, results)
+            acc1s += acc1
+            acc5s += acc5
+            denoms += img_grnd.tensors.size(0)
                     
-    loss_total = 0
-    for k in losses_meter.keys():
-        stats["loss/" + k] =  losses_meter[k].avg
-        loss_total += losses_meter[k].avg
-    stats["loss/total"] = loss_total
-    
-    stats["acc/local_d1"] = (acc1s / denoms) * 100
-    stats["acc/local_d5"] = (acc5s / denoms) * 100
+        loss_total = 0
+        for k in losses_meter.keys():
+            stats["loss/" + k] =  losses_meter[k].avg
+            loss_total += losses_meter[k].avg
+        stats["loss/total"] = loss_total
+        
+        stats["acc/local_d1"] = (acc1s / denoms) * 100
+        stats["acc/local_d5"] = (acc5s / denoms) * 100
     
     print("[i] Eval ", end = "\n")
     for k in stats.keys():
