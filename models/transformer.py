@@ -24,10 +24,15 @@ class TransformerEncoderWrapper(nn.Module):
         encoder_layer = TransformerEncoderLayer(dim_embed, num_heads, dim_feedforward,
                                                 dropout, activation, normalize_before)
         encoder_norm = nn.LayerNorm(dim_embed) if normalize_before else None
-        self.encoder = TransformerEncoder(encoder_layer, num_encoder_layers, encoder_norm)        
+        self.encoder = TransformerEncoder(encoder_layer, num_encoder_layers, encoder_norm)   
         
-        self.head = nn.Linear(dim_embed, dim_embed)
-        self.cls_token = nn.Parameter(torch.zeros(1, 1, dim_embed))             
+        self.cls_token = nn.Parameter(torch.zeros(1, 1, dim_embed))          
+        self.dist_token = nn.Parameter(torch.zeros(1, 1, dim_embed)) 
+        # self.cls_mask = nn.Parameter(torch.zeros(1, 1))           
+        self.pos_embed = nn.Parameter(torch.zeros(1, 2, dim_embed))  
+        
+        self.head = nn.Linear(dim_embed, 1000)
+        self.head_dist = nn.Linear(dim_embed, 1000) 
         
         self._reset_parameters()
         
@@ -35,6 +40,9 @@ class TransformerEncoderWrapper(nn.Module):
         for p in self.parameters():
             if p.dim() > 1:
                 nn.init.xavier_uniform_(p)
+        nn.init.normal_(self.cls_token, std=1e-6)
+        nn.init.trunc_normal_(self.dist_token, std=.02)
+        nn.init.trunc_normal_(self.pos_embed, std=.02)
         
     def forward(self, src, mask, pos_embed):
         """
@@ -43,23 +51,30 @@ class TransformerEncoderWrapper(nn.Module):
             pos_embed: bs x dim_embed x h x w
         """
         # flatten NxCxHxW to HWxNxC
-        bs, c, h, w = src.shape
+        bs, c, h, w = src.shape        
+        
+        cls_token = self.cls_token.expand(bs, -1, -1).permute(1, 0, 2) # 1 x bs x dim_embed
+        dist_token = self.dist_token.expand(bs, -1, -1).permute(1, 0, 2) # 1 x bs x dim_embed
         src = src.flatten(2).permute(2, 0, 1) # num_patches(=h*w) x bs x dim_embed
+        src = torch.cat((cls_token, dist_token, src), dim=0) # (num_patches + 1) x bs x dim_embed
         
-        pos_embed = pos_embed.flatten(2).permute(2, 0, 1) # num_patches x bs x dim_embed
-        mask = mask.flatten(1) # bs x num_patches
+        # mask = mask.flatten(1) # bs x num_patches        
+        # mask_ = self.cls_mask.expand(bs, -1)
+        # mask = torch.cat((mask_, mask), dim=1) # bs x (num_patches + 1)
         
-        cls_tokens = self.cls_token.expand(bs, -1, -1).permute(1, 0, 2) # 1 x bs x dim_embed
-        src = torch.cat((cls_tokens, src), dim=0) # (num_patches + 1) x bs x dim_embed
-        
-        mask = torch.cat((torch.zeros(bs, 1).to(mask.device), mask), dim=1) # bs x (num_patches + 1)
-        pos_embed = torch.cat((torch.zeros(1, bs, c).to(pos_embed.device), pos_embed), dim=0) # (num_patches + 1) x bs x dim_embed
+        pos_embed_ = self.pos_embed.expand(bs, -1, -1).permute(1, 0, 2) # 1 x bs x dim_embed        
+        pos_embed = pos_embed.flatten(2).permute(2, 0, 1) # num_patches x bs x dim_embed    
+        pos_embed = torch.cat((pos_embed_, pos_embed), dim=0) # (num_patches + 1) x bs x dim_embed
 
-        dst = self.encoder(src, src_key_padding_mask=mask, pos=pos_embed) # (num_patches + 1) x bs x dim_embed
+        # dst = self.encoder(src, src_key_padding_mask=mask, pos=pos_embed) # (num_patches + 1) x bs x dim_embed
+        dst = self.encoder(src, pos=pos_embed) # (num_patches + 1) x bs x dim_embed
         dst = dst.permute(1, 2, 0) # bs x dim_embed x (num_patches + 1)
         
-        embed = self.head(dst[:, :, 0]) # bs x dim_embed     
-        memory = dst[:, :, 1:].view(bs, c, h, w) # bs x dim_embed x h x w
+        x = self.head(dst[:, :, 0]) # bs x dim_embed     
+        x_dist = self.head_dist(dst[:, :, 1]) # bs x dim_embed     
+        embed = (x + x_dist) / 2
+        
+        memory = dst[:, :, 2:].view(bs, c, h, w) # bs x dim_embed x h x w
         
         return embed, memory 
     

@@ -9,8 +9,8 @@ from .encdec import build_encoder, build_decoder
 from .matcher import build_matcher
 from .soft_triplet import SoftTripletBiLoss
 
-class CITRUS(nn.Module):
-    """ This is the CITRUS module that performs cross-view image geo-localization """
+class CIPER(nn.Module):
+    """ This is the CIPER module that performs cross-view image geo-localization """
     def __init__(self, args, is_local):
         """ Initializes the model.
         Parameters:
@@ -181,7 +181,7 @@ class PostProcess(nn.Module):
     
 def build(args, is_local, device):
     # build model
-    model = CITRUS(args, is_local).to(device)
+    model = CIPER(args, is_local).to(device)
     
     # build criterion    
     if is_local:

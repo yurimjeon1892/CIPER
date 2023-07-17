@@ -14,7 +14,7 @@ import shutil
 import sys; sys.path.append("../")
 import common.utils_misc as utils_misc
 
-from common.utils import save_state
+from common.utils import save_state, print_this, print_that
 from datasets import build_dataset
 from models import build
 from engine import train_one_epoch, valid_one_epoch, evaluate
@@ -24,7 +24,10 @@ def main():
     # parse arguments
     global args
     with open(sys.argv[1], "r") as stream:        
-        args = yaml.safe_load(stream)            
+        args = yaml.safe_load(stream)      
+                      
+    if not args["infer"] : print_that()
+    else: print_this()
                 
     # utils_misc.init_distributed_mode(args) # Multi-GPU 사용할 거라면, args.gpu / args.world_size / args.rank 가 여기서 정의 된다.
 
@@ -62,8 +65,8 @@ def main():
         ## optimizer와 ir_scheduler 설정
         # optimizer = torch.optim.Adam(param_dicts, lr=args["train"]["lr"], betas=(0.9, 0.999), eps=1e-08, 
         #                             weight_decay=args["train"]["weight_decay"])
-        optimizer = torch.optim.AdamW(param_dicts, lr=args["train"]["lr"],
-                                  weight_decay=args["train"]["weight_decay"])
+        optimizer = torch.optim.AdamW(param_dicts, lr=args["train"]["lr"], betas=(0.9, 0.999), eps=1e-08, 
+                                      weight_decay=args["train"]["weight_decay"], amsgrad=False)
         lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, args["train"]["lr_drop"])
         
         ## data_loader 만들어 주기 
@@ -148,7 +151,7 @@ def main():
         eval_infos = {
         "device": device,
         "is_local": is_local,
-        "dim_embed": args["model"]["dim_embed"],        
+        "dim_feature": 1000,        
         }        
         evaluate(model, criterion, postprocessors, data_loader_valid, eval_infos)
         return
@@ -169,7 +172,7 @@ def main():
         "device": device,
         "best_metric": -1,
         "is_local": is_local,
-        "dim_embed": args["model"]["dim_embed"],        
+        "dim_feature": 1000,        
     }
      
     for epoch in range(args["train"]["start_epoch"], args["train"]["epochs"] + 1):

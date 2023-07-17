@@ -53,8 +53,8 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module, postproc
         # compute gradient and do SGD step        
         optimizer.zero_grad()
         losses.backward()
-        if train_infos["clip_max_norm"] > 0:
-            torch.nn.utils.clip_grad_norm_(model.parameters(), train_infos["clip_max_norm"])
+        # if train_infos["clip_max_norm"] > 0:
+        #     torch.nn.utils.clip_grad_norm_(model.parameters(), train_infos["clip_max_norm"])
         optimizer.step()
                         
         iters += bs
@@ -113,8 +113,8 @@ def valid_retr(model: torch.nn.Module,
     model_reference.eval()
     
     qry_label = np.zeros([len(qry_loader.dataset)])
-    qry_feat = np.zeros([len(qry_loader.dataset), valid_infos["dim_embed"]])    
-    ref_feat = np.zeros([len(ref_loader.dataset), valid_infos["dim_embed"]])
+    qry_feat = np.zeros([len(qry_loader.dataset), valid_infos["dim_feature"]])    
+    ref_feat = np.zeros([len(ref_loader.dataset), valid_infos["dim_feature"]])
     
     img_grnd_, img_arl_ = None, None
     with torch.no_grad():
@@ -226,8 +226,8 @@ def evaluate(model: torch.nn.Module,
     model_reference.eval()
     
     qry_label = np.zeros([len(loader_dict["qry"].dataset)])
-    qry_feat = np.zeros([len(loader_dict["qry"].dataset), eval_infos["dim_embed"]])    
-    ref_feat = np.zeros([len(loader_dict["ref"].dataset), eval_infos["dim_embed"]])
+    qry_feat = np.zeros([len(loader_dict["qry"].dataset), eval_infos["dim_feature"]])    
+    ref_feat = np.zeros([len(loader_dict["ref"].dataset), eval_infos["dim_feature"]])
     
     img_grnd_, img_arl_ = None, None
     # query features

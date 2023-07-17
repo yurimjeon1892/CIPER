@@ -9,7 +9,7 @@ from common.utils_misc import nested_tensor_from_tensor_list
 from .backbone import build_backbone
 from .transformer import build_transformer_encoder, build_transformer_decoder
 
-class CITRENC(nn.Module):
+class CIPERENC(nn.Module):
     """ This is the Cigarette module that performs cross-view image geo-localization """
     def __init__(self, args):
         """ Initializes the model.
@@ -35,7 +35,7 @@ class CITRENC(nn.Module):
         
         return embed, memory, mask, pos[-1]
     
-class CITRDEC(nn.Module):
+class CIPERDEC(nn.Module):
     def __init__(self, args):
         """ Initializes the model.
         Parameters:
@@ -123,7 +123,7 @@ class MLP(nn.Module):
         return x
 
 def build_encoder(args):
-    return CITRENC(args)
+    return CIPERENC(args)
 
 def build_decoder(args):
-    return CITRDEC(args)
+    return CIPERDEC(args)
