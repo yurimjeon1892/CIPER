@@ -7,22 +7,46 @@ from scipy.stats import truncnorm
 from common.utils_misc import nested_tensor_from_tensor_list
 
 from .backbone import build_backbone
-from .transformer import build_transformer_encoder, build_transformer_decoder
+from .transformer import *
 
 class CIPERENC(nn.Module):
-    """ This is the Cigarette module that performs cross-view image geo-localization """
     def __init__(self, args):
         """ Initializes the model.
         Parameters:
             backbone: torch module of the backbone to be used. See backbone.py
-            num_queries: number of object queries, ie detection slot. This is the maximal number of objects
-                         DETR can detect in a single image. For COCO, we recommend 100 queries.
         """
         super().__init__()
                 
         self.backbone = build_backbone(args)       
-        self.encoder = build_transformer_encoder(args)         
+        # self.encoder = build_transformer_encoder(args)    
+             
         self.input_proj = nn.Conv2d(self.backbone.num_channels, args["dim_embed"], kernel_size=1) 
+        
+        encoder_layer = TransformerEncoderLayer(dim_embed=args["dim_embed"],
+                                                num_heads=args["num_heads"],
+                                                dim_feedforward=args["dim_feedforward"],
+                                                dropout=args["dropout"],                                                
+                                                activation="relu",
+                                                normalize_before=args["pre_norm"])
+        encoder_norm = nn.LayerNorm(args["dim_embed"]) if args["pre_norm"] else None
+        self.encoder = TransformerEncoder(encoder_layer, args["num_enc_layers"], encoder_norm)   
+        
+        self.cls_token = nn.Parameter(torch.zeros(1, 1, args["dim_embed"]))          
+        self.dist_token = nn.Parameter(torch.zeros(1, 1, args["dim_embed"])) 
+        self.pos_embed = nn.Parameter(torch.zeros(1, 2, args["dim_embed"]))  
+        
+        self.head = nn.Linear(args["dim_embed"], 1000)
+        self.head_dist = nn.Linear(args["dim_embed"], 1000) 
+        
+    #     self._reset_parameters()
+        
+    # def _reset_parameters(self):
+    #     for p in self.parameters():
+    #         if p.dim() > 1:
+    #             nn.init.xavier_uniform_(p)
+    #     nn.init.normal_(self.cls_token, std=1e-6)
+    #     nn.init.trunc_normal_(self.dist_token, std=.02)
+    #     nn.init.trunc_normal_(self.pos_embed, std=.02)
 
     def forward(self, x):
         if isinstance(x, (list, torch.Tensor)):
@@ -31,7 +55,36 @@ class CIPERENC(nn.Module):
         features, pos = self.backbone(x)
         src, mask = features[-1].decompose() # bs x dim_embed x h x w, bs x h x w
         assert mask is not None
-        embed, memory = self.encoder(self.input_proj(src), mask, pos[-1])  
+        # embed, memory = self.encoder(self.input_proj(src), mask, pos[-1])  
+        
+        src = self.input_proj(src)        
+        pos_embed = pos[-1]       
+         
+        # flatten NxCxHxW to HWxNxC
+        bs, c, h, w = src.shape 
+        
+        cls_token = self.cls_token.expand(bs, -1, -1).permute(1, 0, 2) # 1 x bs x dim_embed
+        dist_token = self.dist_token.expand(bs, -1, -1).permute(1, 0, 2) # 1 x bs x dim_embed
+        src = src.flatten(2).permute(2, 0, 1) # num_patches(=h*w) x bs x dim_embed
+        src = torch.cat((cls_token, dist_token, src), dim=0) # (num_patches + 1) x bs x dim_embed
+        
+        # mask = mask.flatten(1) # bs x num_patches        
+        # mask_ = self.cls_mask.expand(bs, -1)
+        # mask = torch.cat((mask_, mask), dim=1) # bs x (num_patches + 1)
+        
+        pos_embed_ = self.pos_embed.expand(bs, -1, -1).permute(1, 0, 2) # 1 x bs x dim_embed        
+        pos_embed = pos_embed.flatten(2).permute(2, 0, 1) # num_patches x bs x dim_embed    
+        pos_embed = torch.cat((pos_embed_, pos_embed), dim=0) # (num_patches + 1) x bs x dim_embed
+
+        # dst = self.encoder(src, src_key_padding_mask=mask, pos=pos_embed) # (num_patches + 1) x bs x dim_embed
+        dst = self.encoder(src, pos=pos_embed) # (num_patches + 1) x bs x dim_embed
+        dst = dst.permute(1, 2, 0) # bs x dim_embed x (num_patches + 1)
+        
+        x = self.head(dst[:, :, 0]) # bs x dim_embed     
+        x_dist = self.head_dist(dst[:, :, 1]) # bs x dim_embed     
+        embed = (x + x_dist) / 2
+        
+        memory = dst[:, :, 2:].view(bs, c, h, w) # bs x dim_embed x h x w
         
         return embed, memory, mask, pos[-1]
     
@@ -45,7 +98,7 @@ class CIPERDEC(nn.Module):
         """
         super().__init__()
         
-        self.decoder = build_transformer_decoder(args)
+        # self.decoder = build_transformer_decoder(args)
         
         dim_embed = args["dim_embed"]
         dim_embed_merged = dim_embed + int(dim_embed / 2)
@@ -65,6 +118,16 @@ class CIPERDEC(nn.Module):
         
         self.class_embed = nn.Linear(dim_embed_merged, 2)      
         self.bbox_embed = MLP(dim_embed_merged, dim_embed_merged, output_dim=4, num_layers=3)
+        
+        decoder_layer = TransformerDecoderLayer(dim_embed=dim_embed_merged, 
+                                                num_heads=args["num_heads"], 
+                                                dim_feedforward=args["dim_feedforward"],
+                                                dropout=args["dropout"], 
+                                                activation="relu", 
+                                                normalize_before=args["pre_norm"])
+        decoder_norm = nn.LayerNorm(dim_embed_merged)
+        self.decoder = TransformerDecoder(decoder_layer, args["num_dec_layers"], decoder_norm,
+                                          return_intermediate=False)
         
     def forward(self, x_grnd, x_arl, mask):   
         """

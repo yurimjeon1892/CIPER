@@ -14,7 +14,7 @@ import shutil
 import sys; sys.path.append("../")
 import common.utils_misc as utils_misc
 
-from common.utils import save_state, print_this, print_that
+from common.utils import save_state, load_pretrained, print_this, print_that
 from datasets import build_dataset
 from models import build
 from engine import train_one_epoch, valid_one_epoch, evaluate
@@ -44,20 +44,22 @@ def main():
 
     model, criterion, postprocessors = build(args["model"], is_local, device)
 
-    model_without_ddp = model
+    # model_without_ddp = model
     # if args["distributed"]:
     #     model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args["gpu"]])
     #     model_without_ddp = model.module
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    for name, param in model.named_parameters():
+        print(name)    
     print("[i] number of params:", n_parameters // 10 ** 6 , "M")
     
     if not args["infer"] :
         
         ## backbone / Transformer-encoder, decoder / detector head 각각의 learning rate를 다르게 주는 방법
         param_dicts = [
-            {"params": [p for n, p in model_without_ddp.named_parameters() if "backbone" not in n and p.requires_grad]},
+            {"params": [p for n, p in model.named_parameters() if "backbone" not in n and p.requires_grad]},
             {
-                "params": [p for n, p in model_without_ddp.named_parameters() if "backbone" in n and p.requires_grad],
+                "params": [p for n, p in model.named_parameters() if "backbone" in n and p.requires_grad],
                 "lr": args["train"]["lr_backbone"],
             },
         ]
@@ -132,20 +134,24 @@ def main():
 
     # TODO ##########################################################################################################
     #                                                                                                               #
-    #                                                                                                               #
-    if args["resume_flag"]:
-        checkpoint = torch.load(args["resume_path"], map_location="cpu")
-        model_without_ddp.load_state_dict(checkpoint["model"])
+    #  
+    if args["pretrain"] != False:
+        model = load_pretrained(model, args["pretrain"])
+        print("[i] load pretrained file from:", args["pretrain"])
+    elif args["resume"]  != False:
+        checkpoint = torch.load(args["resume"], map_location="cpu")
+        # model_without_ddp.load_state_dict(checkpoint["model"])
+        model.load_state_dict(checkpoint["model"])
         if args["infer"]:
-            print("[i] load checkpoint from:", args["resume_path"], "for inference")
+            print("[i] load checkpoint from:", args["resume"], "for inference")
         elif "optimizer" in checkpoint and "lr_scheduler" in checkpoint and "epoch" in checkpoint:
             optimizer.load_state_dict(checkpoint["optimizer"])
             lr_scheduler.load_state_dict(checkpoint["lr_scheduler"])
             args["train"]["start_epoch"] = checkpoint["epoch"] + 1        
-            print("[i] load checkpoint from:", args["resume_path"], "for train")
+            print("[i] load checkpoint from:", args["resume"], "for train")
         else:
-            print("[i] failed to load checkpoint from:", args["resume_path"])
-            return
+            print("[i] failed to load checkpoint from:", args["resume"])
+            return        
 
     if args["infer"]:
         eval_infos = {

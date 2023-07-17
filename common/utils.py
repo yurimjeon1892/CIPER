@@ -8,10 +8,10 @@ import random
 
 from PIL import Image, ImageDraw
 
-__all__ = [
-    "save_state",
-    "save_image"
-]
+# __all__ = [
+#     "save_state",
+#     "save_image"
+# ]
 
 class AverageMeter(object):
     def __init__(self):
@@ -32,7 +32,6 @@ class AverageMeter(object):
 def save_state(save_path, model, optimizer, lr_scheduler, epoch, is_best, filename="checkpoint.pth"):
     os.makedirs(save_path, exist_ok=True)
     state_dict = {
-        # "net": model.state_dict(),
         "model": model.state_dict(),
         "optimizer": optimizer.state_dict(),
         "lr_scheduler": lr_scheduler.state_dict(),
@@ -55,16 +54,55 @@ def save_state(save_path, model, optimizer, lr_scheduler, epoch, is_best, filena
         if os.path.exists(prev_checkpoint_filename):
             os.remove(prev_checkpoint_filename)
 
-def save_image(img, fname):
-    """
-    :param img: image (numpy array, H x W x 3)
-    :param fname: file name (string)
-    """
-    img = np.array(img).astype("uint8")
-    if img.ndim == 3 and img.shape[2] != 3:
-        img = np.transpose(img, (1, 2, 0))
-    im = Image.fromarray(img)
-    im.save(fname)
+# def save_image(img, fname):
+#     """
+#     :param img: image (numpy array, H x W x 3)
+#     :param fname: file name (string)
+#     """
+#     img = np.array(img).astype("uint8")
+#     if img.ndim == 3 and img.shape[2] != 3:
+#         img = np.transpose(img, (1, 2, 0))
+#     im = Image.fromarray(img)
+#     im.save(fname)
+
+def load_pretrained(model, default_path=""):
+    
+    pretrained_dict = torch.load(default_path)["model"]
+    update_dict = change_param_name(pretrained_dict)    
+    model_dict = model.state_dict()
+    update_dict = {k: v for k, v in update_dict.items() if k in model_dict}    
+    model_dict.update(update_dict)
+    model.load_state_dict(update_dict, strict=False)
+    # print(model_dict)
+    return model
+
+def change_param_name(pretrained_dict):
+    update_dict = {}
+    for pretrainedk in pretrained_dict.keys():
+        print(pretrainedk)
+        
+        if "transformer" in pretrainedk :
+            newk = pretrainedk.replace("transformer", "reference_net")
+            update_dict[newk] = pretrained_dict[pretrainedk]
+            print(pretrainedk , '-->', newk)
+            
+            newk = pretrainedk.replace("transformer", "query_net")
+            update_dict[newk] = pretrained_dict[pretrainedk]
+            print(pretrainedk , '-->', newk)
+        
+        elif "backbone" in pretrainedk :
+            newk = pretrainedk.replace("backbone", "reference_net.backbone")
+            update_dict[newk] = pretrained_dict[pretrainedk]
+            print(pretrainedk , '-->', newk)
+            
+            newk = pretrainedk.replace("backbone", "query_net.backbone")
+            update_dict[newk] = pretrained_dict[pretrainedk]
+            print(pretrainedk , '-->', newk)
+            
+        else:            
+            update_dict[pretrainedk] = pretrained_dict[pretrainedk]
+            
+    return update_dict
 
 def retr_accuracy(qry_feat, ref_feat, qry_label, topk=[1, 5, 10]):
     """Computes the accuracy over the k top predictions for the specified values of k"""
