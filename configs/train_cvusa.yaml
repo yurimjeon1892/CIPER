@@ -1,7 +1,7 @@
 # configuration file for training
 infer: False
 
-pretrain: ./pretrained/detr-r50-e632da11.pth
+pretrain: False
 resume: False  
 
 seed: 42
@@ -37,15 +37,15 @@ dataset:
   arl_img_size: [256, 256]
 
   # cvusa only
-  train_pt_list: ./datasets/splits/cvusa/train-mini.csv
-  val_pt_list: ./datasets/splits/cvusa/train-mini.csv
+  # train_pt_list: ./datasets/splits/cvusa/train-mini.csv
+  # val_pt_list: ./datasets/splits/cvusa/train-mini.csv
 
-  # train_pt_list: ./datasets/splits/cvusa/train-19zl.csv
-  # val_pt_list: ./datasets/splits/cvusa/val-19zl.csv
+  train_pt_list: ./datasets/splits/cvusa/train-19zl.csv
+  val_pt_list: ./datasets/splits/cvusa/val-19zl.csv
   
 model:
 
-  backbone: resnet50 # Name of the convolutional backbone to use
+  backbone: resnet34 # Name of the convolutional backbone to use
   dilation: False # If true, we replace stride with dilation in the last convolutional block (DC5)
   
   position_embedding: sine # (sine, learned) Type of positional embedding to use on top of the image features
@@ -58,3 +58,5 @@ model:
   num_enc_layers: 8 # Number of encoding layers in the transformer
   # num_dec_layers: 6 # Number of decoding layers in the transformer
   pre_norm: False
+
+  dim_feature: 1000

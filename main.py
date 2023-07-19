@@ -14,7 +14,7 @@ import shutil
 import sys; sys.path.append("../")
 import common.utils_misc as utils_misc
 
-from common.utils import save_state, load_pretrained, print_this, print_that
+from common.utils import save_state, load_pretrained, print_pigeon
 from datasets import build_dataset
 from models import build
 from engine import train_one_epoch, valid_one_epoch, evaluate
@@ -26,8 +26,7 @@ def main():
     with open(sys.argv[1], "r") as stream:        
         args = yaml.safe_load(stream)      
                       
-    if not args["infer"] : print_that()
-    else: print_this()
+    print_pigeon()
                 
     # utils_misc.init_distributed_mode(args) # Multi-GPU 사용할 거라면, args.gpu / args.world_size / args.rank 가 여기서 정의 된다.
 
@@ -49,8 +48,8 @@ def main():
     #     model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args["gpu"]])
     #     model_without_ddp = model.module
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    for name, param in model.named_parameters():
-        print(name)    
+    # for name, param in model.named_parameters():
+    #     print(name)    
     print("[i] number of params:", n_parameters // 10 ** 6 , "M")
     
     if not args["infer"] :
@@ -138,7 +137,7 @@ def main():
     if args["pretrain"] != False:
         model = load_pretrained(model, args["pretrain"])
         print("[i] load pretrained file from:", args["pretrain"])
-    elif args["resume"]  != False:
+    if args["resume"]  != False:
         checkpoint = torch.load(args["resume"], map_location="cpu")
         # model_without_ddp.load_state_dict(checkpoint["model"])
         model.load_state_dict(checkpoint["model"])
@@ -157,7 +156,7 @@ def main():
         eval_infos = {
         "device": device,
         "is_local": is_local,
-        "dim_feature": 1000,        
+        "dim_feature": args["model"]["dim_feature"],        
         }        
         evaluate(model, criterion, postprocessors, data_loader_valid, eval_infos)
         return
@@ -178,7 +177,7 @@ def main():
         "device": device,
         "best_metric": -1,
         "is_local": is_local,
-        "dim_feature": 1000,        
+        "dim_feature": args["model"]["dim_feature"],        
     }
      
     for epoch in range(args["train"]["start_epoch"], args["train"]["epochs"] + 1):

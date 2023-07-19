@@ -17,9 +17,7 @@ class CIPERENC(nn.Module):
         """
         super().__init__()
                 
-        self.backbone = build_backbone(args)       
-        # self.encoder = build_transformer_encoder(args)    
-             
+        self.backbone = build_backbone(args)        
         self.input_proj = nn.Conv2d(self.backbone.num_channels, args["dim_embed"], kernel_size=1) 
         
         encoder_layer = TransformerEncoderLayer(dim_embed=args["dim_embed"],
@@ -35,18 +33,8 @@ class CIPERENC(nn.Module):
         self.dist_token = nn.Parameter(torch.zeros(1, 1, args["dim_embed"])) 
         self.pos_embed = nn.Parameter(torch.zeros(1, 2, args["dim_embed"]))  
         
-        self.head = nn.Linear(args["dim_embed"], 1000)
-        self.head_dist = nn.Linear(args["dim_embed"], 1000) 
-        
-    #     self._reset_parameters()
-        
-    # def _reset_parameters(self):
-    #     for p in self.parameters():
-    #         if p.dim() > 1:
-    #             nn.init.xavier_uniform_(p)
-    #     nn.init.normal_(self.cls_token, std=1e-6)
-    #     nn.init.trunc_normal_(self.dist_token, std=.02)
-    #     nn.init.trunc_normal_(self.pos_embed, std=.02)
+        self.head = nn.Linear(args["dim_embed"], args["dim_feature"])
+        self.head_dist = nn.Linear(args["dim_embed"], args["dim_feature"]) 
 
     def forward(self, x):
         if isinstance(x, (list, torch.Tensor)):

@@ -73,13 +73,13 @@ def load_pretrained(model, default_path=""):
     update_dict = {k: v for k, v in update_dict.items() if k in model_dict}    
     model_dict.update(update_dict)
     model.load_state_dict(update_dict, strict=False)
+    
     # print(model_dict)
     return model
 
 def change_param_name(pretrained_dict):
     update_dict = {}
-    for pretrainedk in pretrained_dict.keys():
-        print(pretrainedk)
+    for pretrainedk in pretrained_dict.keys():        
         
         if "transformer" in pretrainedk :
             newk = pretrainedk.replace("transformer", "reference_net")
@@ -90,17 +90,18 @@ def change_param_name(pretrained_dict):
             update_dict[newk] = pretrained_dict[pretrainedk]
             print(pretrainedk , '-->', newk)
         
-        elif "backbone" in pretrainedk :
-            newk = pretrainedk.replace("backbone", "reference_net.backbone")
-            update_dict[newk] = pretrained_dict[pretrainedk]
-            print(pretrainedk , '-->', newk)
+        # elif "backbone" in pretrainedk :
+        #     newk = pretrainedk.replace("backbone", "reference_net.backbone")
+        #     update_dict[newk] = pretrained_dict[pretrainedk]
+        #     print(pretrainedk , '-->', newk)
             
-            newk = pretrainedk.replace("backbone", "query_net.backbone")
-            update_dict[newk] = pretrained_dict[pretrainedk]
-            print(pretrainedk , '-->', newk)
+        #     newk = pretrainedk.replace("backbone", "query_net.backbone")
+        #     update_dict[newk] = pretrained_dict[pretrainedk]
+        #     print(pretrainedk , '-->', newk)
             
         else:            
             update_dict[pretrainedk] = pretrained_dict[pretrainedk]
+            print(pretrainedk)
             
     return update_dict
 
@@ -268,4 +269,29 @@ def print_that():
     .........\.............\...
     """)
 
+    return
+
+def print_pigeon():
+    print(r"""\
+            .-''-.
+            / ,    \
+        .-'`(o)    ;
+        '-==.       |
+            `._...-;-.
+            )--'''   `-.
+            /   .        `-.
+            /   /      `.    `-.
+            |   \    ;   \      `-._________
+            |    \    `.`.;          -------`.
+            \    `-.   \\\\          `---...|
+            `.     `-. ```\.--'._   `---...|
+                `-.....7`-.))\     `-._`-.. /
+                `._\ /   `-`         `-.,'
+                    / /
+                    /=(_
+                -./--' `
+            ,^-(_
+            ,--' `                   
+    
+    """)
     return
