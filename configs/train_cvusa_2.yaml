@@ -1,16 +1,11 @@
 # configuration file for training
 infer: False
 
-# resume_flag: False  
-# resume_path: None
-resume_flag: True  
-resume_path: ./ckpts/cvusa-11-07-23-14:05:43/epoch_110.pth
+pretrain: False
+resume: ./ckpts/cvusa-20-07-23-16:45:45/model_best.pth
 
 seed: 42
 num_workers: 4
-
-world_size: 1 # number of distributed processes
-dist_url: env:// # url used to set up distributed training
 
 batch_size: 32
 
@@ -23,11 +18,13 @@ train:
   epochs: 250
 
   lr: 0.00001
-  lr_backbone: 0.00001
+  lr_backbone: 0.00001  
+
+  weight_decay: 0.03
   
-  weight_decay: 0.0001
-  
-  lr_drop: 200
+  lr_drop: 50
+  gamma: 0.7
+
   clip_max_norm: 0.1 # gradient clipping max norm
 
   start_epoch: 1
@@ -38,24 +35,19 @@ dataset:
   data_root: /storage2/public/cvusa/  
   fov: 0
 
-  grnd_img_size: [128, 640] # [112, 616]
-  # arl_img_size: [256, 256]
-  arl_img_size: [320, 320]
-
-  down_ratio: 32  
+  grnd_img_size: [112, 616] # [112, 616]
+  arl_img_size: [256, 256]
 
   # cvusa only
   # train_pt_list: ./datasets/splits/cvusa/train-mini.csv
   # val_pt_list: ./datasets/splits/cvusa/train-mini.csv
-  # test_pt_list: ./datasets/splits/cvusa/train-mini.csv
 
   train_pt_list: ./datasets/splits/cvusa/train-19zl.csv
   val_pt_list: ./datasets/splits/cvusa/val-19zl.csv
-  test_pt_list: ./datasets/splits/cvusa/val-19zl.csv
   
 model:
 
-  backbone: resnet18 # Name of the convolutional backbone to use
+  backbone: resnet34 # Name of the convolutional backbone to use
   dilation: False # If true, we replace stride with dilation in the last convolutional block (DC5)
   
   position_embedding: sine # (sine, learned) Type of positional embedding to use on top of the image features
@@ -65,6 +57,8 @@ model:
   dropout: 0.1 # Dropout applied in the transformer
   num_heads: 8 # Number of attention heads inside the transformer's attentions
   dim_feedforward: 2048 # Intermediate size of the feedforward layers in the transformer blocks  
-  num_enc_layers: 6 # Number of encoding layers in the transformer
-  num_dec_layers: 6 # Number of decoding layers in the transformer
+  num_enc_layers: 8 # Number of encoding layers in the transformer
+  # num_dec_layers: 6 # Number of decoding layers in the transformer
   pre_norm: False
+
+  dim_feature: 1000

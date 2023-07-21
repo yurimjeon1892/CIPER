@@ -68,7 +68,7 @@ def main():
         #                             weight_decay=args["train"]["weight_decay"])
         optimizer = torch.optim.AdamW(param_dicts, lr=args["train"]["lr"], betas=(0.9, 0.999), eps=1e-08, 
                                       weight_decay=args["train"]["weight_decay"], amsgrad=False)
-        lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, args["train"]["lr_drop"])
+        lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, args["train"]["lr_drop"], args["train"]["gamma"])
         
         ## data_loader 만들어 주기 
         # train -> dataset -> RandomSampler -> BatchSampler -> DataLoader
@@ -144,8 +144,8 @@ def main():
         if args["infer"]:
             print("[i] load checkpoint from:", args["resume"], "for inference")
         elif "optimizer" in checkpoint and "lr_scheduler" in checkpoint and "epoch" in checkpoint:
-            optimizer.load_state_dict(checkpoint["optimizer"])
-            lr_scheduler.load_state_dict(checkpoint["lr_scheduler"])
+            # optimizer.load_state_dict(checkpoint["optimizer"])
+            # lr_scheduler.load_state_dict(checkpoint["lr_scheduler"])
             args["train"]["start_epoch"] = checkpoint["epoch"] + 1        
             print("[i] load checkpoint from:", args["resume"], "for train")
         else:

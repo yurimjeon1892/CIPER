@@ -9,7 +9,7 @@ from common.utils_misc import nested_tensor_from_tensor_list
 from .backbone import build_backbone
 from .transformer import *
 
-class CIPERENC(nn.Module):
+class Encoder(nn.Module):
     def __init__(self, args):
         """ Initializes the model.
         Parameters:
@@ -76,7 +76,7 @@ class CIPERENC(nn.Module):
         
         return embed, memory, mask, pos[-1]
     
-class CIPERDEC(nn.Module):
+class Decoder(nn.Module):
     def __init__(self, args):
         """ Initializes the model.
         Parameters:
@@ -88,32 +88,32 @@ class CIPERDEC(nn.Module):
         
         # self.decoder = build_transformer_decoder(args)
         
-        dim_embed = args["dim_embed"]
-        dim_embed_merged = dim_embed + int(dim_embed / 2)
+        dim_embed_encoder = args["dim_embed"]
+        dim_embed_decoder = dim_embed + int(dim_embed_encoder / 2)
         
-        self.query_embed = nn.Embedding(args["num_queries"], dim_embed_merged) 
+        self.query_embed = nn.Embedding(args["num_queries"], dim_embed_decoder) 
         
         self.conv_mem = nn.Sequential(
-            nn.Conv2d(dim_embed, int(dim_embed / 4), 2, stride=(1, 2)),
+            nn.Conv2d(dim_embed_encoder, int(dim_embed_encoder / 4), 2, stride=(1, 2)),
             nn.ReLU(inplace=True),
-            nn.Conv2d(int(dim_embed / 4), int(dim_embed / 16), 2, stride=(1, 2)),
+            nn.Conv2d(int(dim_embed_encoder / 4), int(dim_embed_encoder / 16), 2, stride=(1, 2)),
         )
         self.conv_pos = nn.Sequential(
-            nn.Conv2d(dim_embed, int(dim_embed / 4), 2, stride=(1, 2)),
+            nn.Conv2d(dim_embed_encoder, int(dim_embed_encoder / 4), 2, stride=(1, 2)),
             nn.ReLU(inplace=True),
-            nn.Conv2d(int(dim_embed / 4), int(dim_embed / 16), 2, stride=(1, 2)),
+            nn.Conv2d(int(dim_embed_encoder / 4), int(dim_embed_encoder / 16), 2, stride=(1, 2)),
         )
         
-        self.class_embed = nn.Linear(dim_embed_merged, 2)      
-        self.bbox_embed = MLP(dim_embed_merged, dim_embed_merged, output_dim=4, num_layers=3)
+        self.class_embed = nn.Linear(dim_embed_decoder, 2)      
+        self.bbox_embed = MLP(dim_embed_decoder, dim_embed_decoder, output_dim=4, num_layers=3)
         
-        decoder_layer = TransformerDecoderLayer(dim_embed=dim_embed_merged, 
+        decoder_layer = TransformerDecoderLayer(dim_embed=dim_embed_decoder, 
                                                 num_heads=args["num_heads"], 
                                                 dim_feedforward=args["dim_feedforward"],
                                                 dropout=args["dropout"], 
                                                 activation="relu", 
                                                 normalize_before=args["pre_norm"])
-        decoder_norm = nn.LayerNorm(dim_embed_merged)
+        decoder_norm = nn.LayerNorm(dim_embed_decoder)
         self.decoder = TransformerDecoder(decoder_layer, args["num_dec_layers"], decoder_norm,
                                           return_intermediate=False)
         
@@ -174,7 +174,7 @@ class MLP(nn.Module):
         return x
 
 def build_encoder(args):
-    return CIPERENC(args)
+    return Encoder(args)
 
 def build_decoder(args):
-    return CIPERDEC(args)
+    return Decoder(args)
