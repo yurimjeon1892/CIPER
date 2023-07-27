@@ -35,6 +35,13 @@ class Encoder(nn.Module):
         
         self.head = nn.Linear(args["dim_embed"], args["dim_feature"])
         self.head_dist = nn.Linear(args["dim_embed"], args["dim_feature"]) 
+        
+        # self._reset_parameters()
+
+    def _reset_parameters(self):
+        for p in self.parameters():
+            if p.dim() > 1:
+                nn.init.trunc_normal_(p)
 
     def forward(self, x):
         if isinstance(x, (list, torch.Tensor)):
@@ -89,7 +96,7 @@ class Decoder(nn.Module):
         # self.decoder = build_transformer_decoder(args)
         
         dim_embed_encoder = args["dim_embed"]
-        dim_embed_decoder = dim_embed + int(dim_embed_encoder / 2)
+        dim_embed_decoder = args["dim_embed"] + int(dim_embed_encoder / 2)
         
         self.query_embed = nn.Embedding(args["num_queries"], dim_embed_decoder) 
         

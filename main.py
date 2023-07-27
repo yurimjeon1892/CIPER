@@ -16,7 +16,7 @@ import common.utils_misc as utils_misc
 
 from common.utils import save_state, load_pretrained, print_pigeon
 from datasets import build_dataset
-from models import build
+from models import build, SAM
 from engine import train_one_epoch, valid_one_epoch, evaluate
 
 def main():
@@ -49,7 +49,8 @@ def main():
     #     model_without_ddp = model.module
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
     # for name, param in model.named_parameters():
-    #     print(name)    
+    #     print(name)  
+    # exit()  
     print("[i] number of params:", n_parameters // 10 ** 6 , "M")
     
     if not args["infer"] :
@@ -63,14 +64,21 @@ def main():
             },
         ]
         
-        ## optimizer와 ir_scheduler 설정
-        # optimizer = torch.optim.Adam(param_dicts, lr=args["train"]["lr"], betas=(0.9, 0.999), eps=1e-08, 
-        #                             weight_decay=args["train"]["weight_decay"])
-        optimizer = torch.optim.AdamW(param_dicts, lr=args["train"]["lr"], betas=(0.9, 0.999), eps=1e-08, 
-                                      weight_decay=args["train"]["weight_decay"], amsgrad=False)
+        ## optimizer and ir_scheduler         
+        if args["train"]["optimizer"] == "adam":            
+            optimizer = torch.optim.Adam(param_dicts, lr=args["train"]["lr"], betas=(0.9, 0.999), eps=1e-08, 
+                                        weight_decay=args["train"]["weight_decay"])
+        elif args["train"]["optimizer"] == "adamw":            
+            optimizer = torch.optim.AdamW(param_dicts, lr=args["train"]["lr"], betas=(0.9, 0.999), eps=1e-08, 
+                                        weight_decay=args["train"]["weight_decay"], amsgrad=False)
+        elif args["train"]["optimizer"] == "sam":            
+            base_optimizer = torch.optim.AdamW
+            optimizer = SAM(param_dicts, base_optimizer, lr=args["train"]["lr"], betas=(0.9, 0.999), eps=1e-08, 
+                            weight_decay=args["train"]["weight_decay"], amsgrad=False, rho=2.5, adaptive=True)
+
         lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, args["train"]["lr_drop"], args["train"]["gamma"])
         
-        ## data_loader 만들어 주기 
+        ## data_loader  
         # train -> dataset -> RandomSampler -> BatchSampler -> DataLoader
         # val -> dataset -> SequentialSampler -> DataLoader(+batch_size)
         dataset_train = build_dataset(mode="train", args=args["dataset"])
@@ -90,9 +98,9 @@ def main():
                                         collate_fn=utils_misc.collate_fn, num_workers=args["num_workers"]) 
         # data_loader_train = DataLoader(dataset_train, batch_size=args["batch_size"], shuffle=False, sampler=sampler_train,  drop_last=True,
         #                                 collate_fn=utils_misc.collate_fn, num_workers=args["num_workers"]) 
-        data_loader_val_q = DataLoader(dataset_val_q, batch_size=32, shuffle=False,
+        data_loader_val_q = DataLoader(dataset_val_q, batch_size=32, shuffle=True,
                                         drop_last=False, num_workers=args["num_workers"])
-        data_loader_val_r = DataLoader(dataset_val_r, batch_size=64, shuffle=False,
+        data_loader_val_r = DataLoader(dataset_val_r, batch_size=64, shuffle=True,
                                         drop_last=False, num_workers=args["num_workers"])
         
         data_loader_valid = {
@@ -134,7 +142,7 @@ def main():
     # TODO ##########################################################################################################
     #                                                                                                               #
     #  
-    if args["pretrain"] != False:
+    if args["pretrain"] != False:        
         model = load_pretrained(model, args["pretrain"])
         print("[i] load pretrained file from:", args["pretrain"])
     if args["resume"]  != False:
@@ -170,7 +178,8 @@ def main():
         "epoch": -1,
         "device": device,
         "is_local": is_local,
-        "clip_max_norm": args["train"]["clip_max_norm"],
+        # "clip_max_norm": args["train"]["clip_max_norm"],
+        "optimizer": args["train"]["optimizer"]
     }
     valid_infos = {
         "epoch": -1,

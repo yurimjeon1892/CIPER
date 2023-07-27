@@ -1,2 +1,3 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
 from .ciper import build
+from .sam import SAM

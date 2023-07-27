@@ -16,18 +16,18 @@ train:
 
   ckpt_dir: ./ckpts
   epochs: 150
+  start_epoch: 1
 
   lr: 0.0001
   lr_backbone: 0.0001  
 
-  weight_decay: 0.0001
+  weight_decay: 0.03
+  # weight_decay: 0.0001
   
   lr_drop: 50
   gamma: 0.5
 
   clip_max_norm: 0.1 # gradient clipping max norm
-
-  start_epoch: 1
 
   optimizer: adamw
 
@@ -41,11 +41,11 @@ dataset:
   arl_img_size: [256, 256]
 
   # cvusa only
-  # train_pt_list: ./datasets/splits/cvusa/train-mini.csv
-  # val_pt_list: ./datasets/splits/cvusa/train-mini.csv
+  train_pt_list: ./datasets/splits/cvusa/train-mini.csv
+  val_pt_list: ./datasets/splits/cvusa/train-mini.csv
 
-  train_pt_list: ./datasets/splits/cvusa/train-19zl.csv
-  val_pt_list: ./datasets/splits/cvusa/val-19zl.csv
+  # train_pt_list: ./datasets/splits/cvusa/train-19zl.csv
+  # val_pt_list: ./datasets/splits/cvusa/val-19zl.csv
   
 model:
 

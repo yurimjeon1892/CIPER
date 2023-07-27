@@ -55,7 +55,17 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module, postproc
         losses.backward()
         # if train_infos["clip_max_norm"] > 0:
         #     torch.nn.utils.clip_grad_norm_(model.parameters(), train_infos["clip_max_norm"])
-        optimizer.step()
+        if train_infos["optimizer"] != 'sam':
+            optimizer.step()
+        else:
+            optimizer.first_step(zero_grad=True)
+            # second forward-backward pass, only for ASAM
+            outputs = model(im_grnd=img_grnd, im_arl=img_arl)  
+            
+            loss_dict = criterion(outputs, targets)            
+            losses = sum(loss_dict[k] for k in loss_dict.keys())        
+            losses.backward()
+            optimizer.second_step(zero_grad=True)
                         
         iters += bs
         
@@ -153,7 +163,7 @@ def valid_retr(model: torch.nn.Module,
         "acc/retr_top1": retr_acc[0],
         "acc/retr_top5": retr_acc[1],
         "acc/retr_top10": retr_acc[2],
-        "acc/retr_top1%": retr_acc[3],
+        "acc/retr_top1pc": retr_acc[3],
     }
              
     return imgs, stats
@@ -261,7 +271,7 @@ def evaluate(model: torch.nn.Module,
         "acc/retr_top1": retr_acc[0],
         "acc/retr_top5": retr_acc[1],
         "acc/retr_top10": retr_acc[2],
-        "acc/retr_top1%": retr_acc[3],
+        "acc/retr_top1pc": retr_acc[3],
     }   
     
     if eval_infos["is_local"]:   

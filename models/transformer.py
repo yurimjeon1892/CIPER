@@ -14,112 +14,6 @@ import torch
 import torch.nn.functional as F
 from torch import nn, Tensor
 
-# class TransformerEncoderWrapper(nn.Module):
-
-#     def __init__(self, dim_embed=512, num_heads=8, num_encoder_layers=6,
-#                  dim_feedforward=2048, dropout=0.1,
-#                  activation="relu", normalize_before=False):
-#         super().__init__()
-        
-#         encoder_layer = TransformerEncoderLayer(dim_embed, num_heads, dim_feedforward,
-#                                                 dropout, activation, normalize_before)
-#         encoder_norm = nn.LayerNorm(dim_embed) if normalize_before else None
-#         self.encoder = TransformerEncoder(encoder_layer, num_encoder_layers, encoder_norm)   
-        
-#         self.cls_token = nn.Parameter(torch.zeros(1, 1, dim_embed))          
-#         self.dist_token = nn.Parameter(torch.zeros(1, 1, dim_embed)) 
-#         # self.cls_mask = nn.Parameter(torch.zeros(1, 1))           
-#         self.pos_embed = nn.Parameter(torch.zeros(1, 2, dim_embed))  
-        
-#         self.head = nn.Linear(dim_embed, 1000)
-#         self.head_dist = nn.Linear(dim_embed, 1000) 
-        
-#         self._reset_parameters()
-        
-#     def _reset_parameters(self):
-#         for p in self.parameters():
-#             if p.dim() > 1:
-#                 nn.init.xavier_uniform_(p)
-#         nn.init.normal_(self.cls_token, std=1e-6)
-#         nn.init.trunc_normal_(self.dist_token, std=.02)
-#         nn.init.trunc_normal_(self.pos_embed, std=.02)
-        
-#     def forward(self, src, mask, pos_embed):
-#         """
-#             src: bs x dim_embed x h x w
-#             mask: bs x h x w
-#             pos_embed: bs x dim_embed x h x w
-#         """
-#         # flatten NxCxHxW to HWxNxC
-#         bs, c, h, w = src.shape        
-        
-#         cls_token = self.cls_token.expand(bs, -1, -1).permute(1, 0, 2) # 1 x bs x dim_embed
-#         dist_token = self.dist_token.expand(bs, -1, -1).permute(1, 0, 2) # 1 x bs x dim_embed
-#         src = src.flatten(2).permute(2, 0, 1) # num_patches(=h*w) x bs x dim_embed
-#         src = torch.cat((cls_token, dist_token, src), dim=0) # (num_patches + 1) x bs x dim_embed
-        
-#         # mask = mask.flatten(1) # bs x num_patches        
-#         # mask_ = self.cls_mask.expand(bs, -1)
-#         # mask = torch.cat((mask_, mask), dim=1) # bs x (num_patches + 1)
-        
-#         pos_embed_ = self.pos_embed.expand(bs, -1, -1).permute(1, 0, 2) # 1 x bs x dim_embed        
-#         pos_embed = pos_embed.flatten(2).permute(2, 0, 1) # num_patches x bs x dim_embed    
-#         pos_embed = torch.cat((pos_embed_, pos_embed), dim=0) # (num_patches + 1) x bs x dim_embed
-
-#         # dst = self.encoder(src, src_key_padding_mask=mask, pos=pos_embed) # (num_patches + 1) x bs x dim_embed
-#         dst = self.encoder(src, pos=pos_embed) # (num_patches + 1) x bs x dim_embed
-#         dst = dst.permute(1, 2, 0) # bs x dim_embed x (num_patches + 1)
-        
-#         x = self.head(dst[:, :, 0]) # bs x dim_embed     
-#         x_dist = self.head_dist(dst[:, :, 1]) # bs x dim_embed     
-#         embed = (x + x_dist) / 2
-        
-#         memory = dst[:, :, 2:].view(bs, c, h, w) # bs x dim_embed x h x w
-        
-#         return embed, memory 
-    
-# class TransformerDecoderWrapper(nn.Module):
-
-#     def __init__(self, dim_embed=512, num_heads=8, 
-#                  num_decoder_layers=6, dim_feedforward=2048, dropout=0.1,
-#                  activation="relu", normalize_before=False,
-#                  return_intermediate_dec=False):
-#         super().__init__()
-        
-#         dim_embed = int(dim_embed * (3 / 2)) 
-
-#         decoder_layer = TransformerDecoderLayer(dim_embed, num_heads, dim_feedforward,
-#                                                 dropout, activation, normalize_before)
-#         decoder_norm = nn.LayerNorm(dim_embed)
-#         self.decoder = TransformerDecoder(decoder_layer, num_decoder_layers, decoder_norm,
-#                                           return_intermediate=return_intermediate_dec)
-        
-#         self._reset_parameters()
-        
-#     def _reset_parameters(self):
-#         for p in self.parameters():
-#             if p.dim() > 1:
-#                 nn.init.xavier_uniform_(p)
-    
-#     def forward(self, tgt, memory,
-#                 tgt_mask: Optional[Tensor] = None,
-#                 memory_mask: Optional[Tensor] = None,
-#                 tgt_key_padding_mask: Optional[Tensor] = None,
-#                 memory_key_padding_mask: Optional[Tensor] = None,
-#                 pos: Optional[Tensor] = None,
-#                 query_pos: Optional[Tensor] = None):        
-#         dst = self.decoder(
-#             tgt, memory,
-#             tgt_mask,
-#             memory_mask,
-#             tgt_key_padding_mask,
-#             memory_key_padding_mask,
-#             pos,
-#             query_pos
-#             )
-#         return  dst
-    
-
 class TransformerEncoder(nn.Module):
 
     def __init__(self, encoder_layer, num_layers, norm=None):
@@ -143,6 +37,48 @@ class TransformerEncoder(nn.Module):
 
         return output
 
+
+class TransformerDecoder(nn.Module):
+
+    def __init__(self, decoder_layer, num_layers, norm=None, return_intermediate=False):
+        super().__init__()
+        self.layers = _get_clones(decoder_layer, num_layers)
+        self.num_layers = num_layers
+        self.norm = norm
+        self.return_intermediate = return_intermediate
+
+    def forward(self, tgt, memory,
+                tgt_mask: Optional[Tensor] = None,
+                memory_mask: Optional[Tensor] = None,
+                tgt_key_padding_mask: Optional[Tensor] = None,
+                memory_key_padding_mask: Optional[Tensor] = None,
+                pos: Optional[Tensor] = None,
+                query_pos: Optional[Tensor] = None):
+        output = tgt
+
+        intermediate = []
+
+        for layer in self.layers:
+            output = layer(output, memory, tgt_mask=tgt_mask,
+                           memory_mask=memory_mask,
+                           tgt_key_padding_mask=tgt_key_padding_mask,
+                           memory_key_padding_mask=memory_key_padding_mask,
+                           pos=pos, query_pos=query_pos)
+            if self.return_intermediate:
+                intermediate.append(self.norm(output))
+
+        if self.norm is not None:
+            output = self.norm(output)
+            if self.return_intermediate:
+                intermediate.pop()
+                intermediate.append(output)
+
+        if self.return_intermediate:
+            return torch.stack(intermediate)
+
+        return output
+    
+    
 class TransformerEncoderLayer(nn.Module):
 
     def __init__(self, dim_embed, num_heads, dim_feedforward=2048, dropout=0.1,
@@ -202,46 +138,6 @@ class TransformerEncoderLayer(nn.Module):
             return self.forward_pre(src, src_mask, src_key_padding_mask, pos)
         return self.forward_post(src, src_mask, src_key_padding_mask, pos)
 
-
-class TransformerDecoder(nn.Module):
-
-    def __init__(self, decoder_layer, num_layers, norm=None, return_intermediate=False):
-        super().__init__()
-        self.layers = _get_clones(decoder_layer, num_layers)
-        self.num_layers = num_layers
-        self.norm = norm
-        self.return_intermediate = return_intermediate
-
-    def forward(self, tgt, memory,
-                tgt_mask: Optional[Tensor] = None,
-                memory_mask: Optional[Tensor] = None,
-                tgt_key_padding_mask: Optional[Tensor] = None,
-                memory_key_padding_mask: Optional[Tensor] = None,
-                pos: Optional[Tensor] = None,
-                query_pos: Optional[Tensor] = None):
-        output = tgt
-
-        intermediate = []
-
-        for layer in self.layers:
-            output = layer(output, memory, tgt_mask=tgt_mask,
-                           memory_mask=memory_mask,
-                           tgt_key_padding_mask=tgt_key_padding_mask,
-                           memory_key_padding_mask=memory_key_padding_mask,
-                           pos=pos, query_pos=query_pos)
-            if self.return_intermediate:
-                intermediate.append(self.norm(output))
-
-        if self.norm is not None:
-            output = self.norm(output)
-            if self.return_intermediate:
-                intermediate.pop()
-                intermediate.append(output)
-
-        if self.return_intermediate:
-            return torch.stack(intermediate)
-
-        return output
 
 class TransformerDecoderLayer(nn.Module):
 
@@ -332,6 +228,7 @@ class TransformerDecoderLayer(nn.Module):
 def _get_clones(module, N):
     return nn.ModuleList([copy.deepcopy(module) for i in range(N)])
 
+
 def _get_activation_fn(activation):
     """Return an activation function given a string"""
     if activation == "relu":
@@ -341,23 +238,3 @@ def _get_activation_fn(activation):
     if activation == "glu":
         return F.glu
     raise RuntimeError(F"activation should be relu/gelu, not {activation}.")
-
-# def build_transformer_encoder(args):
-#     return TransformerEncoderWrapper(
-#         dim_embed=args["dim_embed"],
-#         dropout=args["dropout"],
-#         num_heads=args["num_heads"],
-#         dim_feedforward=args["dim_feedforward"],
-#         num_encoder_layers=args["num_enc_layers"],
-#         normalize_before=args["pre_norm"],
-#     )
-
-# def build_transformer_decoder(args):
-#     return TransformerDecoderWrapper(
-#         dim_embed=args["dim_embed"],
-#         dropout=args["dropout"],
-#         num_heads=args["num_heads"],
-#         dim_feedforward=args["dim_feedforward"],
-#         num_decoder_layers=args["num_dec_layers"],
-#         normalize_before=args["pre_norm"],
-#     )

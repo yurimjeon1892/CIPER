@@ -54,27 +54,22 @@ def save_state(save_path, model, optimizer, lr_scheduler, epoch, is_best, filena
         if os.path.exists(prev_checkpoint_filename):
             os.remove(prev_checkpoint_filename)
 
-# def save_image(img, fname):
-#     """
-#     :param img: image (numpy array, H x W x 3)
-#     :param fname: file name (string)
-#     """
-#     img = np.array(img).astype("uint8")
-#     if img.ndim == 3 and img.shape[2] != 3:
-#         img = np.transpose(img, (1, 2, 0))
-#     im = Image.fromarray(img)
-#     im.save(fname)
-
 def load_pretrained(model, default_path=""):
     
     pretrained_dict = torch.load(default_path)["model"]
+    # pretrained_dict = torch.hub.load('facebookresearch/detr:main', 'detr_resnet50', pretrained=True, map_location="cpu")
     update_dict = change_param_name(pretrained_dict)    
     model_dict = model.state_dict()
-    update_dict = {k: v for k, v in update_dict.items() if k in model_dict}    
+    
+    # ins, outs = [], []    
+    # for k in model_dict:
+    #     if k in update_dict.keys(): ins.append(k)
+    #     else: outs.append(k)
+    
+    # update_dict = {k: v for k, v in update_dict.items() if k in model_dict}    
     model_dict.update(update_dict)
     model.load_state_dict(update_dict, strict=False)
     
-    # print(model_dict)
     return model
 
 def change_param_name(pretrained_dict):
@@ -84,11 +79,11 @@ def change_param_name(pretrained_dict):
         if "transformer" in pretrainedk :
             newk = pretrainedk.replace("transformer", "reference_net")
             update_dict[newk] = pretrained_dict[pretrainedk]
-            print(pretrainedk , '-->', newk)
+            # print(pretrainedk , '-->', newk)
             
             newk = pretrainedk.replace("transformer", "query_net")
             update_dict[newk] = pretrained_dict[pretrainedk]
-            print(pretrainedk , '-->', newk)
+            # print(pretrainedk , '-->', newk)
         
         # elif "backbone" in pretrainedk :
         #     newk = pretrainedk.replace("backbone", "reference_net.backbone")
@@ -101,7 +96,7 @@ def change_param_name(pretrained_dict):
             
         else:            
             update_dict[pretrainedk] = pretrained_dict[pretrainedk]
-            print(pretrainedk)
+            # print(pretrainedk)
             
     return update_dict
 
@@ -113,7 +108,7 @@ def retr_accuracy(qry_feat, ref_feat, qry_label, topk=[1, 5, 10]):
     topk.append(M//100)
     results = np.zeros([len(topk)])
     # for CVUSA, CVACT
-    if N < 5000:
+    if N < 80000:
         qry_feat_norm = np.sqrt(np.sum(qry_feat**2, axis=1, keepdims=True))
         ref_feat_norm = np.sqrt(np.sum(ref_feat ** 2, axis=1, keepdims=True))
         similarity = np.matmul(qry_feat/qry_feat_norm, (ref_feat/ref_feat_norm).transpose())
@@ -273,25 +268,25 @@ def print_that():
 
 def print_pigeon():
     print(r"""\
-            .-''-.
-            / ,    \
-        .-'`(o)    ;
-        '-==.       |
-            `._...-;-.
-            )--'''   `-.
-            /   .        `-.
-            /   /      `.    `-.
-            |   \    ;   \      `-._________
-            |    \    `.`.;          -------`.
-            \    `-.   \\\\          `---...|
-            `.     `-. ```\.--'._   `---...|
-                `-.....7`-.))\     `-._`-.. /
-                `._\ /   `-`         `-.,'
-                    / /
-                    /=(_
-                -./--' `
-            ,^-(_
-            ,--' `                   
+                    .-''-.
+                    / ,    \
+                .-'`(o)    ;
+                '-==.       |
+                    `._...-;-.
+                    )--'''   `-.
+                    /   .        `-.
+                    /   /      `.    `-.
+                    |   \    ;   \      `-._________
+                    |    \    `.`.;          -------`.
+                    \    `-.   \\\\          `---...|
+                    `.     `-. ```\.--'._   `---...|
+                        `-.....7`-.))\     `-._`-.. /
+                        `._\ /   `-`         `-.,'
+                            / /
+                            /=(_
+                        -./--' `
+                    ,^-(_
+                    ,--' `                   
     
     """)
     return

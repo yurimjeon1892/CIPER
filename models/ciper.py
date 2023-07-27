@@ -1,8 +1,8 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
 import torch
 import torch.nn.functional as F
-import math
-from scipy.stats import truncnorm
+# import math
+# from scipy.stats import truncnorm
 from torch import nn
 
 from .encdec import build_encoder, build_decoder
@@ -59,7 +59,7 @@ class SetCriterion(nn.Module):
         self.register_buffer("empty_weight", empty_weight)
         
         if "retrieval" in losses:          
-            self.soft_triplet_loss = SoftTripletBiLoss()
+            self.soft_triplet_loss = SoftTripletBiLoss().cuda()
         
     def loss_retrieval(self, outputs, targets, indices):        
         loss_ir, mean_p, mean_n = self.soft_triplet_loss(outputs["grnd"], outputs["arl"])
