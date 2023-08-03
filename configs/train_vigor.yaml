@@ -30,7 +30,7 @@ train:
   lr_drop: 200
   clip_max_norm: 0.1 # gradient clipping max norm
 
-  ckpt_dir: ./ckpts
+  ckpt_dir: ../ckpts
 
   start_epoch: 1
   epochs: 100

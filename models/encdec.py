@@ -2,7 +2,6 @@ import torch
 import torch.nn.functional as F
 import math
 from torch import nn
-from scipy.stats import truncnorm
 
 from common.utils_misc import nested_tensor_from_tensor_list
 
@@ -16,18 +15,20 @@ class Encoder(nn.Module):
             backbone: torch module of the backbone to be used. See backbone.py
         """
         super().__init__()
-                
-        self.backbone = build_backbone(args)        
-        self.input_proj = nn.Conv2d(self.backbone.num_channels, args["dim_embed"], kernel_size=1) 
         
-        encoder_layer = TransformerEncoderLayer(dim_embed=args["dim_embed"],
-                                                num_heads=args["num_heads"],
+        encoder_layer = TransformerEncoderLayer(d_model=args["dim_embed"],
+                                                nhead=args["num_heads"],
                                                 dim_feedforward=args["dim_feedforward"],
                                                 dropout=args["dropout"],                                                
                                                 activation="relu",
                                                 normalize_before=args["pre_norm"])
         encoder_norm = nn.LayerNorm(args["dim_embed"]) if args["pre_norm"] else None
-        self.encoder = TransformerEncoder(encoder_layer, args["num_enc_layers"], encoder_norm)   
+        self.encoder = TransformerEncoder(encoder_layer, args["num_enc_layers"], encoder_norm)  
+        
+        # self._reset_parameters()
+        
+        self.backbone = build_backbone(args)        
+        self.input_proj = nn.Conv2d(self.backbone.num_channels, args["dim_embed"], kernel_size=1) 
         
         self.cls_token = nn.Parameter(torch.zeros(1, 1, args["dim_embed"]))          
         self.dist_token = nn.Parameter(torch.zeros(1, 1, args["dim_embed"])) 
@@ -36,13 +37,16 @@ class Encoder(nn.Module):
         self.head = nn.Linear(args["dim_embed"], args["dim_feature"])
         self.head_dist = nn.Linear(args["dim_embed"], args["dim_feature"]) 
         
-        # self._reset_parameters()
-
+        nn.init.trunc_normal_(self.cls_token)        
+        nn.init.trunc_normal_(self.dist_token)
+        nn.init.trunc_normal_(self.pos_embed)
+        
     def _reset_parameters(self):
         for p in self.parameters():
             if p.dim() > 1:
-                nn.init.trunc_normal_(p)
-
+                # nn.init.trunc_normal_(p)
+                nn.init.xavier_uniform_(p)
+        
     def forward(self, x):
         if isinstance(x, (list, torch.Tensor)):
             x = nested_tensor_from_tensor_list(x)     

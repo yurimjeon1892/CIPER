@@ -141,7 +141,8 @@ def main():
 
     # TODO ##########################################################################################################
     #                                                                                                               #
-    #  
+    #                                                                                                               #
+    
     if args["pretrain"] != False:        
         model = load_pretrained(model, args["pretrain"])
         print("[i] load pretrained file from:", args["pretrain"])

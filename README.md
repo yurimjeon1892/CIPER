@@ -1,6 +1,6 @@
 # CIPER :round_pushpin:
 
-Cross-view Image-retrieval and Pose-estimation transformER 
+**C**ross-view **I**mage-retrieval and **P**ose-estimation transform**ER** 
 
 ## Environment
 
@@ -20,10 +20,9 @@ pip install -r requirements.txt
 
 ### CVUSA
 
-Download CVUSA data (https://mvrl.cse.wustl.edu/datasets/cvusa)
-
+Download [CVUSA dataset](https://mvrl.cse.wustl.edu/datasets/cvusa). The folder structure is as follows:
 ```
-cvusa
+CVUSA
 ├── bingmap
 |   ├── 18
 |   |   ├── 0000001.jpg
@@ -44,13 +43,9 @@ cvusa
 
 ### KITTI
 
-First, download KITTI raw data (ground images) (https://www.cvlibs.net/datasets/kitti/raw_data.php)
-
-Next, download KITTI satellite images (https://github.com/shiyujiao/HighlyAccurate)
-
-The folder structure is as follows:
+Download KITTI [street-view images](https://www.cvlibs.net/datasets/kitti/raw_data.php) and [satellite images](https://github.com/shiyujiao/HighlyAccurate). The folder structure is as follows:
 ```
-kitti
+KITTI
 ├── raw
 |   ├── 2011_09_26
 |   |   ├── 2011_09_26_drive_0001_sync
