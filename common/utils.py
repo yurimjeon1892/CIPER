@@ -54,7 +54,7 @@ def save_state(save_path, model, optimizer, lr_scheduler, epoch, is_best, filena
         if os.path.exists(prev_checkpoint_filename):
             os.remove(prev_checkpoint_filename)
 
-def load_pretrained(model, default_path=""):
+def load_pretrained(model, default_path):
     
     pretrained_dict = torch.load(default_path)["model"]
     # pretrained_dict = torch.hub.load('facebookresearch/detr:main', 'detr_resnet50', pretrained=True, map_location="cpu")
@@ -79,24 +79,24 @@ def change_param_name(pretrained_dict):
         if "transformer" in pretrainedk :
             newk = pretrainedk.replace("transformer", "reference_net")
             update_dict[newk] = pretrained_dict[pretrainedk]
-            # print(pretrainedk , '-->', newk)
+            print(pretrainedk , '-->', newk)
             
             newk = pretrainedk.replace("transformer", "query_net")
             update_dict[newk] = pretrained_dict[pretrainedk]
-            # print(pretrainedk , '-->', newk)
+            print(pretrainedk , '-->', newk)
         
-        # elif "backbone" in pretrainedk :
-        #     newk = pretrainedk.replace("backbone", "reference_net.backbone")
-        #     update_dict[newk] = pretrained_dict[pretrainedk]
-        #     print(pretrainedk , '-->', newk)
+        elif "backbone" in pretrainedk :
+            newk = pretrainedk.replace("backbone", "reference_net.backbone")
+            update_dict[newk] = pretrained_dict[pretrainedk]
+            print(pretrainedk , '-->', newk)
             
-        #     newk = pretrainedk.replace("backbone", "query_net.backbone")
-        #     update_dict[newk] = pretrained_dict[pretrainedk]
-        #     print(pretrainedk , '-->', newk)
+            newk = pretrainedk.replace("backbone", "query_net.backbone")
+            update_dict[newk] = pretrained_dict[pretrainedk]
+            print(pretrainedk , '-->', newk)
             
         else:            
             update_dict[pretrainedk] = pretrained_dict[pretrainedk]
-            # print(pretrainedk)
+            print(pretrainedk)
             
     return update_dict
 

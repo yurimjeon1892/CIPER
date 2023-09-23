@@ -15,14 +15,14 @@ device: cuda # device to use for training / testing
 train:
 
   ckpt_dir: ../ckpts
-  epochs: 150
+  epochs: 300
 
   lr: 0.0001
-  lr_backbone: 0.0001  
+  lr_backbone: 0.00001  
 
   weight_decay: 0.0001
   
-  lr_drop: 50
+  lr_drop: 100
   gamma: 0.7
 
   clip_max_norm: 0.1 # gradient clipping max norm
@@ -49,12 +49,12 @@ dataset:
   
 model:
 
-  backbone: resnet34 # Name of the convolutional backbone to use
+  backbone: resnet50 # Name of the convolutional backbone to use
   dilation: False # If true, we replace stride with dilation in the last convolutional block (DC5)
   
-  position_embedding: learned # (sine, learned) Type of positional embedding to use on top of the image features
+  position_embedding: sine # (sine, learned) Type of positional embedding to use on top of the image features
 
-  dim_embed: 384 # Size of the embeddings (dimension of the transformer)
+  dim_embed: 256 # Size of the embeddings (dimension of the transformer)
 
   dropout: 0.1 # Dropout applied in the transformer
   num_heads: 8 # Number of attention heads inside the transformer's attentions

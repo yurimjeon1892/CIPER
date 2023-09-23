@@ -40,4 +40,4 @@ model:
   dim_feedforward: 2048 # Intermediate size of the feedforward layers in the transformer blocks  
   num_enc_layers: 6 # Number of encoding layers in the transformer
   num_dec_layers: 6 # Number of decoding layers in the transformer
-  pre_norm: False;
+  pre_norm: True;
