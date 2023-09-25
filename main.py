@@ -51,7 +51,7 @@ def main():
     # for name, param in model.named_parameters():
     #     print(name)  
     # exit()  
-    print("[i] number of params:", n_parameters // 10 ** 6 , "M")
+    print("[i] number of params:", n_parameters // 10 ** 6, "M")
     
     if not args["infer"] :
         
@@ -76,7 +76,8 @@ def main():
             optimizer = SAM(param_dicts, base_optimizer, lr=args["train"]["lr"], betas=(0.9, 0.999), eps=1e-08, 
                             weight_decay=args["train"]["weight_decay"], amsgrad=False, rho=2.5, adaptive=True)
 
-        lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, args["train"]["lr_drop"], args["train"]["gamma"])
+        # lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, args["train"]["lr_drop"], args["train"]["gamma"])
+        lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, args["train"]["lr_drop"])
         
         ## data_loader  
         # train -> dataset -> RandomSampler -> BatchSampler -> DataLoader

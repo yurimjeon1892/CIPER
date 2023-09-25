@@ -87,6 +87,7 @@ class Backbone(BackboneBase):
         if name == "resnet18": weight_name = "ResNet18_Weights.DEFAULT"
         elif name == "resnet34": weight_name = "ResNet34_Weights.DEFAULT"
         elif name == "resnet50": weight_name = "ResNet50_Weights.DEFAULT"
+        elif name == "resnet101": weight_name = "ResNet101_Weights.DEFAULT"
         else: print("error: ", name , "is not supported now."); exit()
         backbone = getattr(torchvision.models, name)(
             replace_stride_with_dilation=[False, False, dilation],

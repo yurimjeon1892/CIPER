@@ -22,8 +22,7 @@ train:
 
   weight_decay: 0.0001
   
-  lr_drop: 100
-  gamma: 0.7
+  lr_drop: 200
 
   clip_max_norm: 0.1 # gradient clipping max norm
 
