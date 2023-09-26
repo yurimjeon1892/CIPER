@@ -107,7 +107,7 @@ def valid_one_epoch(model: torch.nn.Module,
     
     print("[i] Valid {:>2}:".format(valid_infos["epoch"]), end = "\n")
     for k in stats.keys():
-        print("   ", k + ": {:.4f}".format(stats[k]), end = "\n")
+        print("   ", k + ": {:.8f}".format(stats[k]), end = "\n")
 
     return valid_infos
 
@@ -312,6 +312,6 @@ def evaluate(model: torch.nn.Module,
     
     print("[i] Eval ", end = "\n")
     for k in stats.keys():
-        print("   ", k + ": {:.4f}".format(stats[k]), end = "\n")
+        print("   ", k + ": {:.8f}".format(stats[k]), end = "\n")
 
     return 

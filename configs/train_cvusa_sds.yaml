@@ -2,7 +2,7 @@
 infer: False
 
 pretrain: False
-resume: ../ckpts/cvusa-22-09-23-14:11:04/model_best.pth
+resume: False
 
 seed: 42
 num_workers: 4
@@ -15,9 +15,9 @@ device: cuda # device to use for training / testing
 train:
 
   ckpt_dir: ../ckpts
-  epochs: 500
+  epochs: 300
 
-  lr: 0.00001
+  lr: 0.0001
   lr_backbone: 0.00001  
 
   weight_decay: 0.0001
@@ -48,7 +48,7 @@ dataset:
   
 model:
 
-  backbone: resnet50 # Name of the convolutional backbone to use
+  backbone: resnet101 # Name of the convolutional backbone to use
   dilation: False # If true, we replace stride with dilation in the last convolutional block (DC5)
   
   position_embedding: sine # (sine, learned) Type of positional embedding to use on top of the image features
