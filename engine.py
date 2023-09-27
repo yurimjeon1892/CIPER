@@ -81,7 +81,7 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module, postproc
     update_summary(summary, imgs, stats, train_infos["epoch"], "train")
         
     for k in stats.keys():
-        print("   ", k + ": {:.4f}".format(stats[k]), end = "\n")
+        print("   ", k + ": {:.8f}".format(stats[k]), end = "\n")
     
     train_infos["iter"] = iters
     return train_infos
@@ -181,6 +181,7 @@ def valid_local(model: torch.nn.Module,
     for k in criterion.losses: losses_meter[k] = AverageMeter()
     
     acc1s, acc5s, denoms = 0, 0, 0
+    trs_errs, rot_errs = [], []
     
     sample_ind = random.choice(range(len(data_loader)))    
     with torch.no_grad():
@@ -200,10 +201,12 @@ def valid_local(model: torch.nn.Module,
             if i == sample_ind: 
                 plot_imgs = plot_result(img_grnd, img_arl, targets, results, 0.1)
                 
-            acc1, acc5 = local_accuracy(targets, results)
+            acc1, acc5, trs_err, rot_err = local_accuracy(targets, results)
             acc1s += acc1
             acc5s += acc5
             denoms += img_grnd.tensors.size(0)
+            trs_errs.extend(trs_err)
+            rot_errs.extend(rot_err)
                 
     imgs = {}
     for k in plot_imgs.keys(): imgs["image/" + k] = plot_imgs[k]
@@ -217,6 +220,11 @@ def valid_local(model: torch.nn.Module,
     
     stats["acc/local_d1"] = (acc1s / denoms) * 100
     stats["acc/local_d5"] = (acc5s / denoms) * 100
+    
+    stats["acc/local_trs_mean"] = np.mean(trs_errs)
+    stats["acc/local_trs_median"] = np.median(trs_errs)
+    stats["acc/local_rot_mean"] = np.mean(rot_errs)
+    stats["acc/local_rot_median"] = np.median(rot_errs)
              
     return imgs, stats
 
@@ -296,7 +304,7 @@ def evaluate(model: torch.nn.Module,
             loss_dict = criterion(outputs, targets)      
             for k in loss_dict.keys(): losses_meter[k].update(loss_dict[k].item(), img_grnd.tensors.size(0))
                 
-            acc1, acc5 = local_accuracy(targets, results)
+            acc1, acc5, trs_mean, trs_median, rot_mean, rot_median = local_accuracy(targets, results)
             acc1s += acc1
             acc5s += acc5
             denoms += img_grnd.tensors.size(0)

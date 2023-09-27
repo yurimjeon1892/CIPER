@@ -1,50 +1,47 @@
 # configuration file for training
 infer: False
 
-resume_flag: False  
-resume_path: None
+pretrain: False
+resume: False
 
 seed: 42
 num_workers: 2
 
-world_size: 1 # number of distributed processes
-dist_url: env:// # url used to set up distributed training
+batch_size: 4
 
-base:
-
-  task: LOC # IR / LOC 
-  device: cuda # device to use for training / testing 
-  batch_size: 32
-
-  grnd_img_size: [320, 640] 
-  arl_img_size: [320, 320]
-
-  down_ratio: 32  
+task: LOCAL # RETR / LOCAL 
+device: cuda # device to use for training / testing 
 
 train:
-  lr: 0.0001
-  lr_backbone: 0.00001
-  
-  weight_decay: 0.0001
-  
-  lr_drop: 200
-  clip_max_norm: 0.1 # gradient clipping max norm
 
   ckpt_dir: ../ckpts
+  epochs: 100
+
+  lr: 0.0001
+  lr_backbone: 0.00001  
+
+  weight_decay: 0.0001
+  
+  lr_drop: 50
+
+  clip_max_norm: 0.1 # gradient clipping max norm
 
   start_epoch: 1
-  epochs: 100
+
+  optimizer: adamw
 
 dataset:
   
   data_name: vigor
-  data_root: /storage2/public/vigor/  
-
+  data_root: /storage2/public/vigor/    
   fov: 0
 
-  shift_range_lat: 0 # 20
-  shift_range_lon: 0 # 20
-  rotation_range: 0 # 10
+  grnd_img_size: [320, 640] 
+  arl_img_size: [320, 320]
+
+  shift_range_lat: 0 
+  shift_range_lon: 0 
+  rotation_range: 0 
 
   # vigor only
   same_area: True
@@ -53,24 +50,29 @@ dataset:
 
 model:
 
-  backbone: resnet18 # Name of the convolutional backbone to use
+  backbone: resnet50 # Name of the convolutional backbone to use
   dilation: False # If true, we replace stride with dilation in the last convolutional block (DC5)
-  position_embedding: sine # (sine, learned) Type of positional embedding to use on top of the image features
-
-  enc_layers: 6 # Number of encoding layers in the transformer
-  dec_layers: 6 # Number of decoding layers in the transformer
-  dim_feedforward: 2048 # Intermediate size of the feedforward layers in the transformer blocks
   
+  position_embedding: sine # (sine, learned) Type of positional embedding to use on top of the image features
+  
+  dim_embed: 256 # Size of the embeddings (dimension of the transformer)
+
   dropout: 0.1 # Dropout applied in the transformer
-  nheads: 8 # Number of attention heads inside the transformer's attentions
-  num_queries: 100 # Number of query slots
+  num_heads: 8 # Number of attention heads inside the transformer's attentions
+  dim_feedforward: 1024 # 2048 Intermediate size of the feedforward layers in the transformer blocks  
+  num_enc_layers: 6 # Number of encoding layers in the transformer
+  num_dec_layers: 6 # Number of decoding layers in the transformer
   pre_norm: False
 
-  hidden_dim: 128 # Size of the embeddings (dimension of the transformer)
+  dim_feature: 1000
 
-criterion:
-  losses: ["ir"]
-  lambda:
-    ir: 1000
-    cls: 100
-    trs: 100
+  # ----- pose-estimation
+  num_queries: 64 # Number of query slots
+
+  set_cost_class: 1 # Class coefficient in the matching cost
+  set_cost_bbox: 5 # L1 box coefficient in the matching cost
+
+  label_loss_coef: 1
+  bbox_loss_coef: 0.1
+
+  eos_coef: 0.1 # Relative classification weight of the no-object class

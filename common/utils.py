@@ -196,14 +196,14 @@ def local_accuracy(targets, results):
         init = np.sum(np.abs(gt_shifts[:, 0]) < metrics[idx]) / init_dis.shape[0] * 100
 
         line = "lateral      within " + str(metrics[idx]) + " meters (pred, init): " + str(pred) + " " + str(init)
-        print(line)
+        # print(line)
         # f.write(line + "\n")
 
         pred = np.sum(diff_shifts[:, 1] < metrics[idx]) / diff_shifts.shape[0] * 100
         init = np.sum(np.abs(gt_shifts[:, 1]) < metrics[idx]) / diff_shifts.shape[0] * 100
 
         line = "longitudinal within " + str(metrics[idx]) + " meters (pred, init): " + str(pred) + " " + str(init)
-        print(line)
+        # print(line)
         # f.write(line + "\n")
     
     angle_acc = {}
@@ -213,21 +213,21 @@ def local_accuracy(targets, results):
         angle_acc[str(angles[idx])] = pred
         
         line = "angle within " + str(angles[idx]) + " degrees (pred, init): " + str(pred) + " " + str(init)
-        print(line)
+        # print(line)
 
     for idx in range(len(angles)):
         pred = np.sum((angle_diff < angles[idx]) & (diff_shifts[:, 0] < metrics[idx])) / angle_diff.shape[0] * 100
         init = np.sum((init_angle < angles[idx]) & (np.abs(gt_shifts[:, 0]) < metrics[idx])) / angle_diff.shape[0] * 100
         line = "lat within " + str(metrics[idx]) + " & angle within " + str(angles[idx]) + \
                " (pred, init): " + str(pred) + " " + str(init)
-        print(line)
+        # print(line)
 
     # result = np.sum((distance < metrics[0]) & (angle_diff < angles[0])) / distance.shape[0] * 100
     
     acc1 = np.sum((distance < metrics[0]) & (angle_diff < angles[0]))
     acc5 = np.sum((distance < metrics[2]) & (angle_diff < angles[2]))
     
-    return acc1, acc5
+    return acc1, acc5, distance, angle_diff
 
 def print_this():
     print(r"""\
@@ -246,22 +246,6 @@ def print_this():
     ⠈⢿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠁
     ⠀⠀⠛⢿⣿⣿⣿⣿⣿⣿⡿⠟
     ⠀⠀⠀⠀⠀⠉⠉⠉
-    """)
-
-    return
-        
-def print_that():   
-    print(r"""\
-    ................./´¯/)
-    ...............,/¯../
-    ............../..../
-    ......../´¯/'...'/´¯¯`·¸
-    ...../'/.../..../......./¨¯\
-    ...('(...´...´.... ¯~/'...')
-    ....\.................'...../
-    .....''...\.......... _.·´
-    .......\..............(
-    .........\.............\...
     """)
 
     return

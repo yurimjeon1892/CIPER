@@ -34,12 +34,18 @@ class VIGOR(torch.utils.data.Dataset):
             else:
                 self.city_list = ['SanFrancisco', 'Chicago']
 
-        self.city_list = ["Seattle"] # for test
+        # self.city_list = ["Seattle"] # for test
         
         self.arl_img_size = args["arl_img_size"]
         self.raw_arl_img_size = (640, 640)
         
         self.arl_zoom_ratio = self.raw_arl_img_size[0] / self.arl_img_size[0]
+        self.meter_per_pixel_dict = {
+            "Chicago": 0.111,
+            "NewYork": 0.113,
+            "SanFrancisco": 0.118,
+            "Seattle": 0.101,
+        } # based on SliceMatch
                 
         self.make_slice_match_sample_list() 
 
@@ -65,27 +71,31 @@ class VIGOR(torch.utils.data.Dataset):
         for city in self.city_list:     
             combination_dir = os.path.join(self.root, splits_name, city, files[file_idx])
             ground_img_names = list(sorted(os.listdir(os.path.join(self.root, city, ground_folder_name))))     
-            ground_img_names = ground_img_names[:100] # for test
+            data_dict = get_aerial_and_deltas(combination_dir)
             
-            for ground_img_name in tqdm(ground_img_names):   
-                data_list = get_aerial_and_deltas(ground_img_name, combination_dir)
+            for ground_img_name in tqdm(ground_img_names, desc="[i] dataset load: " + city):  
+                if ground_img_name not in data_dict.keys(): continue
+                
+                data_list = data_dict[ground_img_name] 
                 for i in range(len(data_list[:1])):
-                    sample_one = {
-                        "grnd_name": os.path.join(os.path.join(city, ground_folder_name), ground_img_name),
-                        "arl_name": os.path.join(os.path.join(city, aerial_folder_name), data_list[i][0]),
-                        "delta": data_list[i][1:],
-                        "is_positive": i == 0,
-                    }
-                    if sample_one["arl_name"] not in self.arl_fname_to_index_dict.keys():
-                        self.arl_fname_to_index_dict[sample_one["arl_name"]] = idx
-                        idx += 1
-                        
-                    self.sample_list.append(sample_one)                    
-                    self.grnd_id_to_arl_id_list.append(self.arl_fname_to_index_dict[sample_one["arl_name"]])    
+                    delta = data_list[i][1:]
+                    if abs(delta[0])<=self.raw_arl_img_size[0]//2 and abs(delta[1])<=self.raw_arl_img_size[0]//2:                        
+                        sample_one = {
+                            "grnd_name": os.path.join(os.path.join(city, ground_folder_name), ground_img_name),
+                            "arl_name": os.path.join(os.path.join(city, aerial_folder_name), data_list[i][0]),
+                            "delta": data_list[i][1:],
+                            "is_positive": i == 0,
+                            "meter_per_pixel": self.meter_per_pixel_dict[city]
+                        }
+                        if sample_one["arl_name"] not in self.arl_fname_to_index_dict.keys():
+                            self.arl_fname_to_index_dict[sample_one["arl_name"]] = idx
+                            idx += 1
+                            
+                        self.sample_list.append(sample_one)                    
+                        self.grnd_id_to_arl_id_list.append(self.arl_fname_to_index_dict[sample_one["arl_name"]])    
         
-        self.sample_list = self.sample_list[:100] # for test 
-                    
-        return
+        # self.sample_list = self.sample_list[:100] # for test 
+        self.sample_list = random.shuffle(self.sample_list)
     
     def read_data(self, index):
                 
@@ -95,7 +105,7 @@ class VIGOR(torch.utils.data.Dataset):
         gt_shift_x = -self.sample_list[index]["delta"][1]
         gt_shift_y = self.sample_list[index]["delta"][0]        
         
-        return grnd_img, arl_img, gt_shift_x, gt_shift_y, 0
+        return grnd_img, arl_img, gt_shift_x, gt_shift_y, 0, self.sample_list[index]["meter_per_pixel"]
     
     def prep_data(self, grnd_img=None, arl_img=None):
         
@@ -107,12 +117,12 @@ class VIGOR(torch.utils.data.Dataset):
         
         return grnd_img, arl_img
     
-    def prep_gt(self, gt_shift_x, gt_shift_y, theta):        
+    def prep_gt(self, gt_shift_x, gt_shift_y, theta, meter_per_pixel):        
                 
         tgt_y = (gt_shift_x / self.arl_zoom_ratio) / self.arl_img_size[1]
         tgt_x = (gt_shift_y / self.arl_zoom_ratio) / self.arl_img_size[0]
         
-        tgt_rad = np.deg2rad(theta * self.rotation_range + 180.)
+        tgt_rad = np.deg2rad(theta + 180.)
         tgt_cos = np.cos(tgt_rad)
         tgt_sin = np.sin(tgt_rad)        
                 
@@ -123,7 +133,7 @@ class VIGOR(torch.utils.data.Dataset):
             "labels": torch.tensor([0]),
             "orig_size": torch.as_tensor([int(self.arl_img_size[0]), int(self.arl_img_size[1])]),   
             "arl_zoom_ratio": torch.tensor([self.arl_zoom_ratio]),     
-            "meter_per_pixel": torch.tensor([self.meter_per_pixel]),   
+            "meter_per_pixel": torch.tensor([meter_per_pixel]),   
               }    
         return target
     
@@ -131,18 +141,18 @@ class VIGOR(torch.utils.data.Dataset):
         
         if self.mode in ["train", "valid"]:
             idx = index % len(self.sample_list)            
-            grnd_img, arl_img, gt_shift_x, gt_shift_y, theta = self.read_data(idx)        
+            grnd_img, arl_img, gt_shift_x, gt_shift_y, theta, meter_per_pixel = self.read_data(idx)        
             img_qry, img_ref = self.prep_data(grnd_img, arl_img)
-            gt = self.prep_gt(gt_shift_x, gt_shift_y, theta)
+            gt = self.prep_gt(gt_shift_x, gt_shift_y, theta, meter_per_pixel)
             return img_qry, img_ref, gt
             
         elif self.mode == "valid_ref":            
-            _, arl_img, gt_shift_x, gt_shift_y, theta = self.read_data(index)        
+            _, arl_img, gt_shift_x, gt_shift_y, theta, meter_per_pixel = self.read_data(index)        
             _, img_ref = self.prep_data(arl_img=arl_img)        
             return img_ref, torch.tensor(index), 0
         
         elif self.mode == "valid_qry":
-            grnd_img, _, _, _, _ = self.read_data(index)            
+            grnd_img, _, _, _, _, _ = self.read_data(index)            
             img_qry, _ = self.prep_data(grnd_img=grnd_img)
             return img_qry, torch.tensor(index), torch.tensor(self.grnd_id_to_arl_id_list[index])
         else:
@@ -152,13 +162,13 @@ class VIGOR(torch.utils.data.Dataset):
     def __len__(self):
         return len(self.sample_list)
 
-def get_aerial_and_deltas(ground_img_name, combination_dir):
-    data_list = []
+def get_aerial_and_deltas(combination_dir):
+    data_dict = {}
     with open(combination_dir, 'r') as file:
         for line in file.readlines():
             data = line.split(' ')
-            if data[0]==ground_img_name:
-                for idx in range(4):
-                    data_list.append((data[3*idx+1], float(data[3*idx+2]), float(data[3*idx+3])))
-                break
-    return data_list
+            data_list = []
+            for idx in range(4):
+                data_list.append((data[3*idx+1], float(data[3*idx+2]), float(data[3*idx+3])))                    
+            data_dict[data[0]] = data_list
+    return data_dict

@@ -81,3 +81,10 @@ Set `resume_path` in the `test.yaml` file and run:
 ```
 python main.py configs/test.yaml
 ```
+
+## Acknowledgements
+This project is not possible without the following awesome open-source codebases:
+* [TransGeo: Transformer Is All You Need for Cross-view Image Geo-localization](https://github.com/Jeff-Zilence/TransGeo2022)
+* [Beyond Cross-view Image Retrieval: Highly Accurate Vehicle Localization Using Satellite Image](https://github.com/shiyujiao/HighlyAccurate)
+* [DETR: End-to-End Object Detection with Transformers](https://github.com/facebookresearch/detr)
+* [UP-DETR: Unsupervised Pre-training for Object Detection with Transformers](https://github.com/dddzg/up-detr/tree/master)

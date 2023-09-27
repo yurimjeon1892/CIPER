@@ -92,6 +92,11 @@ class Backbone(BackboneBase):
         backbone = getattr(torchvision.models, name)(
             replace_stride_with_dilation=[False, False, dilation],
             weights=weight_name, norm_layer=FrozenBatchNorm2d)
+        
+        # if name == 'resnet50': # from up-detr
+        #     checkpoint = torch.hub.load_state_dict_from_url('https://dl.fbaipublicfiles.com/deepcluster/swav_800ep_pretrain.pth.tar',map_location="cpu")
+        #     state_dict = {k.replace("module.", ""): v for k, v in checkpoint.items()}
+        #     backbone.load_state_dict(state_dict, strict=False)
         num_channels = 512 if name in ('resnet18', 'resnet34') else 2048
         num_channels = num_channels // 2
         # super().__init__(backbone, train_backbone, num_channels, return_interm_layers)

@@ -57,7 +57,7 @@ dataset:
 
 model:
 
-  backbone: resnet18 # Name of the convolutional backbone to use
+  backbone: resnet50 # Name of the convolutional backbone to use
   dilation: False # If true, we replace stride with dilation in the last convolutional block (DC5)
   
   position_embedding: sine # (sine, learned) Type of positional embedding to use on top of the image features
@@ -71,6 +71,9 @@ model:
   num_dec_layers: 6 # Number of decoding layers in the transformer
   pre_norm: False
 
+  dim_feature: 1000
+
+  # ----- pose-estimation
   num_queries: 64 # Number of query slots
 
   set_cost_class: 1 # Class coefficient in the matching cost
