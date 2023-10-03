@@ -39,7 +39,7 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module, postproc
         
         outputs = model(im_grnd=img_grnd, im_arl=img_arl)  
         
-        if train_infos["is_local"]:
+        if train_infos["IS_POSE"]:
             targets = [{k: v.to(train_infos["device"]) for k, v in t.items()} for t in targets]
             results = postprocessors["bbox"](outputs, targets)
             if i == sample_ind: 
@@ -98,7 +98,7 @@ def valid_one_epoch(model: torch.nn.Module,
     imgs, stats = valid_retr(model, loader_dict["qry"], loader_dict["ref"], valid_infos)
     valid_infos["metric"] = stats["acc/retr_top1"]    
     
-    if valid_infos["is_local"]:  
+    if valid_infos["IS_POSE"]:  
         imgs2, stats2 = valid_local(model, criterion, postprocessors, loader_dict["val"], valid_infos)        
         imgs.update(imgs2)
         stats.update(stats2)
@@ -125,6 +125,8 @@ def valid_retr(model: torch.nn.Module,
     qry_label = np.zeros([len(qry_loader.dataset)])
     qry_feat = np.zeros([len(qry_loader.dataset), valid_infos["dim_feature"]])    
     ref_feat = np.zeros([len(ref_loader.dataset), valid_infos["dim_feature"]])
+
+    # print("init dim: ", qry_label.shape, qry_feat.shape, ref_feat.shape)
     
     img_grnd_, img_arl_ = None, None
     with torch.no_grad():
@@ -138,8 +140,9 @@ def valid_retr(model: torch.nn.Module,
             
             # compute output
             out_emb_grnd, _, _, _ = model_query(img_grnd)
-            qry_feat[idx_grnd.cpu().numpy(), :] = out_emb_grnd.cpu().numpy()
-            qry_label[idx_grnd.cpu().numpy()] = labels.cpu().numpy()
+            qry_feat[idx_grnd.cpu().numpy(), :] = out_emb_grnd.detach().cpu().numpy()
+            qry_label[idx_grnd.cpu().numpy()] = labels.detach().cpu().numpy()
+            # print("out_emb_grnd: ", out_emb_grnd.detach().cpu().numpy().shape)
                         
             if i == 0: img_grnd_ = img_grnd[0, :, :, :]
             
@@ -152,6 +155,8 @@ def valid_retr(model: torch.nn.Module,
              
             ref_feat[idx_arl.cpu().numpy(), :] = out_emb_arl.detach().cpu().numpy()
             if i == 0: img_arl_ = img_arl[0, :, :, :]
+            
+            # print("out_emb_arl: ", out_emb_arl.detach().cpu().numpy().shape)
 
         retr_acc = retr_accuracy(qry_feat, ref_feat, qry_label.astype(int))
         
@@ -282,7 +287,7 @@ def evaluate(model: torch.nn.Module,
         "acc/retr_top1pc": retr_acc[3],
     }   
     
-    if eval_infos["is_local"]:   
+    if eval_infos["IS_POSE"]:   
     
         model.eval()
         criterion.eval()

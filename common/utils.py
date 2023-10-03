@@ -56,15 +56,10 @@ def save_state(save_path, model, optimizer, lr_scheduler, epoch, is_best, filena
 
 def load_pretrained(model, default_path):
     
-    pretrained_dict = torch.load(default_path)["model"]
-    # pretrained_dict = torch.hub.load('facebookresearch/detr:main', 'detr_resnet50', pretrained=True, map_location="cpu")
-    update_dict = change_param_name(pretrained_dict)    
     model_dict = model.state_dict()
     
-    # ins, outs = [], []    
-    # for k in model_dict:
-    #     if k in update_dict.keys(): ins.append(k)
-    #     else: outs.append(k)
+    pretrained_dict = torch.load(default_path, map_location="cpu")["model"]
+    update_dict = change_param_name(pretrained_dict)    
     
     # update_dict = {k: v for k, v in update_dict.items() if k in model_dict}    
     model_dict.update(update_dict)
@@ -77,11 +72,11 @@ def change_param_name(pretrained_dict):
     for pretrainedk in pretrained_dict.keys():        
         
         if "transformer" in pretrainedk :
-            newk = pretrainedk.replace("transformer", "reference_net")
+            newk = pretrainedk.replace("transformer", "reference_net.transformer")
             update_dict[newk] = pretrained_dict[pretrainedk]
             print(pretrainedk , '-->', newk)
             
-            newk = pretrainedk.replace("transformer", "query_net")
+            newk = pretrainedk.replace("transformer", "query_net.transformer")
             update_dict[newk] = pretrained_dict[pretrainedk]
             print(pretrainedk , '-->', newk)
         
@@ -108,7 +103,7 @@ def retr_accuracy(qry_feat, ref_feat, qry_label, topk=[1, 5, 10]):
     topk.append(M//100)
     results = np.zeros([len(topk)])
     # for CVUSA, CVACT
-    if N < 80000:
+    if N < 10000:
         qry_feat_norm = np.sqrt(np.sum(qry_feat**2, axis=1, keepdims=True))
         ref_feat_norm = np.sqrt(np.sum(ref_feat ** 2, axis=1, keepdims=True))
         similarity = np.matmul(qry_feat/qry_feat_norm, (ref_feat/ref_feat_norm).transpose())
@@ -123,11 +118,15 @@ def retr_accuracy(qry_feat, ref_feat, qry_label, topk=[1, 5, 10]):
                     # print(list(ww).index(True))
     else:
         # split the queries if the matrix is too large, e.g. VIGOR
-        assert N % 4 == 0
+        # assert N % 4 == 0
         N_4 = N // 4
         for split in range(4):
-            qry_feat_i = qry_feat[(split*N_4):((split+1)*N_4), :]
-            qry_label_i = qry_label[(split*N_4):((split+1)*N_4)]
+            if split == 3: 
+                qry_feat_i = qry_feat[(split*N_4):, :]
+                qry_label_i = qry_label[(split*N_4):]
+            else:
+                qry_feat_i = qry_feat[(split*N_4):((split+1)*N_4), :]
+                qry_label_i = qry_label[(split*N_4):((split+1)*N_4)]
             qry_feat_norm = np.sqrt(np.sum(qry_feat_i ** 2, axis=1, keepdims=True))
             ref_feat_norm = np.sqrt(np.sum(ref_feat ** 2, axis=1, keepdims=True))
             similarity = np.matmul(qry_feat_i / qry_feat_norm,

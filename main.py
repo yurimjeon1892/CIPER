@@ -39,9 +39,9 @@ def main():
     np.random.seed(seed)
     random.seed(seed)
     
-    is_local = args["task"] == "LOCAL"
+    IS_POSE = args["task"] == "POSE"
 
-    model, criterion, postprocessors = build(args["model"], is_local, device)
+    model, criterion, postprocessors = build(args["model"], IS_POSE, device)
 
     # model_without_ddp = model
     # if args["distributed"]:
@@ -52,6 +52,24 @@ def main():
     #     print(name)  
     # exit()  
     print("[i] number of params:", n_parameters // 10 ** 6, "M")
+    
+    if args["pretrain"] != False:        
+        model = load_pretrained(model, args["pretrain"])
+        print("[i] load pretrained file from:", args["pretrain"])
+    if args["resume"]  != False:
+        checkpoint = torch.load(args["resume"], map_location="cpu")
+        # model_without_ddp.load_state_dict(checkpoint["model"])
+        model.load_state_dict(checkpoint["model"])
+        if args["infer"]:
+            print("[i] load checkpoint from:", args["resume"], "for inference")
+        elif "optimizer" in checkpoint and "lr_scheduler" in checkpoint and "epoch" in checkpoint:
+            # optimizer.load_state_dict(checkpoint["optimizer"])
+            # lr_scheduler.load_state_dict(checkpoint["lr_scheduler"])
+            args["train"]["start_epoch"] = checkpoint["epoch"] + 1        
+            print("[i] load checkpoint from:", args["resume"], "for train")
+        else:
+            print("[i] failed to load checkpoint from:", args["resume"])
+            return  
     
     if not args["infer"] :
         
@@ -109,9 +127,9 @@ def main():
             "ref": data_loader_val_r
         }
             
-        if is_local:            
+        if IS_POSE:            
             dataset_val = build_dataset(mode="valid", args=args["dataset"])
-            data_loader_val = DataLoader(dataset_val, batch_size=args["batch_size"], shuffle=False, drop_last=True,
+            data_loader_val = DataLoader(dataset_val, batch_size=args["batch_size"], shuffle=False, drop_last=False,
                                         collate_fn=utils_misc.collate_fn, num_workers=args["num_workers"]) 
             data_loader_valid["val"] = data_loader_val
         
@@ -134,9 +152,9 @@ def main():
             "ref": data_loader_val_r
         }
         
-        if is_local:            
+        if IS_POSE:            
             dataset_val = build_dataset(mode="valid", args=args["dataset"])
-            data_loader_val = DataLoader(dataset_val, batch_size=args["batch_size"], shuffle=False, drop_last=True,
+            data_loader_val = DataLoader(dataset_val, batch_size=args["batch_size"], shuffle=False, drop_last=False,
                                         collate_fn=utils_misc.collate_fn, num_workers=args["num_workers"]) 
             data_loader_valid["val"] = data_loader_val
 
@@ -144,28 +162,12 @@ def main():
     #                                                                                                               #
     #                                                                                                               #
     
-    if args["pretrain"] != False:        
-        model = load_pretrained(model, args["pretrain"])
-        print("[i] load pretrained file from:", args["pretrain"])
-    if args["resume"]  != False:
-        checkpoint = torch.load(args["resume"], map_location="cpu")
-        # model_without_ddp.load_state_dict(checkpoint["model"])
-        model.load_state_dict(checkpoint["model"])
-        if args["infer"]:
-            print("[i] load checkpoint from:", args["resume"], "for inference")
-        elif "optimizer" in checkpoint and "lr_scheduler" in checkpoint and "epoch" in checkpoint:
-            # optimizer.load_state_dict(checkpoint["optimizer"])
-            # lr_scheduler.load_state_dict(checkpoint["lr_scheduler"])
-            args["train"]["start_epoch"] = checkpoint["epoch"] + 1        
-            print("[i] load checkpoint from:", args["resume"], "for train")
-        else:
-            print("[i] failed to load checkpoint from:", args["resume"])
-            return        
+          
 
     if args["infer"]:
         eval_infos = {
         "device": device,
-        "is_local": is_local,
+        "IS_POSE": IS_POSE,
         "dim_feature": args["model"]["dim_feature"],        
         }        
         evaluate(model, criterion, postprocessors, data_loader_valid, eval_infos)
@@ -179,7 +181,7 @@ def main():
         "iter" : 0,
         "epoch": -1,
         "device": device,
-        "is_local": is_local,
+        "IS_POSE": IS_POSE,
         # "clip_max_norm": args["train"]["clip_max_norm"],
         "optimizer": args["train"]["optimizer"]
     }
@@ -187,7 +189,7 @@ def main():
         "epoch": -1,
         "device": device,
         "best_metric": -1,
-        "is_local": is_local,
+        "IS_POSE": IS_POSE,
         "dim_feature": args["model"]["dim_feature"],        
     }
      

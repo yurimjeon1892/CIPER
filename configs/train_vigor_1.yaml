@@ -1,0 +1,79 @@
+# configuration file for training
+infer: False
+
+pretrain: pretrained/up-detr-pre-training-60ep-imagenet.pth
+# pretrain: False
+resume: False
+
+seed: 42
+num_workers: 4
+
+batch_size: 8
+
+task: RETR # RETR / POSE 
+device: cuda # device to use for training / testing 
+
+train:
+
+  ckpt_dir: ../ckpts
+  epochs: 100
+
+  lr: 0.00005
+  lr_backbone: 0.00001
+
+  weight_decay: 0.0001
+  
+  lr_drop: 200
+
+  clip_max_norm: 0.1 # gradient clipping max norm
+
+  start_epoch: 1
+
+  optimizer: adamw
+
+dataset:
+  
+  data_name: vigor
+  data_root: /storage2/public/vigor/    
+  fov: 0
+
+  grnd_img_size: [320, 640] 
+  arl_img_size: [320, 320]
+
+  shift_range_lat: 0 
+  shift_range_lon: 0 
+  rotation_range: 0 
+
+  # vigor only
+  same_area: True
+
+  spare_pixel: 1
+
+model:
+
+  backbone: resnet50 # Name of the convolutional backbone to use
+  dilation: False # If true, we replace stride with dilation in the last convolutional block (DC5)
+  
+  position_embedding: sine # (sine, learned) Type of positional embedding to use on top of the image features
+  
+  dim_embed: 256 # Size of the embeddings (dimension of the transformer)
+
+  dropout: 0.1 # Dropout applied in the transformer
+  num_heads: 8 # Number of attention heads inside the transformer's attentions
+  dim_feedforward: 2048 # 2048 Intermediate size of the feedforward layers in the transformer blocks  
+  num_enc_layers: 6 # Number of encoding layers in the transformer
+  num_dec_layers: 6 # Number of decoding layers in the transformer
+  pre_norm: False
+
+  dim_feature: 1000
+
+  # # ----- pose-estimation
+  # num_queries: 64 # Number of query slots
+
+  # set_cost_class: 1 # Class coefficient in the matching cost
+  # set_cost_bbox: 5 # L1 box coefficient in the matching cost
+
+  # label_loss_coef: 1
+  # bbox_loss_coef: 0.1
+
+  # eos_coef: 0.1 # Relative classification weight of the no-object class

@@ -34,7 +34,7 @@ class VIGOR(torch.utils.data.Dataset):
             else:
                 self.city_list = ['SanFrancisco', 'Chicago']
 
-        # self.city_list = ["Seattle"] # for test
+        self.city_list = ["Seattle"] # for test
         
         self.arl_img_size = args["arl_img_size"]
         self.raw_arl_img_size = (640, 640)
@@ -94,8 +94,7 @@ class VIGOR(torch.utils.data.Dataset):
                         self.sample_list.append(sample_one)                    
                         self.grnd_id_to_arl_id_list.append(self.arl_fname_to_index_dict[sample_one["arl_name"]])    
         
-        # self.sample_list = self.sample_list[:100] # for test 
-        self.sample_list = random.shuffle(self.sample_list)
+        self.sample_list = self.sample_list[:100] # for test 
     
     def read_data(self, index):
                 
@@ -113,7 +112,7 @@ class VIGOR(torch.utils.data.Dataset):
             grnd_img = self.transform_query(grnd_img)
             
         if arl_img is not None:    
-            arl_img = self.transform_reference(arl_img)        
+            arl_img = self.transform_reference(arl_img)  
         
         return grnd_img, arl_img
     

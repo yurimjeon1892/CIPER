@@ -5,13 +5,13 @@ import torch.nn.functional as F
 # from scipy.stats import truncnorm
 from torch import nn
 
-from .encdec import build_encoder, build_decoder
+from .base import build_base1, build_base2
 from .matcher import build_matcher
 from .soft_triplet import SoftTripletBiLoss
 
 class CIPER(nn.Module):
     """ This is the CIPER module that performs cross-view image geo-localization """
-    def __init__(self, args, is_local):
+    def __init__(self, query_net, reference_net, pose_net):
         """ Initializes the model.
         Parameters:
             backbone: torch module of the backbone to be used. See backbone.py
@@ -20,23 +20,21 @@ class CIPER(nn.Module):
         """
         super().__init__()
         
-        self.query_net = build_encoder(args)
-        self.reference_net = build_encoder(args)   
-        
-        self.is_loc = is_local
-        if self.is_loc: self.pose_net = build_decoder(args)
+        self.query_net = query_net
+        self.reference_net = reference_net        
+        self.pose_net = pose_net
         
     def forward(self, im_grnd, im_arl):
         
-        embed_grnd, memory_grnd, _, pos_grnd = self.query_net(im_grnd)
-        embed_arl, memory_arl, mask, pos_arl = self.reference_net(im_arl)      
+        emb_grnd, mem_grnd, _, pos_grnd = self.query_net(im_grnd)
+        emb_arl, mem_arl, mask, pos_arl = self.reference_net(im_arl)      
         outputs = {
-            "grnd": embed_grnd,
-            "arl": embed_arl,
+            "grnd": emb_grnd,
+            "arl": emb_arl,
         }
           
-        if self.is_loc: 
-            out_pos = self.pose_net((memory_grnd, pos_grnd), (memory_arl, pos_arl), mask)
+        if self.pose_net is not None: 
+            out_pos = self.pose_net((mem_grnd, pos_grnd), (mem_arl, pos_arl), mask)
             outputs.update(out_pos)
         
         return outputs
@@ -179,12 +177,20 @@ class PostProcess(nn.Module):
         
         return results
     
-def build(args, is_local, device):
-    # build model
-    model = CIPER(args, is_local).to(device)
+def build(args, IS_POSE, device):
     
+    qry_net = build_base1(args)
+    ref_net = build_base1(args)
+    pos_net = build_base2(args, IS_POSE)
+    
+    model = CIPER(
+        qry_net,
+        ref_net,
+        pos_net
+    ).to(device)
+        
     # build criterion    
-    if is_local:
+    if IS_POSE:
         matcher = build_matcher(args)
         weight_dict = {"retrieval": 1, "labels": args["label_loss_coef"], "boxes": args["bbox_loss_coef"]}
         eos_coef = args["eos_coef"]
@@ -197,7 +203,7 @@ def build(args, is_local, device):
     criterion = SetCriterion(matcher=matcher, weight_dict=weight_dict, eos_coef=eos_coef, losses=losses).to(device)
     
     # build post processor   
-    if is_local:    
+    if IS_POSE:
         postprocessors = {"bbox": PostProcess()}
     else:
         postprocessors = None

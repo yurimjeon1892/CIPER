@@ -40,11 +40,11 @@ dataset:
   arl_img_size: [256, 256]
 
   # cvusa only
-  # train_pt_list: ./datasets/splits/cvusa/train-mini.csv
-  # val_pt_list: ./datasets/splits/cvusa/train-mini.csv
+  train_pt_list: ./datasets/splits/cvusa/train-mini.csv
+  val_pt_list: ./datasets/splits/cvusa/train-mini.csv
 
-  train_pt_list: ./datasets/splits/cvusa/train-19zl.csv
-  val_pt_list: ./datasets/splits/cvusa/val-19zl.csv
+  # train_pt_list: ./datasets/splits/cvusa/train-19zl.csv
+  # val_pt_list: ./datasets/splits/cvusa/val-19zl.csv
   
 model:
 
