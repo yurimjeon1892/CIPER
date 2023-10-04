@@ -19,10 +19,11 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module, postproc
                     ):
     
     model.train()
-    criterion.train()
+    # criterion.train()
     
     losses_meter = {}
     for k in criterion.losses: losses_meter[k] = AverageMeter()
+    # losses_meter = AverageMeter()
     
     plot_imgs = {}
     
@@ -46,6 +47,8 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module, postproc
                 p_imgs = plot_result(img_grnd, img_arl, targets, results, th=0.1)
                 plot_imgs.update(p_imgs)
 
+        # losses, mean_p, mean_n = criterion(outputs["grnd"], outputs["arl"])
+        # losses_meter.update(losses.item(), bs)
         loss_dict = criterion(outputs, targets)
         losses = sum(loss_dict[k] for k in loss_dict.keys())        
         for k in loss_dict.keys(): losses_meter[k].update(loss_dict[k].item(), bs)
@@ -68,6 +71,8 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module, postproc
             optimizer.second_step(zero_grad=True)
                         
         iters += bs
+        # del loss_dict
+        del outputs
         
     imgs = {}
     for k in plot_imgs.keys(): imgs["image/" + k] = plot_imgs[k]
@@ -78,6 +83,8 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module, postproc
         stats["loss/" + k] =  losses_meter[k].avg
         loss_total += losses_meter[k].avg
     stats["loss/total"] = loss_total
+    # stats["loss/total"] = losses_meter.avg
+    
     update_summary(summary, imgs, stats, train_infos["epoch"], "train")
         
     for k in stats.keys():
@@ -125,8 +132,6 @@ def valid_retr(model: torch.nn.Module,
     qry_label = np.zeros([len(qry_loader.dataset)])
     qry_feat = np.zeros([len(qry_loader.dataset), valid_infos["dim_feature"]])    
     ref_feat = np.zeros([len(ref_loader.dataset), valid_infos["dim_feature"]])
-
-    # print("init dim: ", qry_label.shape, qry_feat.shape, ref_feat.shape)
     
     img_grnd_, img_arl_ = None, None
     with torch.no_grad():
@@ -139,7 +144,7 @@ def valid_retr(model: torch.nn.Module,
             labels = labels.to(valid_infos["device"])
             
             # compute output
-            out_emb_grnd, _, _, _ = model_query(img_grnd)
+            out_emb_grnd = model_query(img_grnd)
             qry_feat[idx_grnd.cpu().numpy(), :] = out_emb_grnd.detach().cpu().numpy()
             qry_label[idx_grnd.cpu().numpy()] = labels.detach().cpu().numpy()
             # print("out_emb_grnd: ", out_emb_grnd.detach().cpu().numpy().shape)
@@ -151,7 +156,7 @@ def valid_retr(model: torch.nn.Module,
         for i, (img_arl, idx_arl, _) in enumerate(tqdm(ref_loader, desc=description, unit="batches")):
             
             img_arl = img_arl.to(valid_infos["device"])            
-            out_emb_arl, _, _, _ = model_reference(img_arl)  # delta           
+            out_emb_arl = model_reference(img_arl)  # delta           
              
             ref_feat[idx_arl.cpu().numpy(), :] = out_emb_arl.detach().cpu().numpy()
             if i == 0: img_arl_ = img_arl[0, :, :, :]

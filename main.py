@@ -43,14 +43,7 @@ def main():
 
     model, criterion, postprocessors = build(args["model"], IS_POSE, device)
 
-    # model_without_ddp = model
-    # if args["distributed"]:
-    #     model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args["gpu"]])
-    #     model_without_ddp = model.module
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    # for name, param in model.named_parameters():
-    #     print(name)  
-    # exit()  
     print("[i] number of params:", n_parameters // 10 ** 6, "M")
     
     if args["pretrain"] != False:        
@@ -113,14 +106,14 @@ def main():
         
         # 특히 data_loader_train에서 batch_size를 정의하지 않고, BatchSampler라는 함수를 사용했다.
         # utils_misc.collate_fn 함수에 의해서, (image, label) -> (NestedTensor(tensor,mask), label) 로 바뀐다
-        data_loader_train = DataLoader(dataset_train, batch_size=args["batch_size"], shuffle=(sampler_train is None), sampler=sampler_train,  drop_last=True,
-                                        collate_fn=utils_misc.collate_fn, num_workers=args["num_workers"]) 
+        data_loader_train = DataLoader(dataset_train, batch_size=args["batch_size"], shuffle=(sampler_train is None), sampler=sampler_train,  drop_last=False,
+                                        num_workers=args["num_workers"], collate_fn=utils_misc.collate_fn) 
         # data_loader_train = DataLoader(dataset_train, batch_size=args["batch_size"], shuffle=False, sampler=sampler_train,  drop_last=True,
         #                                 collate_fn=utils_misc.collate_fn, num_workers=args["num_workers"]) 
         data_loader_val_q = DataLoader(dataset_val_q, batch_size=32, shuffle=True,
-                                        drop_last=False, num_workers=args["num_workers"])
+                                        drop_last=False, num_workers=args["num_workers"]) 
         data_loader_val_r = DataLoader(dataset_val_r, batch_size=64, shuffle=True,
-                                        drop_last=False, num_workers=args["num_workers"])
+                                        drop_last=False, num_workers=args["num_workers"]) 
         
         data_loader_valid = {
             "qry": data_loader_val_q,
@@ -130,7 +123,7 @@ def main():
         if IS_POSE:            
             dataset_val = build_dataset(mode="valid", args=args["dataset"])
             data_loader_val = DataLoader(dataset_val, batch_size=args["batch_size"], shuffle=False, drop_last=False,
-                                        collate_fn=utils_misc.collate_fn, num_workers=args["num_workers"]) 
+                                        num_workers=args["num_workers"]) 
             data_loader_valid["val"] = data_loader_val
         
         out_dir = os.path.join(args["train"]["ckpt_dir"], 
@@ -158,12 +151,6 @@ def main():
                                         collate_fn=utils_misc.collate_fn, num_workers=args["num_workers"]) 
             data_loader_valid["val"] = data_loader_val
 
-    # TODO ##########################################################################################################
-    #                                                                                                               #
-    #                                                                                                               #
-    
-          
-
     if args["infer"]:
         eval_infos = {
         "device": device,
@@ -172,9 +159,6 @@ def main():
         }        
         evaluate(model, criterion, postprocessors, data_loader_valid, eval_infos)
         return
-    #                                                                                                               #
-    #                                                                                                               #
-    #################################################################################################################
 
     print("[i] start training ~")
     train_infos = {
@@ -211,6 +195,6 @@ def main():
             is_best = True       
             
         save_state(out_dir, model, optimizer, lr_scheduler, epoch, is_best)
-
+        
 if __name__ == "__main__":
     main()

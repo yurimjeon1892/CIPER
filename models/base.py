@@ -10,7 +10,7 @@ from common.utils_misc import nested_tensor_from_tensor_list, NestedTensor
 from .backbone import build_backbone
 from .transformer_wrapper import build_transformer_encoder, build_transformer_decoder
 
-class Base1(nn.Module):
+class baseA(nn.Module):
     """ This is the base ciper module that performs cross-view image geo-localization """
     def __init__(self, args, backbone, transformer):
         """ Initializes the model.
@@ -23,27 +23,24 @@ class Base1(nn.Module):
             aux_loss: True if auxiliary decoding losses (loss at each decoder layer) are to be used.
         """
         super().__init__()
-        # self.num_queries = num_queries
-        self.transformer = transformer
-        # hidden_dim = transformer.d_model
-        # self.class_embed = nn.Linear(hidden_dim, num_classes + 1)
-        # self.bbox_embed = MLP(hidden_dim, hidden_dim, 4, 3)
-        # self.query_embed = nn.Embedding(num_queries, hidden_dim)
-        # self.input_proj = nn.Conv2d(backbone.num_channels, hidden_dim, kernel_size=1)
-        self.input_proj = nn.Conv2d(backbone.num_channels, args["dim_embed"], kernel_size=1)
         self.backbone = backbone
-        # self.aux_loss = aux_loss
+        self.transformer = transformer
+        self.input_proj = nn.Conv2d(self.backbone.num_channels, args["dim_embed"], kernel_size=1)        
+        self._load_pretrained_transformer()
         
-        self.cls_token = nn.Parameter(torch.zeros(1, 1, args["dim_embed"]))          
-        # self.dist_token = nn.Parameter(torch.zeros(1, 1, args["dim_embed"])) 
-        # self.pos_embed = nn.Parameter(torch.zeros(1, 1, args["dim_embed"]))  
-        
-        self.head = nn.Linear(args["dim_embed"], args["dim_feature"])
-        # self.head_dist = nn.Linear(args["dim_embed"], args["dim_feature"]) 
-        
-        nn.init.trunc_normal_(self.cls_token)        
-        # nn.init.trunc_normal_(self.dist_token)
-        # nn.init.trunc_normal_(self.pos_embed)    
+    def _load_pretrained_transformer(self):
+        checkpoint = torch.hub.load_state_dict_from_url("https://dl.fbaipublicfiles.com/deit/deit_small_distilled_patch16_224-649709d9.pth", map_location="cpu")        
+        state_dict = {}
+        for k, v in checkpoint["model"].items():
+            newk = k.replace("blocks.", "encoder.layers.")
+            newk = newk.replace("attn.qkv.", "self_attn.in_proj_")
+            newk = newk.replace("attn.proj.", "self_attn.out_proj.")
+            newk = newk.replace("mlp.fc", "linear")
+            newk = newk.replace("norm.", "encoder.norm.")
+            state_dict[newk] = v    
+        del state_dict['pos_embed']
+        msg = self.transformer.load_state_dict(state_dict, strict=False)  
+        print(msg)
         
     def forward(self, samples: NestedTensor):
         """ The forward expects a NestedTensor, which consists of:
@@ -66,46 +63,42 @@ class Base1(nn.Module):
 
         src, mask = features[-1].decompose() # bs x dim_embed x h x w, bs x h x w
         assert mask is not None
-        # hs = self.transformer(self.input_proj(src), mask, self.query_embed.weight, pos[-1])[0]
-        src = self.input_proj(src)  
         
-        #### inside the transformer    
-        bs, c, h, w = src.shape
-        src = src.flatten(2).permute(2, 0, 1) # num_patches(=h*w) x bs x dim_embed       
-        # pos_embed = pos_embed.flatten(2).permute(2, 0, 1) # num_patches x bs x dim_embed   
-        # query_embed = query_embed.unsqueeze(1).repeat(1, bs, 1)
-        # mask = mask.flatten(1) # bs x num_patches      
+        emb = self.transformer(self.input_proj(src))
+        
+        # #### inside the transformer    
+        # bs, c, h, w = src.shape
+        # src = src.flatten(2).permute(2, 0, 1) # num_patches(=h*w) x bs x dim_embed       
+        # # pos_embed = pos_embed.flatten(2).permute(2, 0, 1) # num_patches x bs x dim_embed   
+        # # query_embed = query_embed.unsqueeze(1).repeat(1, bs, 1)
+        # # mask = mask.flatten(1) # bs x num_patches      
           
-        cls_token = self.cls_token.expand(bs, -1, -1).permute(1, 0, 2) # 1 x bs x dim_embed
-        # dist_token = self.dist_token.expand(bs, -1, -1).permute(1, 0, 2) # 1 x bs x dim_embed
-        src = torch.cat((cls_token, src), dim=0) # (num_patches + 1) x bs x dim_embed
+        # cls_token = self.cls_token.expand(bs, -1, -1).permute(1, 0, 2) # 1 x bs x dim_embed
+        # # dist_token = self.dist_token.expand(bs, -1, -1).permute(1, 0, 2) # 1 x bs x dim_embed
+        # src = torch.cat((cls_token, src), dim=0) # (num_patches + 1) x bs x dim_embed
                             
-        # mask_ = self.cls_mask.expand(bs, -1)
-        # mask = torch.cat((mask_, mask), dim=1) # bs x (num_patches + 1)
+        # # mask_ = self.cls_mask.expand(bs, -1)
+        # # mask = torch.cat((mask_, mask), dim=1) # bs x (num_patches + 1)
         
-        memory = self.transformer(src, None, None, None)  # (num_patches + 1) x bs x dim_embed
+        # memory = self.transformer(src, None, None, None)  # (num_patches + 1) x bs x dim_embed
         
-        ### outside the transformer
-        memory = memory.permute(1, 2, 0) # bs x dim_embed x (num_patches + 1)        
-        emb = self.head(memory[:, :, 0]) # bs x dim_embed             
-        mem = memory[:, :, 1:].view(bs, c, h, w) # bs x dim_embed x h x w
+        # ### outside the transformer
+        # memory = memory.permute(1, 2, 0) # bs x dim_embed x (num_patches + 1)        
+        # emb = self.head(memory[:, :, 0]) # bs x dim_embed             
+        # mem = memory[:, :, 1:].view(bs, c, h, w) # bs x dim_embed x h x w
         
-        return emb, mem, mask, pos[-1]
-
+        # return emb, mem, mask, pos[-1]
+        return emb
+   
+def build_baseA(args):
     
-def build_base1(args):
-    
-    backbone = build_backbone(args)
-    
+    backbone = build_backbone(args)    
     transformer = build_transformer_encoder(args)
     
-    base1 = Base1(
+    base1 = baseA(
         args,
         backbone,
         transformer,
-        # num_classes=num_classes,
-        # num_queries=args.num_queries,
-        # aux_loss=args.aux_loss,
     )
         
     return base1

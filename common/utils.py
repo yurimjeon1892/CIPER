@@ -58,12 +58,25 @@ def load_pretrained(model, default_path):
     
     model_dict = model.state_dict()
     
-    pretrained_dict = torch.load(default_path, map_location="cpu")["model"]
-    update_dict = change_param_name(pretrained_dict)    
+    # file = open("model_dict.txt", "w")
+    # for k in model_dict.keys():
+    #     if "query_net" in k: 
+    #         file.write(k.replace("query_net.", "") + ",")
+    #         for n in list(model_dict[k].size()):
+    #             file.write(str(n) + ",")
+    #         file.write("\n")
+    # file.close()
+    # # print(model_dict.keys())
+    # exit()    
     
-    # update_dict = {k: v for k, v in update_dict.items() if k in model_dict}    
+    checkpoint = torch.load(default_path, map_location="cpu")
+    state_dict = checkpoint["model"]
+    update_dict = change_param_name(state_dict)    
+    
+    update_dict = {k: v for k, v in update_dict.items() if k in model_dict}    
     model_dict.update(update_dict)
-    model.load_state_dict(update_dict, strict=False)
+    msg = model.load_state_dict(update_dict, strict=False)
+    print(msg)
     
     return model
 
