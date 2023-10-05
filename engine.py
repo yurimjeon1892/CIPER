@@ -34,7 +34,7 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module, postproc
     for i, (img_grnd, img_arl, targets) in \
         enumerate(tqdm(data_loader, desc=description, unit="batches")):
         
-        bs = img_grnd.tensors.size(0)
+        bs = img_grnd.size(0)
         img_grnd = img_grnd.to(train_infos["device"])
         img_arl = img_arl.to(train_infos["device"])
         

@@ -1,210 +1,76 @@
 import torch
 import torch.nn.functional as F
+
 from torch import nn
 from functools import partial
+from timm.models.vision_transformer import VisionTransformer
 
-from timm.models.layers import PatchEmbed
+import torchvision
+import numpy as np
 
-from common.utils_misc import nested_tensor_from_tensor_list, NestedTensor
-from .transformer import TransformerEncoderLayer, TransformerEncoder
-from .backbone import build_backbone
-
-
-from .vision_transformer import Block, Mlp
-from timm.models.vision_transformer import VisionTransformer, init_weights_vit_timm, get_init_weights_vit, named_apply
-from timm.models.layers import trunc_normal_
-
-# class EncoderWrapper(VisionTransformer):
+class Encoder(VisionTransformer):
     
-#     def __init__(self, **kwargs):
-#         super().__init__(**kwargs)
-#         # self.dist_token = nn.Parameter(torch.zeros(1, 1, self.embed_dim))
+    def __init__(self, args, img_size, norm_layer=partial(nn.LayerNorm, eps=1e-6)):
+        super().__init__(img_size=img_size, patch_size=args["patch_size"], embed_dim=args["dim_embed"], num_classes=args["dim_feature"], depth=args["num_enc_layers"], num_heads=args["num_heads"], mlp_ratio=args["mlp_ratio"], qkv_bias=args["qkv_bias"], norm_layer=norm_layer)
 
-#         num_patches = self.patch_embed.num_patches
-#         self.pos_embed = nn.Parameter(torch.zeros(1, num_patches + 2, self.embed_dim))
-#         # self.head_dist = nn.Linear(self.embed_dim, self.num_classes) if self.num_classes > 0 else nn.Identity()
-
-#         # trunc_normal_(self.dist_token, std=.02)
-#         # trunc_normal_(self.pos_embed, std=.02)
-#         # self.head_dist.apply(self._init_weights)
+        num_patches = self.patch_embed.num_patches
         
-#         self.cls_token = nn.Parameter(torch.zeros(1, 1, self.embed_dim))          
-#         self.dist_token = nn.Parameter(torch.zeros(1, 1, self.embed_dim)) 
-        
-#         self.head = nn.Linear(self.embed_dim, self.num_classes)
-#         self.head_dist = nn.Linear(self.embed_dim, self.num_classes) 
-        
-#         nn.init.trunc_normal_(self.cls_token)        
-#         nn.init.trunc_normal_(self.dist_token)
-        
-#         self.head.apply(self._init_weights)
-#         self.head_dist.apply(self._init_weights)
-
-#     def forward(self, x):
-#         # taken from https://github.com/rwightman/pytorch-image-models/blob/master/timm/models/vision_transformer.py
-#         # with slight modifications to add the dist_token
-#         B = x.shape[0]
-#         x = self.patch_embed(x) # [8, 3, 320, 320] --> [8, 400, 384]
-          
-#         cls_tokens = self.cls_token.expand(B, -1, -1)  # stole cls_tokens impl from Phil Wang, thanks # [8, 1, 384]
-#         dist_token = self.dist_token.expand(B, -1, -1) # [8, 1, 384]
-#         x = torch.cat((cls_tokens, dist_token, x), dim=1) # [8, 402, 384]
-
-#         x = x + self.pos_embed # [8, 402, 384]
-#         x = self.pos_drop(x)
-                            
-#         for i, blk in enumerate(self.blocks):
-#             x = blk(x)
-
-#         x = self.norm(x) # [8, 402, 384]
-#         x, x_dist = x[:, 0], x[:, 1]
-        
-#         x = self.head(x) # bs x dim_embed      
-#         x_dist =  self.head_dist(x_dist)
-#         return (x + x_dist) / 2
-
-class EncoderWrapperB(nn.Module):
-
-    def __init__(self, args, img_size):
-        super().__init__()
-
-        encoder_layer = TransformerEncoderLayer(d_model=args["dim_embed"],
-                                                nhead=args["num_heads"],
-                                                dim_feedforward=args["dim_feedforward"],
-                                                dropout=args["dropout"],                                                
-                                                activation="relu",
-                                                normalize_before=args["pre_norm"])
-        encoder_norm = nn.LayerNorm(args["dim_embed"]) if args["pre_norm"] else None
-        self.encoder = TransformerEncoder(encoder_layer, args["num_enc_layers"], encoder_norm) 
-        
-        self.cls_token = nn.Parameter(torch.zeros(1, 1, args["dim_embed"]))          
-        self.dist_token = nn.Parameter(torch.zeros(1, 1, args["dim_embed"])) 
-        self.pos_embed = nn.Parameter(torch.zeros(1, 1, args["dim_embed"]))  
-        self.init_weights("")
-        
-        self.head = nn.Linear(args["dim_embed"], args["dim_feature"])
-        self.head_dist = nn.Linear(args["dim_embed"], args["dim_feature"]) 
+        self.pos_embed = nn.Parameter(torch.zeros(1, num_patches + 2, self.embed_dim))        
+        self.cls_token = nn.Parameter(torch.zeros(1, 1, self.embed_dim))          
+        self.dist_token = nn.Parameter(torch.zeros(1, 1, self.embed_dim)) 
         
         nn.init.trunc_normal_(self.cls_token)        
         nn.init.trunc_normal_(self.dist_token)
-        # nn.init.trunc_normal_(self.pos_embed)   
-                
-        patch_size = 16
-        in_chans = 3
-        embed_dim = args["dim_embed"]
-        pre_norm = False
-        # dynamic_img_pad = False        
-        self.patch_embed = PatchEmbed(
-			img_size=img_size,
-			patch_size=patch_size,
-            in_chans=in_chans,
-            embed_dim=embed_dim,
-            bias=not pre_norm,  # disable bias if pre-norm is used (e.g. CLIP)
-            # dynamic_img_pad=dynamic_img_pad,
-		)
-
+        
+        self.head = nn.Linear(self.embed_dim, self.num_classes)
+        self.head_dist = nn.Linear(self.embed_dim, self.num_classes) 
+        
         self.head.apply(self._init_weights)
         self.head_dist.apply(self._init_weights)
-        
-    def init_weights(self, mode=''):
-        import math
-        assert mode in ('jax', 'jax_nlhb', 'moco', '')
-        head_bias = -math.log(self.num_classes) if 'nlhb' in mode else 0.
-        # trunc_normal_(self.pos_embed, std=.02)
-        if self.cls_token is not None:
-            nn.init.normal_(self.cls_token, std=1e-6)
-        named_apply(get_init_weights_vit(mode, head_bias), self)
                 
-    def _init_weights(self, m):
-        # this fn left here for compat with downstream users
-        init_weights_vit_timm(m)
+        self._load_pretrained(img_size, args["dim_feature"])
+        
+    def _load_pretrained(self, img_size, num_classes):        
+        checkpoint = torch.hub.load_state_dict_from_url("https://dl.fbaipublicfiles.com/deit/deit_small_distilled_patch16_224-649709d9.pth", map_location="cpu")     
+           
+        weight = checkpoint["model"]['pos_embed']
+        ori_size = np.sqrt(weight.shape[1] - 1).astype(int)
+        new_size = (img_size[0] // self.patch_embed.patch_size[0], img_size[1] // self.patch_embed.patch_size[1])
+        matrix = weight[:, 2:, :].reshape([1, ori_size, ori_size, weight.shape[-1]]).permute((0, 3, 1, 2))
+        resize = torchvision.transforms.Resize(new_size)
+        new_matrix = resize(matrix).permute(0, 2, 3, 1).reshape([1, -1, weight.shape[-1]])
+        checkpoint["model"]['pos_embed'] = torch.cat([weight[:, :2, :], new_matrix], dim=1)
+        # change the prediction head if not 1000
+        if num_classes != 1000:
+            checkpoint["model"]['head.weight'] = checkpoint["model"]['head.weight'].repeat(5,1)[:num_classes, :]
+            checkpoint["model"]['head.bias'] = checkpoint["model"]['head.bias'].repeat(5)[:num_classes]
+            checkpoint["model"]['head_dist.weight'] = checkpoint["model"]['head.weight'].repeat(5,1)[:num_classes, :]
+            checkpoint["model"]['head_dist.bias'] = checkpoint["model"]['head.bias'].repeat(5)[:num_classes]
+        msg = self.load_state_dict(checkpoint["model"])
+        print(msg)
 
-    def forward(self, x, mask=None, query_embed=None, pos_embed=None):
-        
-        x = x.tensors
-        
-        # flatten NxCxHxW to HWxNxC
-        bs = x.shape[0]
-        x = self.patch_embed(x)     
+    def forward(self, x):
+        # taken from https://github.com/rwightman/pytorch-image-models/blob/master/timm/models/vision_transformer.py
+        # with slight modifications to add the dist_token
+        B = x.shape[0]
+        x = self.patch_embed(x) # [8, 3, 320, 320] --> [8, 400, 384]
           
-        cls_token = self.cls_token.expand(bs, -1, -1) # 1 x bs x dim_embed
-        dist_token = self.dist_token.expand(bs, -1, -1) # 1 x bs x dim_embed
-        x = torch.cat((cls_token, dist_token, x), dim=1) # (num_patches + 1) x bs x dim_embed
-        
-        x = x.permute(1, 0, 2)
-        x = self.encoder(x)
-        x = x.permute(1, 0, 2)
-                    
+        cls_tokens = self.cls_token.expand(B, -1, -1)  # stole cls_tokens impl from Phil Wang, thanks # [8, 1, 384]
+        dist_token = self.dist_token.expand(B, -1, -1) # [8, 1, 384]
+        x = torch.cat((cls_tokens, dist_token, x), dim=1) # [8, 402, 384]
+
+        x = x + self.pos_embed # [8, 402, 384]
+        x = self.pos_drop(x)
+                            
+        for i, blk in enumerate(self.blocks):
+            x = blk(x)
+
+        x = self.norm(x) # [8, 402, 384]
         x, x_dist = x[:, 0], x[:, 1]
         
         x = self.head(x) # bs x dim_embed      
         x_dist =  self.head_dist(x_dist)
-        emb = (x + x_dist) / 2
-        
-        return emb
-
-# class EncoderWrapper(nn.Module):
-
-#     def __init__(self, args):
-#         super().__init__()
-
-#         encoder_layer = TransformerEncoderLayer(d_model=args["dim_embed"],
-#                                                 nhead=args["num_heads"],
-#                                                 dim_feedforward=args["dim_feedforward"],
-#                                                 dropout=args["dropout"],                                                
-#                                                 activation="relu",
-#                                                 normalize_before=args["pre_norm"])
-#         encoder_norm = nn.LayerNorm(args["dim_embed"]) if args["pre_norm"] else None
-#         self.encoder = TransformerEncoder(encoder_layer, args["num_enc_layers"], encoder_norm) 
-        
-#         self.cls_token = nn.Parameter(torch.zeros(1, 1, args["dim_embed"]))          
-#         self.dist_token = nn.Parameter(torch.zeros(1, 1, args["dim_embed"])) 
-#         self.pos_embed = nn.Parameter(torch.zeros(1, 1, args["dim_embed"]))  
-#         self.init_weights("")
-        
-#         self.head = nn.Linear(args["dim_embed"], args["dim_feature"])
-#         self.head_dist = nn.Linear(args["dim_embed"], args["dim_feature"]) 
-        
-#         nn.init.trunc_normal_(self.cls_token)        
-#         nn.init.trunc_normal_(self.dist_token)
-#         # nn.init.trunc_normal_(self.pos_embed)   
-                
-#         self.head.apply(self._init_weights)
-#         self.head_dist.apply(self._init_weights)
-        
-#     def init_weights(self, mode=''):
-#         import math
-#         assert mode in ('jax', 'jax_nlhb', 'moco', '')
-#         head_bias = -math.log(self.num_classes) if 'nlhb' in mode else 0.
-#         # trunc_normal_(self.pos_embed, std=.02)
-#         if self.cls_token is not None:
-#             nn.init.normal_(self.cls_token, std=1e-6)
-#         named_apply(get_init_weights_vit(mode, head_bias), self)
-                
-#     def _init_weights(self, m):
-#         # this fn left here for compat with downstream users
-#         init_weights_vit_timm(m)
-
-#     def forward(self, x, mask=None, query_embed=None, pos_embed=None):
-        
-#         bs = x.shape[0]        
-#         x = x.flatten(2).permute(0, 2, 1)
-          
-#         cls_token = self.cls_token.expand(bs, -1, -1) 
-#         dist_token = self.dist_token.expand(bs, -1, -1) 
-#         x = torch.cat((cls_token, dist_token, x), dim=1) 
-        
-#         x = x.permute(1, 0, 2)
-#         x = self.encoder(x)
-#         x = x.permute(1, 0, 2)
-                    
-#         x, x_dist = x[:, 0], x[:, 1]
-        
-#         x = self.head(x) # bs x dim_embed      
-#         x_dist =  self.head_dist(x_dist)
-#         emb = (x + x_dist) / 2
-        
-#         return emb
+        return (x + x_dist) / 2
     
 class Decoder(nn.Module):
     def __init__(self, args):
@@ -321,11 +187,6 @@ class MLP(nn.Module):
         for i, layer in enumerate(self.layers):
             x = F.relu(layer(x)) if i < self.num_layers - 1 else layer(x)
         return x
-
-# def build_transformer_encoder(args, img_size):
-#     return EncoderWrapper(args, img_size)
-def build_transformer_encoder(args):
-    return EncoderWrapper(args)
 
 def build_transformer_decoder(args):
     return Decoder(args)

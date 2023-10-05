@@ -14,7 +14,7 @@ import shutil
 import sys; sys.path.append("../")
 import common.utils_misc as utils_misc
 
-from common.utils import save_state, load_pretrained, print_pigeon
+from common.utils import save_state, print_pigeon
 from datasets import build_dataset
 from models import build, SAM
 from engine import train_one_epoch, valid_one_epoch, evaluate
@@ -46,9 +46,9 @@ def main():
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print("[i] number of params:", n_parameters // 10 ** 6, "M")
     
-    if args["pretrain"] != False:        
-        model = load_pretrained(model, args["pretrain"])
-        print("[i] load pretrained file from:", args["pretrain"])
+    # if args["pretrain"] != False:        
+    #     model = load_pretrained(model, args["pretrain"])
+    #     print("[i] load pretrained file from:", args["pretrain"])
     if args["resume"]  != False:
         checkpoint = torch.load(args["resume"], map_location="cpu")
         # model_without_ddp.load_state_dict(checkpoint["model"])
@@ -66,14 +66,7 @@ def main():
     
     if not args["infer"] :
         
-        ## backbone / Transformer-encoder, decoder / detector head 각각의 learning rate를 다르게 주는 방법
-        param_dicts = [
-            {"params": [p for n, p in model.named_parameters() if "backbone" not in n and p.requires_grad]},
-            {
-                "params": [p for n, p in model.named_parameters() if "backbone" in n and p.requires_grad],
-                "lr": args["train"]["lr_backbone"],
-            },
-        ]
+        param_dicts = list(filter(lambda p: p.requires_grad, model.parameters()))
         
         ## optimizer and ir_scheduler         
         if args["train"]["optimizer"] == "adam":            
@@ -107,7 +100,7 @@ def main():
         # 특히 data_loader_train에서 batch_size를 정의하지 않고, BatchSampler라는 함수를 사용했다.
         # utils_misc.collate_fn 함수에 의해서, (image, label) -> (NestedTensor(tensor,mask), label) 로 바뀐다
         data_loader_train = DataLoader(dataset_train, batch_size=args["batch_size"], shuffle=(sampler_train is None), sampler=sampler_train,  drop_last=False,
-                                        num_workers=args["num_workers"], collate_fn=utils_misc.collate_fn) 
+                                        num_workers=args["num_workers"]) 
         # data_loader_train = DataLoader(dataset_train, batch_size=args["batch_size"], shuffle=False, sampler=sampler_train,  drop_last=True,
         #                                 collate_fn=utils_misc.collate_fn, num_workers=args["num_workers"]) 
         data_loader_val_q = DataLoader(dataset_val_q, batch_size=32, shuffle=True,
@@ -148,7 +141,7 @@ def main():
         if IS_POSE:            
             dataset_val = build_dataset(mode="valid", args=args["dataset"])
             data_loader_val = DataLoader(dataset_val, batch_size=args["batch_size"], shuffle=False, drop_last=False,
-                                        collate_fn=utils_misc.collate_fn, num_workers=args["num_workers"]) 
+                                        num_workers=args["num_workers"]) 
             data_loader_valid["val"] = data_loader_val
 
     if args["infer"]:
