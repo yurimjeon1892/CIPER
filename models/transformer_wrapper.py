@@ -63,93 +63,9 @@ from timm.models.layers import trunc_normal_
 #         x_dist =  self.head_dist(x_dist)
 #         return (x + x_dist) / 2
 
-# class EncoderWrapper(nn.Module):
+class EncoderWrapperB(nn.Module):
 
-#     def __init__(self, args, img_size):
-#         super().__init__()
-
-#         encoder_layer = TransformerEncoderLayer(d_model=args["dim_embed"],
-#                                                 nhead=args["num_heads"],
-#                                                 dim_feedforward=args["dim_feedforward"],
-#                                                 dropout=args["dropout"],                                                
-#                                                 activation="relu",
-#                                                 normalize_before=args["pre_norm"])
-#         encoder_norm = nn.LayerNorm(args["dim_embed"]) if args["pre_norm"] else None
-#         self.encoder = TransformerEncoder(encoder_layer, args["num_enc_layers"], encoder_norm) 
-        
-#         self.cls_token = nn.Parameter(torch.zeros(1, 1, args["dim_embed"]))          
-#         self.dist_token = nn.Parameter(torch.zeros(1, 1, args["dim_embed"])) 
-#         self.pos_embed = nn.Parameter(torch.zeros(1, 1, args["dim_embed"]))  
-#         self.init_weights("")
-        
-#         self.head = nn.Linear(args["dim_embed"], args["dim_feature"])
-#         self.head_dist = nn.Linear(args["dim_embed"], args["dim_feature"]) 
-        
-#         nn.init.trunc_normal_(self.cls_token)        
-#         nn.init.trunc_normal_(self.dist_token)
-#         # nn.init.trunc_normal_(self.pos_embed)   
-                
-#         patch_size = 16
-#         in_chans = 3
-#         embed_dim = args["dim_embed"]
-#         pre_norm = False
-#         # dynamic_img_pad = False        
-#         self.patch_embed = PatchEmbed(
-# 			img_size=img_size,
-# 			patch_size=patch_size,
-#             in_chans=in_chans,
-#             embed_dim=embed_dim,
-#             bias=not pre_norm,  # disable bias if pre-norm is used (e.g. CLIP)
-#             # dynamic_img_pad=dynamic_img_pad,
-# 		)
-
-#         self.head.apply(self._init_weights)
-#         self.head_dist.apply(self._init_weights)
-        
-#     def init_weights(self, mode=''):
-#         import math
-#         assert mode in ('jax', 'jax_nlhb', 'moco', '')
-#         head_bias = -math.log(self.num_classes) if 'nlhb' in mode else 0.
-#         # trunc_normal_(self.pos_embed, std=.02)
-#         if self.cls_token is not None:
-#             nn.init.normal_(self.cls_token, std=1e-6)
-#         named_apply(get_init_weights_vit(mode, head_bias), self)
-                
-#     def _init_weights(self, m):
-#         # this fn left here for compat with downstream users
-#         init_weights_vit_timm(m)
-
-#     def forward(self, x, mask=None, query_embed=None, pos_embed=None):
-        
-#         # flatten NxCxHxW to HWxNxC
-#         bs = x.shape[0]
-#         x = self.patch_embed(x)     
-          
-#         cls_token = self.cls_token.expand(bs, -1, -1) # 1 x bs x dim_embed
-#         dist_token = self.dist_token.expand(bs, -1, -1) # 1 x bs x dim_embed
-#         x = torch.cat((cls_token, dist_token, x), dim=1) # (num_patches + 1) x bs x dim_embed
-                            
-#         # mask_ = self.cls_mask.expand(bs, -1)
-#         # mask = torch.cat((mask_, mask), dim=1) # bs x (num_patches + 1)
-
-#         # dst = self.encoder(src, src_key_padding_mask=mask, pos=pos_embed) # (num_patches + 1) x bs x dim_embed
-#         # output = self.encoder(src, mask, query_embed, pos_embed)
-        
-#         x = x.permute(1, 0, 2)
-#         x = self.encoder(x)
-#         x = x.permute(1, 0, 2)
-                    
-#         x, x_dist = x[:, 0], x[:, 1]
-        
-#         x = self.head(x) # bs x dim_embed      
-#         x_dist =  self.head_dist(x_dist)
-#         emb = (x + x_dist) / 2
-        
-#         return emb
-
-class EncoderWrapper(nn.Module):
-
-    def __init__(self, args):
+    def __init__(self, args, img_size):
         super().__init__()
 
         encoder_layer = TransformerEncoderLayer(d_model=args["dim_embed"],
@@ -173,6 +89,20 @@ class EncoderWrapper(nn.Module):
         nn.init.trunc_normal_(self.dist_token)
         # nn.init.trunc_normal_(self.pos_embed)   
                 
+        patch_size = 16
+        in_chans = 3
+        embed_dim = args["dim_embed"]
+        pre_norm = False
+        # dynamic_img_pad = False        
+        self.patch_embed = PatchEmbed(
+			img_size=img_size,
+			patch_size=patch_size,
+            in_chans=in_chans,
+            embed_dim=embed_dim,
+            bias=not pre_norm,  # disable bias if pre-norm is used (e.g. CLIP)
+            # dynamic_img_pad=dynamic_img_pad,
+		)
+
         self.head.apply(self._init_weights)
         self.head_dist.apply(self._init_weights)
         
@@ -191,12 +121,15 @@ class EncoderWrapper(nn.Module):
 
     def forward(self, x, mask=None, query_embed=None, pos_embed=None):
         
-        bs = x.shape[0]        
-        x = x.flatten(2).permute(0, 2, 1)
+        x = x.tensors
+        
+        # flatten NxCxHxW to HWxNxC
+        bs = x.shape[0]
+        x = self.patch_embed(x)     
           
-        cls_token = self.cls_token.expand(bs, -1, -1) 
-        dist_token = self.dist_token.expand(bs, -1, -1) 
-        x = torch.cat((cls_token, dist_token, x), dim=1) 
+        cls_token = self.cls_token.expand(bs, -1, -1) # 1 x bs x dim_embed
+        dist_token = self.dist_token.expand(bs, -1, -1) # 1 x bs x dim_embed
+        x = torch.cat((cls_token, dist_token, x), dim=1) # (num_patches + 1) x bs x dim_embed
         
         x = x.permute(1, 0, 2)
         x = self.encoder(x)
@@ -209,6 +142,69 @@ class EncoderWrapper(nn.Module):
         emb = (x + x_dist) / 2
         
         return emb
+
+# class EncoderWrapper(nn.Module):
+
+#     def __init__(self, args):
+#         super().__init__()
+
+#         encoder_layer = TransformerEncoderLayer(d_model=args["dim_embed"],
+#                                                 nhead=args["num_heads"],
+#                                                 dim_feedforward=args["dim_feedforward"],
+#                                                 dropout=args["dropout"],                                                
+#                                                 activation="relu",
+#                                                 normalize_before=args["pre_norm"])
+#         encoder_norm = nn.LayerNorm(args["dim_embed"]) if args["pre_norm"] else None
+#         self.encoder = TransformerEncoder(encoder_layer, args["num_enc_layers"], encoder_norm) 
+        
+#         self.cls_token = nn.Parameter(torch.zeros(1, 1, args["dim_embed"]))          
+#         self.dist_token = nn.Parameter(torch.zeros(1, 1, args["dim_embed"])) 
+#         self.pos_embed = nn.Parameter(torch.zeros(1, 1, args["dim_embed"]))  
+#         self.init_weights("")
+        
+#         self.head = nn.Linear(args["dim_embed"], args["dim_feature"])
+#         self.head_dist = nn.Linear(args["dim_embed"], args["dim_feature"]) 
+        
+#         nn.init.trunc_normal_(self.cls_token)        
+#         nn.init.trunc_normal_(self.dist_token)
+#         # nn.init.trunc_normal_(self.pos_embed)   
+                
+#         self.head.apply(self._init_weights)
+#         self.head_dist.apply(self._init_weights)
+        
+#     def init_weights(self, mode=''):
+#         import math
+#         assert mode in ('jax', 'jax_nlhb', 'moco', '')
+#         head_bias = -math.log(self.num_classes) if 'nlhb' in mode else 0.
+#         # trunc_normal_(self.pos_embed, std=.02)
+#         if self.cls_token is not None:
+#             nn.init.normal_(self.cls_token, std=1e-6)
+#         named_apply(get_init_weights_vit(mode, head_bias), self)
+                
+#     def _init_weights(self, m):
+#         # this fn left here for compat with downstream users
+#         init_weights_vit_timm(m)
+
+#     def forward(self, x, mask=None, query_embed=None, pos_embed=None):
+        
+#         bs = x.shape[0]        
+#         x = x.flatten(2).permute(0, 2, 1)
+          
+#         cls_token = self.cls_token.expand(bs, -1, -1) 
+#         dist_token = self.dist_token.expand(bs, -1, -1) 
+#         x = torch.cat((cls_token, dist_token, x), dim=1) 
+        
+#         x = x.permute(1, 0, 2)
+#         x = self.encoder(x)
+#         x = x.permute(1, 0, 2)
+                    
+#         x, x_dist = x[:, 0], x[:, 1]
+        
+#         x = self.head(x) # bs x dim_embed      
+#         x_dist =  self.head_dist(x_dist)
+#         emb = (x + x_dist) / 2
+        
+#         return emb
     
 class Decoder(nn.Module):
     def __init__(self, args):

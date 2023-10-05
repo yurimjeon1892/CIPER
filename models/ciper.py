@@ -9,14 +9,42 @@ from .base import build_baseA
 from .matcher import build_matcher
 from .soft_triplet import SoftTripletBiLoss
 
-# from .transformer_wrapper import build_transformer_encoder, build_transformer_decoder
-# from .Deit import deit_small_distilled_patch16_224
-# from .transformer_wrapper import EncoderWrapper
-# from functools import partial
+from .transformer_wrapper import EncoderWrapperB
+
+# class CIPER(nn.Module):
+#     """ This is the CIPER module that performs cross-view image geo-localization """
+#     def __init__(self, qry_net, ref_net):
+#         """ Initializes the model.
+#         Parameters:
+#             backbone: torch module of the backbone to be used. See backbone.py
+#             num_queries: number of object queries, ie detection slot. This is the maximal number of objects
+#                          DETR can detect in a single image. For COCO, we recommend 100 queries.
+#         """
+#         super().__init__()
+        
+#         self.query_net = qry_net
+#         self.reference_net = ref_net
+        
+#     def forward(self, im_grnd, im_arl):
+        
+#         # emb_grnd, mem_grnd, _, pos_grnd = self.query_net(im_grnd)
+#         # emb_arl, mem_arl, mask, pos_arl = self.reference_net(im_arl)
+#         emb_grnd = self.query_net(im_grnd)
+#         emb_arl = self.reference_net(im_arl)
+#         outputs = {
+#             "grnd": emb_grnd,
+#             "arl": emb_arl,
+#         }
+          
+#         # if self.pose_net is not None: 
+#         #     out_pos = self.pose_net((mem_grnd, pos_grnd), (mem_arl, pos_arl), mask)
+#         #     outputs.update(out_pos)
+        
+#         return outputs
 
 class CIPER(nn.Module):
     """ This is the CIPER module that performs cross-view image geo-localization """
-    def __init__(self, qry_net, ref_net):
+    def __init__(self, args):
         """ Initializes the model.
         Parameters:
             backbone: torch module of the backbone to be used. See backbone.py
@@ -25,12 +53,9 @@ class CIPER(nn.Module):
         """
         super().__init__()
         
-        self.query_net = qry_net
-        self.reference_net = ref_net
-        
-        # self.size_sat = [256, 256]
-        # self.size_sat_default = [256, 256]
-        # self.size_grd = [112, 616]        
+        self.size_sat = [256, 256]
+        self.size_sat_default = [256, 256]
+        self.size_grd = [112, 616]        
         # num_classes = 1000
         
         # self.query_net = EncoderWrapper(img_size=self.size_grd, patch_size=16, embed_dim=384, num_classes=num_classes, depth=12, num_heads=6, mlp_ratio=4, qkv_bias=True,
@@ -38,42 +63,36 @@ class CIPER(nn.Module):
         # self.reference_net = EncoderWrapper(img_size=self.size_sat, patch_size=16, embed_dim=384, num_classes=num_classes, depth=12, num_heads=6, mlp_ratio=4, qkv_bias=True,
         # norm_layer=partial(nn.LayerNorm, eps=1e-6))   
         
-    #     self.query_net = EncoderWrapper(args, self.size_grd)
-    #     self.reference_net = EncoderWrapper(args, self.size_sat)        
-    #     self._load_pretrained()
+        self.query_net = EncoderWrapperB(args, self.size_grd)
+        self.reference_net = EncoderWrapperB(args, self.size_sat)        
+        self._load_pretrained()
         
-    # def _load_pretrained(self):
-    #     checkpoint = torch.hub.load_state_dict_from_url("https://dl.fbaipublicfiles.com/deit/deit_small_distilled_patch16_224-649709d9.pth", map_location="cpu")
+    def _load_pretrained(self):
+        checkpoint = torch.hub.load_state_dict_from_url("https://dl.fbaipublicfiles.com/deit/deit_small_distilled_patch16_224-649709d9.pth", map_location="cpu")
         
-    #     state_dict = {}
-    #     for k, v in checkpoint["model"].items():
-    #         newk = k.replace("blocks.", "encoder.layers.")
-    #         newk = newk.replace("attn.qkv.", "self_attn.in_proj_")
-    #         newk = newk.replace("attn.proj.", "self_attn.out_proj.")
-    #         newk = newk.replace("mlp.fc", "linear")
-    #         newk = newk.replace("norm.", "encoder.norm.")
-    #         state_dict[newk] = v    
-    #     # state_dict = checkpoint["model"]        
-    #     del state_dict['pos_embed']
-    #     msg = self.query_net.load_state_dict(state_dict, strict=False)  
-    #     print(msg)
-    #     msg = self.reference_net.load_state_dict(state_dict, strict=False)  
-    #     print(msg) 
+        state_dict = {}
+        for k, v in checkpoint["model"].items():
+            newk = k.replace("blocks.", "encoder.layers.")
+            newk = newk.replace("attn.qkv.", "self_attn.in_proj_")
+            newk = newk.replace("attn.proj.", "self_attn.out_proj.")
+            newk = newk.replace("mlp.fc", "linear")
+            newk = newk.replace("norm.", "encoder.norm.")
+            state_dict[newk] = v    
+        # state_dict = checkpoint["model"]        
+        del state_dict['pos_embed']
+        msg = self.query_net.load_state_dict(state_dict, strict=False)  
+        print(msg)
+        msg = self.reference_net.load_state_dict(state_dict, strict=False)  
+        print(msg) 
         
     def forward(self, im_grnd, im_arl):
         
-        # emb_grnd, mem_grnd, _, pos_grnd = self.query_net(im_grnd)
-        # emb_arl, mem_arl, mask, pos_arl = self.reference_net(im_arl)
         emb_grnd = self.query_net(im_grnd)
         emb_arl = self.reference_net(im_arl)
         outputs = {
             "grnd": emb_grnd,
             "arl": emb_arl,
         }
-          
-        # if self.pose_net is not None: 
-        #     out_pos = self.pose_net((mem_grnd, pos_grnd), (mem_arl, pos_arl), mask)
-        #     outputs.update(out_pos)
         
         return outputs
 
@@ -217,18 +236,15 @@ class PostProcess(nn.Module):
     
 def build(args, IS_POSE, device):
     
-    # qry_net = build_base1(args, [112, 616])
-    # ref_net = build_base1(args, [256, 256])
-    # pos_net = build_base2(args, IS_POSE)
+    # qry_net = build_baseA(args)
+    # ref_net = build_baseA(args)
     
-    # qry_net = build_transformer_encoder(args, [112, 616])
-    # ref_net = build_transformer_encoder(args, [256, 256])
-    
-    qry_net = build_baseA(args)
-    ref_net = build_baseA(args)
+    # model = CIPER(
+    #     qry_net, ref_net
+    # ).to(device)
     
     model = CIPER(
-        qry_net, ref_net
+        args
     ).to(device)
         
     # build criterion    
