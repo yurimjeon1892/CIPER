@@ -13,20 +13,17 @@ device: cuda # device to use for training / testing
 
 train:
 
-  ckpt_dir: ../tmp
-  epochs: 50
-
-  lr: 0.0001
-
-  weight_decay: 0.03
-  
-  lr_drop: 200
-
-  clip_max_norm: 0.1 # gradient clipping max norm
-
+  ckpt_dir: ../ckpts
+  epochs: 100
   start_epoch: 1
 
-  optimizer: adamw
+  lr: 0.0001
+  weight_decay: 0.03  
+  lr_drop: 200
+  clip_max_norm: 0.1 # gradient clipping max norm
+
+  optimizer: sam
+  cos: True
 
 dataset:
   
@@ -40,9 +37,6 @@ dataset:
   # cvusa only
   train_pt_list: ./datasets/splits/cvusa/train-mini.csv
   val_pt_list: ./datasets/splits/cvusa/train-mini.csv
-
-  # train_pt_list: ./datasets/splits/cvusa/train-19zl.csv
-  # val_pt_list: ./datasets/splits/cvusa/val-19zl.csv
   
 model:
 
@@ -50,18 +44,12 @@ model:
   arl_img_size: [256, 256]
 
   patch_size: 16
+
   mlp_ratio: 4
   qkv_bias: True
 
-  # position_embedding: sine # (sine, learned) Type of positional embedding to use on top of the image features
+  num_heads: 6 # Number of attention heads inside the transformer's attentions
+  num_enc_layers: 12 # Number of encoding layers in the transformer
 
   dim_embed: 384 # Size of the embeddings (dimension of the transformer)
-
-  # dropout: 0 # Dropout applied in the transformer
-  num_heads: 6 # Number of attention heads inside the transformer's attentions
-  # dim_feedforward: 1536 # 2048 Intermediate size of the feedforward layers in the transformer blocks  
-  num_enc_layers: 12 # Number of encoding layers in the transformer
-  # # num_dec_layers: 6 # Number of decoding layers in the transformer
-  # pre_norm: True
-
   dim_feature: 1000

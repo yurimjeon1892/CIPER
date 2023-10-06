@@ -19,25 +19,32 @@ from datasets import build_dataset
 from models import build, SAM
 from engine import train_one_epoch, valid_one_epoch, evaluate
 
+def adjust_learning_rate(optimizer, epoch, args):
+    import math
+    """Decay the learning rate based on schedule"""
+    lr = args["lr"]
+    if args["cos"]:  # cosine lr schedule
+        lr *= 0.5 * (1. + math.cos(math.pi * epoch / args["epochs"]))
+    else:  # stepwise lr schedule
+        for milestone in args.schedule:
+            lr *= 0.1 if epoch >= milestone else 1.
+    for param_group in optimizer.param_groups:
+        param_group['lr'] = lr
+        
 def main():
     
-    # parse arguments
     global args
     with open(sys.argv[1], "r") as stream:        
         args = yaml.safe_load(stream)      
                       
     print_pigeon()
-                
-    # utils_misc.init_distributed_mode(args) # Multi-GPU 사용할 거라면, args.gpu / args.world_size / args.rank 가 여기서 정의 된다.
 
     device = torch.device(args["device"])
     
-    # Multi-GPU 사용할 거라면, fix the seed for reproducibility 
-    # fix the seed for reproducibility
-    seed = args["seed"] + utils_misc.get_rank()
-    torch.manual_seed(seed)
-    np.random.seed(seed)
-    random.seed(seed)
+    # # fix the seed for reproducibility
+    # random.seed(args["seed"])
+    # torch.manual_seed(args["seed"])
+    # # np.random.seed(args["seed"])    
     
     IS_POSE = args["task"] == "POSE"
 
@@ -46,18 +53,12 @@ def main():
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print("[i] number of params:", n_parameters // 10 ** 6, "M")
     
-    # if args["pretrain"] != False:        
-    #     model = load_pretrained(model, args["pretrain"])
-    #     print("[i] load pretrained file from:", args["pretrain"])
-    if args["resume"]  != False:
+    if args["resume"] != False:
         checkpoint = torch.load(args["resume"], map_location="cpu")
-        # model_without_ddp.load_state_dict(checkpoint["model"])
         model.load_state_dict(checkpoint["model"])
         if args["infer"]:
             print("[i] load checkpoint from:", args["resume"], "for inference")
         elif "optimizer" in checkpoint and "lr_scheduler" in checkpoint and "epoch" in checkpoint:
-            # optimizer.load_state_dict(checkpoint["optimizer"])
-            # lr_scheduler.load_state_dict(checkpoint["lr_scheduler"])
             args["train"]["start_epoch"] = checkpoint["epoch"] + 1        
             print("[i] load checkpoint from:", args["resume"], "for train")
         else:
@@ -68,7 +69,7 @@ def main():
         
         param_dicts = list(filter(lambda p: p.requires_grad, model.parameters()))
         
-        ## optimizer and ir_scheduler         
+        # optimizer and ir_scheduler         
         if args["train"]["optimizer"] == "adam":            
             optimizer = torch.optim.Adam(param_dicts, lr=args["train"]["lr"], betas=(0.9, 0.999), eps=1e-08, 
                                         weight_decay=args["train"]["weight_decay"])
@@ -80,29 +81,17 @@ def main():
             optimizer = SAM(param_dicts, base_optimizer, lr=args["train"]["lr"], betas=(0.9, 0.999), eps=1e-08, 
                             weight_decay=args["train"]["weight_decay"], amsgrad=False, rho=2.5, adaptive=True)
 
-        # lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, args["train"]["lr_drop"], args["train"]["gamma"])
         lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, args["train"]["lr_drop"])
         
         ## data_loader  
-        # train -> dataset -> RandomSampler -> BatchSampler -> DataLoader
-        # val -> dataset -> SequentialSampler -> DataLoader(+batch_size)
         dataset_train = build_dataset(mode="train", args=args["dataset"])
         dataset_val_q = build_dataset(mode="valid_qry", args=args["dataset"])
         dataset_val_r = build_dataset(mode="valid_ref", args=args["dataset"])
 
-        # if args["distributed"]: sampler_train = DistributedSampler(dataset_train)
-        # else: sampler_train = None
         sampler_train = None
             
-        # # data_loader에서는 1장씩만 뱉어주면 된다. BatchSampler가 Batch로 묶어 준다.
-        # batch_sampler_train = torch.utils_misc.data.BatchSampler(sampler_train, args["batch_size"], drop_last=True)
-        
-        # 특히 data_loader_train에서 batch_size를 정의하지 않고, BatchSampler라는 함수를 사용했다.
-        # utils_misc.collate_fn 함수에 의해서, (image, label) -> (NestedTensor(tensor,mask), label) 로 바뀐다
-        data_loader_train = DataLoader(dataset_train, batch_size=args["batch_size"], shuffle=(sampler_train is None), sampler=sampler_train,  drop_last=False,
+        data_loader_train = DataLoader(dataset_train, batch_size=args["batch_size"], shuffle=(sampler_train is None), sampler=sampler_train,  drop_last=True,
                                         num_workers=args["num_workers"]) 
-        # data_loader_train = DataLoader(dataset_train, batch_size=args["batch_size"], shuffle=False, sampler=sampler_train,  drop_last=True,
-        #                                 collate_fn=utils_misc.collate_fn, num_workers=args["num_workers"]) 
         data_loader_val_q = DataLoader(dataset_val_q, batch_size=32, shuffle=True,
                                         drop_last=False, num_workers=args["num_workers"]) 
         data_loader_val_r = DataLoader(dataset_val_r, batch_size=64, shuffle=True,
@@ -171,13 +160,13 @@ def main():
     }
      
     for epoch in range(args["train"]["start_epoch"], args["train"]["epochs"] + 1):
-        # if args["distributed"]:
-        #     sampler_train.set_epoch(epoch)
+        
+        adjust_learning_rate(optimizer, epoch, args["train"])
 
         train_infos["epoch"] = epoch
         train_infos = train_one_epoch(
                 model, criterion, postprocessors, data_loader_train, optimizer, train_infos, summary)
-        lr_scheduler.step() 
+        # lr_scheduler.step() 
             
         valid_infos["epoch"] = epoch
         valid_infos = valid_one_epoch(model, criterion, postprocessors, data_loader_valid, valid_infos, summary)   

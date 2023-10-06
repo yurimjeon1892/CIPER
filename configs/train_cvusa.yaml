@@ -14,7 +14,7 @@ device: cuda # device to use for training / testing
 train:
 
   ckpt_dir: ../ckpts
-  epochs: 150
+  epochs: 100
   start_epoch: 1
 
   lr: 0.0001
@@ -22,7 +22,8 @@ train:
   lr_drop: 200
   clip_max_norm: 0.1 # gradient clipping max norm
 
-  optimizer: adamw
+  optimizer: sam
+  cos: True
 
 dataset:
   
@@ -42,7 +43,7 @@ model:
   arl_img_size: [256, 256]
 
   patch_size: 16
-  
+
   mlp_ratio: 4
   qkv_bias: True
 

@@ -2,16 +2,9 @@ import os
 import torch
 import numpy as np
 import shutil
-import matplotlib.pyplot as plt
-
-import random
-
-from PIL import Image, ImageDraw
-
-# __all__ = [
-#     "save_state",
-#     "save_image"
-# ]
+# import matplotlib.pyplot as plt
+# import random
+# from PIL import Image, ImageDraw
 
 class AverageMeter(object):
     def __init__(self):
@@ -54,59 +47,59 @@ def save_state(save_path, model, optimizer, lr_scheduler, epoch, is_best, filena
         if os.path.exists(prev_checkpoint_filename):
             os.remove(prev_checkpoint_filename)
 
-def load_pretrained(model, default_path):
+# def load_pretrained(model, default_path):
     
-    model_dict = model.state_dict()
+#     model_dict = model.state_dict()
     
-    # file = open("model_dict.txt", "w")
-    # for k in model_dict.keys():
-    #     if "query_net" in k: 
-    #         file.write(k.replace("query_net.", "") + ",")
-    #         for n in list(model_dict[k].size()):
-    #             file.write(str(n) + ",")
-    #         file.write("\n")
-    # file.close()
-    # # print(model_dict.keys())
-    # exit()    
+#     # file = open("model_dict.txt", "w")
+#     # for k in model_dict.keys():
+#     #     if "query_net" in k: 
+#     #         file.write(k.replace("query_net.", "") + ",")
+#     #         for n in list(model_dict[k].size()):
+#     #             file.write(str(n) + ",")
+#     #         file.write("\n")
+#     # file.close()
+#     # # print(model_dict.keys())
+#     # exit()    
     
-    checkpoint = torch.load(default_path, map_location="cpu")
-    state_dict = checkpoint["model"]
-    update_dict = change_param_name(state_dict)    
+#     checkpoint = torch.load(default_path, map_location="cpu")
+#     state_dict = checkpoint["model"]
+#     update_dict = change_param_name(state_dict)    
     
-    update_dict = {k: v for k, v in update_dict.items() if k in model_dict}    
-    model_dict.update(update_dict)
-    msg = model.load_state_dict(update_dict, strict=False)
-    print(msg)
+#     update_dict = {k: v for k, v in update_dict.items() if k in model_dict}    
+#     model_dict.update(update_dict)
+#     msg = model.load_state_dict(update_dict, strict=False)
+#     print(msg)
     
-    return model
+#     return model
 
-def change_param_name(pretrained_dict):
-    update_dict = {}
-    for pretrainedk in pretrained_dict.keys():        
+# def change_param_name(pretrained_dict):
+#     update_dict = {}
+#     for pretrainedk in pretrained_dict.keys():        
         
-        if "transformer" in pretrainedk :
-            newk = pretrainedk.replace("transformer", "reference_net.transformer")
-            update_dict[newk] = pretrained_dict[pretrainedk]
-            print(pretrainedk , '-->', newk)
+#         if "transformer" in pretrainedk :
+#             newk = pretrainedk.replace("transformer", "reference_net.transformer")
+#             update_dict[newk] = pretrained_dict[pretrainedk]
+#             print(pretrainedk , '-->', newk)
             
-            newk = pretrainedk.replace("transformer", "query_net.transformer")
-            update_dict[newk] = pretrained_dict[pretrainedk]
-            print(pretrainedk , '-->', newk)
+#             newk = pretrainedk.replace("transformer", "query_net.transformer")
+#             update_dict[newk] = pretrained_dict[pretrainedk]
+#             print(pretrainedk , '-->', newk)
         
-        elif "backbone" in pretrainedk :
-            newk = pretrainedk.replace("backbone", "reference_net.backbone")
-            update_dict[newk] = pretrained_dict[pretrainedk]
-            print(pretrainedk , '-->', newk)
+#         elif "backbone" in pretrainedk :
+#             newk = pretrainedk.replace("backbone", "reference_net.backbone")
+#             update_dict[newk] = pretrained_dict[pretrainedk]
+#             print(pretrainedk , '-->', newk)
             
-            newk = pretrainedk.replace("backbone", "query_net.backbone")
-            update_dict[newk] = pretrained_dict[pretrainedk]
-            print(pretrainedk , '-->', newk)
+#             newk = pretrainedk.replace("backbone", "query_net.backbone")
+#             update_dict[newk] = pretrained_dict[pretrainedk]
+#             print(pretrainedk , '-->', newk)
             
-        else:            
-            update_dict[pretrainedk] = pretrained_dict[pretrainedk]
-            print(pretrainedk)
+#         else:            
+#             update_dict[pretrainedk] = pretrained_dict[pretrainedk]
+#             print(pretrainedk)
             
-    return update_dict
+#     return update_dict
 
 def retr_accuracy(qry_feat, ref_feat, qry_label, topk=[1, 5, 10]):
     """Computes the accuracy over the k top predictions for the specified values of k"""
