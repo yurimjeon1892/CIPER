@@ -27,7 +27,7 @@ def save_state(save_path, model, optimizer, lr_scheduler, epoch, is_best, filena
     state_dict = {
         "model": model.state_dict(),
         "optimizer": optimizer.state_dict(),
-        "lr_scheduler": lr_scheduler.state_dict(),
+        # "lr_scheduler": lr_scheduler.state_dict(),
         "epoch": epoch,
         # "best_metric": best_metric
     }
@@ -119,20 +119,13 @@ def retr_accuracy(qry_feat, ref_feat, qry_label, topk=[1, 5, 10]):
             for j, k in enumerate(topk):
                 if ranking < k:
                     results[j] += 1.
-                    # print(ranking, k)
-                    # ww = similarity[i,:]>=similarity[i,qry_label[i]]
-                    # print(list(ww).index(True))
     else:
         # split the queries if the matrix is too large, e.g. VIGOR
-        # assert N % 4 == 0
+        assert N % 4 == 0
         N_4 = N // 4
         for split in range(4):
-            if split == 3: 
-                qry_feat_i = qry_feat[(split*N_4):, :]
-                qry_label_i = qry_label[(split*N_4):]
-            else:
-                qry_feat_i = qry_feat[(split*N_4):((split+1)*N_4), :]
-                qry_label_i = qry_label[(split*N_4):((split+1)*N_4)]
+            qry_feat_i = qry_feat[(split*N_4):((split+1)*N_4), :]
+            qry_label_i = qry_label[(split*N_4):((split+1)*N_4)]
             qry_feat_norm = np.sqrt(np.sum(qry_feat_i ** 2, axis=1, keepdims=True))
             ref_feat_norm = np.sqrt(np.sum(ref_feat ** 2, axis=1, keepdims=True))
             similarity = np.matmul(qry_feat_i / qry_feat_norm,

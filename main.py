@@ -81,7 +81,7 @@ def main():
             optimizer = SAM(param_dicts, base_optimizer, lr=args["train"]["lr"], betas=(0.9, 0.999), eps=1e-08, 
                             weight_decay=args["train"]["weight_decay"], amsgrad=False, rho=2.5, adaptive=True)
 
-        lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, args["train"]["lr_drop"])
+        # lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, args["train"]["lr_drop"])
         
         ## data_loader  
         dataset_train = build_dataset(mode="train", args=args["dataset"])
@@ -176,7 +176,7 @@ def main():
             valid_infos["best_metric"] = valid_infos["metric"]
             is_best = True       
             
-        save_state(out_dir, model, optimizer, lr_scheduler, epoch, is_best)
+        save_state(out_dir, model, optimizer, None, epoch, is_best)
         
 if __name__ == "__main__":
     main()

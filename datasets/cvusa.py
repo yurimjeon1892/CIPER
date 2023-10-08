@@ -25,13 +25,16 @@ class CVUSA(torch.utils.data.Dataset):
     def make_sample_list(self):
 
         self.sample_list = []
+        self.id_idx_list = []
         with open(self.pt_list, 'r') as file:
-            # idx = 0
+            idx = 0
             for line in file:
                 data = line.split(',')
                 pano_id = (data[0].split('/')[-1]).split('.')[0]
                 # satellite filename, streetview filename, pano_id
                 self.sample_list.append([data[0], data[1], pano_id])
+                self.id_idx_list.append(idx)
+                idx += 1
         
         print("[i] {} data loaded, size:{}".format(self.mode, len(self.sample_list)))
         

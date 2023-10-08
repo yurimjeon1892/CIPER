@@ -1,12 +1,10 @@
 # configuration file for training
 infer: False
 
-# pretrain: pretrained/up-detr-pre-training-60ep-imagenet.pth
-pretrain: False
 resume: False
 
 seed: 42
-num_workers: 4
+num_workers: 8
 
 batch_size: 4
 
@@ -16,20 +14,14 @@ device: cuda # device to use for training / testing
 train:
 
   ckpt_dir: ../ckpts
-  epochs: 100
-
-  lr: 0.00005
-  lr_backbone: 0.00001
-
-  weight_decay: 0.03
-  
-  lr_drop: 200
-
-  clip_max_norm: 0.1 # gradient clipping max norm
-
+  epochs: 50
   start_epoch: 1
 
-  optimizer: adamw
+  lr: 0.00005
+  weight_decay: 0.03
+  
+  optimizer: sam
+  cos: True
 
 dataset:
   
@@ -51,20 +43,18 @@ dataset:
 
 model:
 
-  backbone: resnet50 # Name of the convolutional backbone to use
-  dilation: False # If true, we replace stride with dilation in the last convolutional block (DC5)
+  grnd_img_size: [320, 640] 
+  arl_img_size: [320, 320]
   
-  position_embedding: sine # (sine, learned) Type of positional embedding to use on top of the image features
-  
-  dim_embed: 384 # Size of the embeddings (dimension of the transformer)
+  patch_size: 16
 
-  dropout: 0.1 # Dropout applied in the transformer
+  mlp_ratio: 4
+  qkv_bias: True
+
   num_heads: 6 # Number of attention heads inside the transformer's attentions
-  dim_feedforward: 1536 # 2048 Intermediate size of the feedforward layers in the transformer blocks  
   num_enc_layers: 12 # Number of encoding layers in the transformer
-  # num_dec_layers: 6 # Number of decoding layers in the transformer
-  pre_norm: False
 
+  dim_embed: 384 # Size of the embeddings (dimension of the transformer)
   dim_feature: 1000
 
   # # ----- pose-estimation
