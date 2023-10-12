@@ -1,69 +1,48 @@
 # configuration file for training
+# ----- base config
 infer: False
-
 resume: False
 
 seed: 42
 num_workers: 8
 
-batch_size: 4
+batch_size: 1 #12
 
 task: RETR # RETR / POSE 
 device: cuda # device to use for training / testing 
 
-train:
+ckpt_dir: ../ckpts
+epochs: 50
+start_epoch: 1
 
-  ckpt_dir: ../ckpts
-  epochs: 50
-  start_epoch: 1
+# ----- optimizer config
+lr: 0.00005
+weight_decay: 0.03
 
-  lr: 0.00005
-  weight_decay: 0.03
-  
-  optimizer: sam
-  cos: True
+optimizer: sam
+cos: True
 
-dataset:
-  
-  data_name: vigor
-  data_root: /storage2/public/vigor/    
-  fov: 0
+# ----- data config
+data_name: vigor
+data_root: /storage2/public/vigor/    
 
-  grnd_img_size: [320, 640] 
-  arl_img_size: [320, 320]
+grd_img_size: [320, 640] 
+arl_img_size: [320, 320]
 
-  shift_range_lat: 0 
-  shift_range_lon: 0 
-  rotation_range: 0 
+shift_range_lat: 0 
+shift_range_lon: 0 
+rotation_range: 0 
+fov: 0
 
-  # vigor only
-  same_area: True
+same_area: True
 
-  spare_pixel: 1
+# ----- model config
+patch_size: 16
+mlp_ratio: 4
+qkv_bias: True
 
-model:
+num_heads: 6 # Number of attention heads inside the transformer's attentions
+num_enc_layers: 12 # Number of encoding layers in the transformer
 
-  grnd_img_size: [320, 640] 
-  arl_img_size: [320, 320]
-  
-  patch_size: 16
-
-  mlp_ratio: 4
-  qkv_bias: True
-
-  num_heads: 6 # Number of attention heads inside the transformer's attentions
-  num_enc_layers: 12 # Number of encoding layers in the transformer
-
-  dim_embed: 384 # Size of the embeddings (dimension of the transformer)
-  dim_feature: 1000
-
-  # # ----- pose-estimation
-  # num_queries: 64 # Number of query slots
-
-  # set_cost_class: 1 # Class coefficient in the matching cost
-  # set_cost_bbox: 5 # L1 box coefficient in the matching cost
-
-  # label_loss_coef: 1
-  # bbox_loss_coef: 0.1
-
-  # eos_coef: 0.1 # Relative classification weight of the no-object class
+dim_embed: 384 # Size of the embeddings (dimension of the transformer)
+dim_feature: 1000

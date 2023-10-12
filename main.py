@@ -39,16 +39,7 @@ def main():
                       
     print_pigeon()
 
-    device = torch.device(args["device"])
-    
-    # # fix the seed for reproducibility
-    # random.seed(args["seed"])
-    # torch.manual_seed(args["seed"])
-    # # np.random.seed(args["seed"])    
-    
-    IS_POSE = args["task"] == "POSE"
-
-    model, criterion, postprocessors = build(args["model"], IS_POSE, device)
+    model, criterion, postprocessors = build(args)
 
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print("[i] number of params:", n_parameters // 10 ** 6, "M")
@@ -59,7 +50,7 @@ def main():
         if args["infer"]:
             print("[i] load checkpoint from:", args["resume"], "for inference")
         elif "optimizer" in checkpoint and "lr_scheduler" in checkpoint and "epoch" in checkpoint:
-            args["train"]["start_epoch"] = checkpoint["epoch"] + 1        
+            args["start_epoch"] = checkpoint["epoch"] + 1        
             print("[i] load checkpoint from:", args["resume"], "for train")
         else:
             print("[i] failed to load checkpoint from:", args["resume"])
@@ -70,74 +61,72 @@ def main():
         param_dicts = list(filter(lambda p: p.requires_grad, model.parameters()))
         
         # optimizer and ir_scheduler         
-        if args["train"]["optimizer"] == "adam":            
-            optimizer = torch.optim.Adam(param_dicts, lr=args["train"]["lr"], betas=(0.9, 0.999), eps=1e-08, 
-                                        weight_decay=args["train"]["weight_decay"])
-        elif args["train"]["optimizer"] == "adamw":            
-            optimizer = torch.optim.AdamW(param_dicts, lr=args["train"]["lr"], betas=(0.9, 0.999), eps=1e-08, 
-                                        weight_decay=args["train"]["weight_decay"], amsgrad=False)
-        elif args["train"]["optimizer"] == "sam":            
+        if args["optimizer"] == "adam":            
+            optimizer = torch.optim.Adam(param_dicts, lr=args["lr"], betas=(0.9, 0.999), eps=1e-08, 
+                                        weight_decay=args["weight_decay"])
+        elif args["optimizer"] == "adamw":            
+            optimizer = torch.optim.AdamW(param_dicts, lr=args["lr"], betas=(0.9, 0.999), eps=1e-08, 
+                                        weight_decay=args["weight_decay"], amsgrad=False)
+        elif args["optimizer"] == "sam":            
             base_optimizer = torch.optim.AdamW
-            optimizer = SAM(param_dicts, base_optimizer, lr=args["train"]["lr"], betas=(0.9, 0.999), eps=1e-08, 
-                            weight_decay=args["train"]["weight_decay"], amsgrad=False, rho=2.5, adaptive=True)
-
-        # lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, args["train"]["lr_drop"])
+            optimizer = SAM(param_dicts, base_optimizer, lr=args["lr"], betas=(0.9, 0.999), eps=1e-08, 
+                            weight_decay=args["weight_decay"], amsgrad=False, rho=2.5, adaptive=True)
         
         ## data_loader  
-        dataset_train = build_dataset(mode="train", args=args["dataset"])
-        dataset_val_q = build_dataset(mode="valid_qry", args=args["dataset"])
-        dataset_val_r = build_dataset(mode="valid_ref", args=args["dataset"])
+        dataset_train = build_dataset(mode="train", args=args)
+        dataset_val_q = build_dataset(mode="valid_qry", args=args)
+        dataset_val_r = build_dataset(mode="valid_ref", args=args)
 
         sampler_train = None
             
-        data_loader_train = DataLoader(dataset_train, batch_size=args["batch_size"], shuffle=(sampler_train is None), sampler=sampler_train,  drop_last=True,
-                                        num_workers=args["num_workers"]) 
-        data_loader_val_q = DataLoader(dataset_val_q, batch_size=32, shuffle=True,
-                                        drop_last=False, num_workers=args["num_workers"]) 
-        data_loader_val_r = DataLoader(dataset_val_r, batch_size=64, shuffle=True,
-                                        drop_last=False, num_workers=args["num_workers"]) 
+        data_loader_train = DataLoader(dataset_train, batch_size=args["batch_size"], shuffle=(sampler_train is None), 
+                                       num_workers=args["num_workers"], pin_memory=True, sampler=sampler_train, drop_last=True)
+        data_loader_val_q = DataLoader(dataset_val_q, batch_size=32, shuffle=False,
+                                        num_workers=args["num_workers"], pin_memory=True) 
+        data_loader_val_r = DataLoader(dataset_val_r, batch_size=64, shuffle=False,
+                                        num_workers=args["num_workers"], pin_memory=True)
         
         data_loader_valid = {
             "qry": data_loader_val_q,
             "ref": data_loader_val_r
         }
             
-        if IS_POSE:            
-            dataset_val = build_dataset(mode="valid", args=args["dataset"])
+        if args["task"] == "POSE":            
+            dataset_val = build_dataset(mode="valid", args=args)
             data_loader_val = DataLoader(dataset_val, batch_size=args["batch_size"], shuffle=False, drop_last=False,
                                         num_workers=args["num_workers"]) 
             data_loader_valid["val"] = data_loader_val
         
-        out_dir = os.path.join(args["train"]["ckpt_dir"], 
-                               args["dataset"]["data_name"] + "-" + datetime.datetime.today().strftime("%d-%m-%y-%H:%M:%S"))
+        out_dir = os.path.join(args["ckpt_dir"], 
+                               args["data_name"] + "-" + datetime.datetime.today().strftime("%d-%m-%y-%H:%M:%S"))
         summary = SummaryWriter(out_dir, "tb")
         shutil.copyfile(sys.argv[1], os.path.join(out_dir, "config.yaml"))  
             
-    else:
-        dataset_val_q = build_dataset(mode="valid_qry", args=args["dataset"])
-        dataset_val_r = build_dataset(mode="valid_ref", args=args["dataset"])
+    # else:
+    #     dataset_val_q = build_dataset(mode="valid_qry", args=args)
+    #     dataset_val_r = build_dataset(mode="valid_ref", args=args)
 
-        data_loader_val_q = DataLoader(dataset_val_q, batch_size=32, shuffle=False,
-                                        drop_last=False, num_workers=args["num_workers"])
-        data_loader_val_r = DataLoader(dataset_val_r, batch_size=64, shuffle=False,
-                                        drop_last=False, num_workers=args["num_workers"])
+    #     data_loader_val_q = DataLoader(dataset_val_q, batch_size=32, shuffle=False,
+    #                                     drop_last=True, num_workers=args["num_workers"])
+    #     data_loader_val_r = DataLoader(dataset_val_r, batch_size=64, shuffle=False,
+    #                                     drop_last=True, num_workers=args["num_workers"])
         
-        data_loader_valid = {
-            "qry": data_loader_val_q,
-            "ref": data_loader_val_r
-        }
+    #     data_loader_valid = {
+    #         "qry": data_loader_val_q,
+    #         "ref": data_loader_val_r
+    #     }
         
-        if IS_POSE:            
-            dataset_val = build_dataset(mode="valid", args=args["dataset"])
-            data_loader_val = DataLoader(dataset_val, batch_size=args["batch_size"], shuffle=False, drop_last=False,
-                                        num_workers=args["num_workers"]) 
-            data_loader_valid["val"] = data_loader_val
+    #     if IS_POSE:            
+    #         dataset_val = build_dataset(mode="valid", args=args)
+    #         data_loader_val = DataLoader(dataset_val, batch_size=args["batch_size"], shuffle=False, drop_last=False,
+    #                                     num_workers=args["num_workers"]) 
+    #         data_loader_valid["val"] = data_loader_val
 
     if args["infer"]:
         eval_infos = {
-        "device": device,
-        "IS_POSE": IS_POSE,
-        "dim_feature": args["model"]["dim_feature"],        
+        "device": args["device"],
+        "task": args["task"],
+        "dim_feature": args["dim_feature"],        
         }        
         evaluate(model, criterion, postprocessors, data_loader_valid, eval_infos)
         return
@@ -146,27 +135,28 @@ def main():
     train_infos = {
         "iter" : 0,
         "epoch": -1,
-        "device": device,
-        "IS_POSE": IS_POSE,
-        # "clip_max_norm": args["train"]["clip_max_norm"],
-        "optimizer": args["train"]["optimizer"]
+        "device": args["device"],
+        "task": args["task"],
+        # "clip_max_norm": args["clip_max_norm"],
+        "optimizer": args["optimizer"]
     }
     valid_infos = {
         "epoch": -1,
-        "device": device,
+        "device": args["device"],
+        "task": args["task"],
         "best_metric": -1,
-        "IS_POSE": IS_POSE,
-        "dim_feature": args["model"]["dim_feature"],        
+        "dim_feature": args["dim_feature"],        
     }
-     
-    for epoch in range(args["train"]["start_epoch"], args["train"]["epochs"] + 1):
+
+    # print(len(data_loader_valid["qry"].dataset), len(data_loader_valid["ref"].dataset)); exit()
         
-        adjust_learning_rate(optimizer, epoch, args["train"])
+    for epoch in range(args["start_epoch"], args["epochs"] + 1):
+        
+        adjust_learning_rate(optimizer, epoch, args)
 
         train_infos["epoch"] = epoch
         train_infos = train_one_epoch(
                 model, criterion, postprocessors, data_loader_train, optimizer, train_infos, summary)
-        # lr_scheduler.step() 
             
         valid_infos["epoch"] = epoch
         valid_infos = valid_one_epoch(model, criterion, postprocessors, data_loader_valid, valid_infos, summary)   

@@ -1,78 +1,58 @@
 # configuration file for training
+# ----- base config
 infer: False
-
-pretrain: False
 resume: False
 
 seed: 42
-num_workers: 2
+num_workers: 8
 
-batch_size: 4
+batch_size: 2 # 12
 
-task: LOCAL # RETR / LOCAL 
+task: POSE # RETR / POSE 
 device: cuda # device to use for training / testing 
 
-train:
+ckpt_dir: ../ckpts
+epochs: 50
+start_epoch: 1
 
-  ckpt_dir: ../ckpts
-  epochs: 100
+# ----- optimizer config
+lr: 0.00005
+weight_decay: 0.03
 
-  lr: 0.0001
-  lr_backbone: 0.00001  
+optimizer: sam
+cos: True
 
-  weight_decay: 0.0001
-  
-  lr_drop: 50
+# ----- data config
+data_name: vigor
+data_root: /storage2/public/vigor/    
 
-  clip_max_norm: 0.1 # gradient clipping max norm
+grnd_img_size: [320, 640] 
+arl_img_size: [320, 320]
 
-  start_epoch: 1
+shift_range_lat: 0 
+shift_range_lon: 0 
+rotation_range: 0 
+fov: 0
 
-  optimizer: adamw
+same_area: True
 
-dataset:
-  
-  data_name: vigor
-  data_root: /storage2/public/vigor/    
-  fov: 0
+# ----- model config
+patch_size: 16
+mlp_ratio: 4
+qkv_bias: True
 
-  grnd_img_size: [320, 640] 
-  arl_img_size: [320, 320]
+num_heads: 6 # Number of attention heads inside the transformer's attentions
+num_enc_layers: 12 # Number of encoding layers in the transformer
 
-  shift_range_lat: 0 
-  shift_range_lon: 0 
-  rotation_range: 0 
+dim_embed: 384 # Size of the embeddings (dimension of the transformer)
+dim_feature: 1000
 
-  # vigor only
-  same_area: True
+num_queries: 64 # Number of query slots
 
-  spare_pixel: 1
+set_cost_class: 1 # Class coefficient in the matching cost
+set_cost_bbox: 5 # L1 box coefficient in the matching cost
 
-model:
+label_loss_coef: 1
+bbox_loss_coef: 0.1
 
-  backbone: resnet50 # Name of the convolutional backbone to use
-  dilation: False # If true, we replace stride with dilation in the last convolutional block (DC5)
-  
-  position_embedding: sine # (sine, learned) Type of positional embedding to use on top of the image features
-  
-  dim_embed: 256 # Size of the embeddings (dimension of the transformer)
-
-  dropout: 0.1 # Dropout applied in the transformer
-  num_heads: 8 # Number of attention heads inside the transformer's attentions
-  dim_feedforward: 1024 # 2048 Intermediate size of the feedforward layers in the transformer blocks  
-  num_enc_layers: 6 # Number of encoding layers in the transformer
-  num_dec_layers: 6 # Number of decoding layers in the transformer
-  pre_norm: False
-
-  dim_feature: 1000
-
-  # ----- pose-estimation
-  num_queries: 64 # Number of query slots
-
-  set_cost_class: 1 # Class coefficient in the matching cost
-  set_cost_bbox: 5 # L1 box coefficient in the matching cost
-
-  label_loss_coef: 1
-  bbox_loss_coef: 0.1
-
-  eos_coef: 0.1 # Relative classification weight of the no-object class
+eos_coef: 0.1 # Relative classification weight of the no-object class

@@ -23,15 +23,15 @@ class CIPER(nn.Module):
         """
         super().__init__()
         
-        self.query_net = Encoder(args, args["grnd_img_size"])
+        self.query_net = Encoder(args, args["grd_img_size"])
         self.reference_net = Encoder(args, args["arl_img_size"])
         
-    def forward(self, im_grnd, im_arl):
+    def forward(self, im_grd, im_arl):
         
-        emb_grnd = self.query_net(im_grnd)
+        emb_grd = self.query_net(im_grd)
         emb_arl = self.reference_net(im_arl)
         outputs = {
-            "grnd": emb_grnd,
+            "grd": emb_grd,
             "arl": emb_arl,
         }
         
@@ -58,7 +58,7 @@ class SetCriterion(nn.Module):
             self.soft_triplet_loss = SoftTripletBiLoss().cuda()
         
     def loss_retrieval(self, outputs, targets, indices):     
-        loss_ir, mean_p, mean_n = self.soft_triplet_loss(outputs["grnd"], outputs["arl"])
+        loss_ir, mean_p, mean_n = self.soft_triplet_loss(outputs["grd"], outputs["arl"])
         losses = {"retrieval": loss_ir}
         return losses
     
@@ -175,12 +175,12 @@ class PostProcess(nn.Module):
         
         return results
     
-def build(args, IS_POSE, device):
+def build(args):
     
     model = CIPER(args)
         
     # build criterion    
-    if IS_POSE:
+    if args["task"] == "POSE":
         matcher = build_matcher(args)
         weight_dict = {"retrieval": 1, "labels": args["label_loss_coef"], "boxes": args["bbox_loss_coef"]}
         eos_coef = args["eos_coef"]
@@ -193,9 +193,9 @@ def build(args, IS_POSE, device):
     criterion = SetCriterion(matcher=matcher, weight_dict=weight_dict, eos_coef=eos_coef, losses=losses)
     
     # build post processor   
-    if IS_POSE:
+    if args["task"] == "POSE":
         postprocessors = {"bbox": PostProcess()}
     else:
         postprocessors = None
     
-    return model.to(device), criterion.to(device), postprocessors
+    return model.to(args["device"]), criterion.to(args["device"]), postprocessors

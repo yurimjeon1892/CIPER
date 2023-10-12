@@ -9,7 +9,6 @@ from tqdm import tqdm
 from common.utils_loader import input_transform, input_transform_fov
 
 # Same loader from VIGOR, modified for pytorch
-# Did you read SliceMatch?
 class VIGOR(torch.utils.data.Dataset):
     def __init__(self, mode, args):
         super(VIGOR, self).__init__()
@@ -17,8 +16,8 @@ class VIGOR(torch.utils.data.Dataset):
         self.mode = mode
         self.root = args["data_root"]
 
-        if args["fov"] != 0: self.transform_query = input_transform_fov(size=args["grnd_img_size"], fov=args["fov"])
-        else: self.transform_query = input_transform(size=args["grnd_img_size"])        
+        if args["fov"] != 0: self.transform_query = input_transform_fov(size=args["grd_img_size"], fov=args["fov"])
+        else: self.transform_query = input_transform(size=args["grd_img_size"])        
         self.transform_reference = input_transform(size=args["arl_img_size"])
         
         self.same_area = args["same_area"]
@@ -33,8 +32,6 @@ class VIGOR(torch.utils.data.Dataset):
                 self.city_list = ['NewYork', 'Seattle']
             else:
                 self.city_list = ['SanFrancisco', 'Chicago']
-
-        # self.city_list = ["Seattle"] # for test
         
         self.arl_img_size = args["arl_img_size"]
         self.raw_arl_img_size = (640, 640)
@@ -50,71 +47,67 @@ class VIGOR(torch.utils.data.Dataset):
         self.make_slice_match_sample_list() 
 
     def make_slice_match_sample_list(self):
-        
-        files = ["pano_label_balanced__corrected.txt", "same_area_balanced_train__corrected.txt", "same_area_balanced_test__corrected.txt"]
-        
-        if self.same_area: 
-            if self.mode == "train": file_idx = 1
-            else: file_idx = 2
-        else: file_idx = 0
 
-        # folder names
-        ground_folder_name = "panorama"
-        aerial_folder_name = "satellite"
-        splits_name = "splits__corrected"
+        label_root = 'splits'
         
-        self.arl_fname_to_index_dict = {}
+        self.sat_list = []
+        self.sat_index_dict = {}
+        idx = 0
+        for city in self.city_list:
+            sat_list_fname = os.path.join(self.root, label_root, city, 'satellite_list.txt')
+            with open(sat_list_fname, 'r') as file:
+                for line in file.readlines():
+                    self.sat_list.append(os.path.join(self.root, city, 'satellite', line.replace('\n', '')))
+                    self.sat_index_dict[line.replace('\n', '')] = idx
+                    idx += 1
+        self.sat_list = np.array(self.sat_list)
+        self.sat_data_size = len(self.sat_list)
         
-        self.sample_list = []
-        self.grnd_id_to_arl_id_list = []       
-        idx = 0             
-        for city in self.city_list:     
-            combination_dir = os.path.join(self.root, splits_name, city, files[file_idx])
-            ground_img_names = list(sorted(os.listdir(os.path.join(self.root, city, ground_folder_name))))     
-            data_dict = get_aerial_and_deltas(combination_dir)
-            
-            for ground_img_name in tqdm(ground_img_names, desc="[i] dataset load: " + city):  
-                if ground_img_name not in data_dict.keys(): continue
-                
-                data_list = data_dict[ground_img_name] 
-                for i in range(len(data_list[:1])):
-                    delta = data_list[i][1:]
-                    if abs(delta[0])<=self.raw_arl_img_size[0]//2 and abs(delta[1])<=self.raw_arl_img_size[0]//2:                        
-                        sample_one = {
-                            "grnd_name": os.path.join(os.path.join(city, ground_folder_name), ground_img_name),
-                            "arl_name": os.path.join(os.path.join(city, aerial_folder_name), data_list[i][0]),
-                            "delta": data_list[i][1:],
-                            "is_positive": i == 0,
-                            "meter_per_pixel": self.meter_per_pixel_dict[city]
-                        }
-                        if sample_one["arl_name"] not in self.arl_fname_to_index_dict.keys():
-                            self.arl_fname_to_index_dict[sample_one["arl_name"]] = idx
-                            idx += 1
-                            
-                        self.sample_list.append(sample_one)                    
-                        self.grnd_id_to_arl_id_list.append(self.arl_fname_to_index_dict[sample_one["arl_name"]])    
-        
-        # self.sample_list = self.sample_list[:100] # for test 
+        self.list = []
+        self.label = []
+        self.sat_cover_dict = {}
+        self.delta = []
+        self.meter_per_pixel_list = []
+        idx = 0
+        for city in self.city_list:
+            # load train panorama list
+            if not self.same_area: 
+                label_fname = os.path.join(self.root, label_root, city, 'pano_label_balanced.txt')
+            elif self.mode == "train":
+                label_fname = os.path.join(self.root, label_root, city, 'same_area_balanced_train.txt')
+            else:
+                label_fname = os.path.join(self.root, label_root, city, 'same_area_balanced_test.txt')
+            with open(label_fname, 'r') as file:
+                for line in file.readlines():
+                    data = np.array(line.split(' '))
+                    label = []
+                    for i in [1, 4, 7, 10]:
+                        label.append(self.sat_index_dict[data[i]])
+                    label = np.array(label).astype(int)
+                    delta = np.array([data[2:4], data[5:7], data[8:10], data[11:13]]).astype(float)
+                    self.list.append(os.path.join(self.root, city, 'panorama', data[0]))
+                    self.label.append(label)
+                    self.delta.append(delta)
+                    if not label[0] in self.sat_cover_dict:
+                        self.sat_cover_dict[label[0]] = [idx]
+                    else:
+                        self.sat_cover_dict[label[0]].append(idx)
+                    self.meter_per_pixel_list.append(self.meter_per_pixel_dict[city])
+                    idx += 1
+        self.data_size = len(self.list)
+        self.label = np.array(self.label)
+        self.delta = np.array(self.delta)
+        self.sat_cover_list = list(self.sat_cover_dict.keys())
     
-    def read_data(self, index):
-                
-        grnd_img = Image.open(os.path.join(self.root, self.sample_list[index]["grnd_name"]))
-        arl_img = Image.open(os.path.join(self.root, self.sample_list[index]["arl_name"])).convert('RGB')
+    def prep_data(self, grd_img=None, arl_img=None):
         
-        gt_shift_x = -self.sample_list[index]["delta"][1]
-        gt_shift_y = self.sample_list[index]["delta"][0]        
-        
-        return grnd_img, arl_img, gt_shift_x, gt_shift_y, 0, self.sample_list[index]["meter_per_pixel"]
-    
-    def prep_data(self, grnd_img=None, arl_img=None):
-        
-        if grnd_img is not None:        
-            grnd_img = self.transform_query(grnd_img)
+        if grd_img is not None:        
+            grd_img = self.transform_query(grd_img)
             
         if arl_img is not None:    
             arl_img = self.transform_reference(arl_img)  
         
-        return grnd_img, arl_img
+        return grd_img, arl_img
     
     def prep_gt(self, gt_shift_x, gt_shift_y, theta, meter_per_pixel):        
                 
@@ -138,28 +131,67 @@ class VIGOR(torch.utils.data.Dataset):
     
     def __getitem__(self, index):
         
-        if self.mode in ["train", "valid"]:
-            idx = index % len(self.sample_list)            
-            grnd_img, arl_img, gt_shift_x, gt_shift_y, theta, meter_per_pixel = self.read_data(idx)        
-            img_qry, img_ref = self.prep_data(grnd_img, arl_img)
-            gt = self.prep_gt(gt_shift_x, gt_shift_y, theta, meter_per_pixel)
-            return img_qry, img_ref, gt
+        if self.mode == "train":
+            idx = random.choice(self.sat_cover_dict[self.sat_cover_list[index%len(self.sat_cover_list)]])      
+            
+            grd_img = Image.open(os.path.join(self.root, self.list[idx]))
+            arl_img = Image.open(self.sat_list[self.label[idx][0]]).convert('RGB')
+            
+            gt_shift_x = -self.delta[idx, 0][1]
+            gt_shift_y = self.delta[idx, 0][0] 
+            
+            theta, meter_per_pixel = 0, self.meter_per_pixel_list[idx]            
+                   
+            img_qry = self.transform_query(grd_img)
+            img_ref = self.transform_reference(arl_img)  
+    
+            target = self.prep_gt(gt_shift_x, gt_shift_y, theta, meter_per_pixel)
+            
+            return img_qry, img_ref, target
+        
+        if self.mode == "valid":     
+            grd_img = Image.open(os.path.join(self.root, self.list[index]))
+            arl_img = Image.open(os.path.join(self.root, self.sat_list[index][0])).convert('RGB')
+            
+            gt_shift_x = -self.delta[index, 0][1]
+            gt_shift_y = self.delta[index, 0][0]
+            
+            theta, meter_per_pixel = 0, self.meter_per_pixel_list[index]
+              
+            img_qry = self.transform_query(grd_img)
+            img_ref = self.transform_reference(arl_img)  
+            
+            target = self.prep_gt(gt_shift_x, gt_shift_y, theta, meter_per_pixel)
+            
+            return img_qry, img_ref, target
             
         elif self.mode == "valid_ref":            
-            _, arl_img, gt_shift_x, gt_shift_y, theta, meter_per_pixel = self.read_data(index)        
-            _, img_ref = self.prep_data(arl_img=arl_img)        
+            
+            arl_img = Image.open(self.sat_list[index]).convert('RGB')
+            img_ref = self.transform_reference(arl_img)  
+                 
             return img_ref, torch.tensor(index), 0
         
         elif self.mode == "valid_qry":
-            grnd_img, _, _, _, _, _ = self.read_data(index)            
-            img_qry, _ = self.prep_data(grnd_img=grnd_img)
-            return img_qry, torch.tensor(index), torch.tensor(self.grnd_id_to_arl_id_list[index])
+            
+            grd_img = Image.open(self.list[index])
+            img_qry = self.transform_query(grd_img)
+            
+            return img_qry, torch.tensor(index), torch.tensor(self.label[index][0]) 
         else:
             print('not implemented!!')
             raise Exception
 
     def __len__(self):
-        return len(self.sample_list)
+        if 'train' in self.mode:
+            return len(self.sat_cover_list) * 2  # one aerial image has 2 positive queries
+        elif 'valid_ref' in self.mode:
+            return len(self.sat_list)
+        elif 'valid_qry' in self.mode:
+            return len(self.list)
+        else:
+            print('not implemented!')
+            raise Exception
 
 def get_aerial_and_deltas(combination_dir):
     data_dict = {}

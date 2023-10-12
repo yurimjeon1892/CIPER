@@ -12,8 +12,8 @@ class CVUSA(torch.utils.data.Dataset):
         self.mode = mode
         self.root = args["data_root"]
         
-        if args["fov"] != 0: self.transform_query = input_transform_fov(size=args["grnd_img_size"], fov=args["fov"])
-        else: self.transform_query = input_transform(size=args["grnd_img_size"])
+        if args["fov"] != 0: self.transform_query = input_transform_fov(size=args["grd_img_size"], fov=args["fov"])
+        else: self.transform_query = input_transform(size=args["grd_img_size"])
         self.transform_reference = input_transform(size=args["arl_img_size"])
                         
         if "train" in self.mode: self.pt_list = args["train_pt_list"]
@@ -39,23 +39,23 @@ class CVUSA(torch.utils.data.Dataset):
         print("[i] {} data loaded, size:{}".format(self.mode, len(self.sample_list)))
         
     def read_data(self, index):                
-        grnd_img = Image.open(os.path.join(self.root, self.sample_list[index][1])).convert('RGB')
+        grd_img = Image.open(os.path.join(self.root, self.sample_list[index][1])).convert('RGB')
         arl_img = Image.open(os.path.join(self.root, self.sample_list[index][0])).convert('RGB')        
-        return grnd_img, arl_img
+        return grd_img, arl_img
     
-    def prep_data(self, grnd_img=None, arl_img=None):                
-        if grnd_img is not None:        
-            grnd_img = self.transform_query(grnd_img)            
+    def prep_data(self, grd_img=None, arl_img=None):                
+        if grd_img is not None:        
+            grd_img = self.transform_query(grd_img)            
         if arl_img is not None:                 
             arl_img = self.transform_reference(arl_img)        
-        return grnd_img, arl_img
+        return grd_img, arl_img
 
     def __getitem__(self, index):
         
         if "train" in self.mode:            
             idx = index % len(self.sample_list)
-            grnd_img, arl_img = self.read_data(idx)        
-            img_qry, img_ref = self.prep_data(grnd_img, arl_img)                       
+            grd_img, arl_img = self.read_data(idx)        
+            img_qry, img_ref = self.prep_data(grd_img, arl_img)                       
             return img_qry, img_ref, torch.tensor(idx)
 
         elif "valid_ref" in self.mode:            
@@ -64,9 +64,10 @@ class CVUSA(torch.utils.data.Dataset):
             return img_ref, torch.tensor(index), 0
 
         elif "valid_qry" in self.mode:            
-            grnd_img, _ = self.read_data(index)            
-            img_qry, _ = self.prep_data(grnd_img=grnd_img)
-            return img_qry, torch.tensor(index), torch.tensor(index)
+            # grd_img, _ = self.read_data(index)            
+            # img_qry, _ = self.prep_data(grd_img=grd_img)
+            # return img_qry, torch.tensor(index), torch.tensor(index)
+            return 0, torch.tensor(index), torch.tensor(index)
         
         else:
             print('not implemented!!')

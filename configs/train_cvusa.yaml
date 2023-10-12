@@ -31,7 +31,7 @@ dataset:
   data_root: /storage2/public/cvusa/  
   fov: 0
 
-  grnd_img_size: [112, 616] # [112, 616]
+  grd_img_size: [112, 616] # [112, 616]
   arl_img_size: [256, 256]
 
   train_pt_list: ./datasets/splits/cvusa/train-19zl.csv
@@ -39,7 +39,7 @@ dataset:
   
 model:
 
-  grnd_img_size: [112, 616] # [112, 616]
+  grd_img_size: [112, 616] # [112, 616]
   arl_img_size: [256, 256]
 
   patch_size: 16
