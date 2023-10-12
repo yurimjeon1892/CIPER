@@ -10,7 +10,7 @@ from torch import nn
 from .matcher import build_matcher
 from .soft_triplet import SoftTripletBiLoss
 
-from .transformer_wrapper import Encoder
+from .transformer_wrapper import Encoder, Decoder
 
 class CIPER(nn.Module):
     """ This is the CIPER module that performs cross-view image geo-localization """
@@ -25,15 +25,20 @@ class CIPER(nn.Module):
         
         self.query_net = Encoder(args, args["grd_img_size"])
         self.reference_net = Encoder(args, args["arl_img_size"])
+        self.retr_only = args["retr_only"]
+        if not self.retr_only: self.pose_net = Decoder(args)
         
     def forward(self, im_grd, im_arl):
         
-        emb_grd = self.query_net(im_grd)
-        emb_arl = self.reference_net(im_arl)
+        emb_grd, x_grd = self.query_net(im_grd)
+        emb_arl, x_arl = self.reference_net(im_arl)
         outputs = {
             "grd": emb_grd,
             "arl": emb_arl,
         }
+        if not self.retr_only: 
+            out_pos = self.pose_net(x_grd, x_arl)
+            outputs.update(out_pos)
         
         return outputs
 
@@ -180,22 +185,22 @@ def build(args):
     model = CIPER(args)
         
     # build criterion    
-    if args["task"] == "POSE":
-        matcher = build_matcher(args)
-        weight_dict = {"retrieval": 1, "labels": args["label_loss_coef"], "boxes": args["bbox_loss_coef"]}
-        eos_coef = args["eos_coef"]
-        losses = ["retrieval", "labels", "boxes"]   
-    else:
+    if args["retr_only"]:
         matcher = None
         weight_dict = {"retrieval": 1}
         eos_coef = 0
         losses = ["retrieval"]
+    else:
+        matcher = build_matcher(args)
+        weight_dict = {"retrieval": 1, "labels": args["label_loss_coef"], "boxes": args["bbox_loss_coef"]}
+        eos_coef = args["eos_coef"]
+        losses = ["retrieval", "labels", "boxes"]   
     criterion = SetCriterion(matcher=matcher, weight_dict=weight_dict, eos_coef=eos_coef, losses=losses)
     
-    # build post processor   
-    if args["task"] == "POSE":
-        postprocessors = {"bbox": PostProcess()}
-    else:
+    # build post processor           
+    if args["retr_only"]:
         postprocessors = None
+    else:
+        postprocessors = {"bbox": PostProcess()}
     
     return model.to(args["device"]), criterion.to(args["device"]), postprocessors

@@ -8,7 +8,7 @@ num_workers: 8
 
 batch_size: 2 # 12
 
-task: POSE # RETR / POSE 
+retr_only: False
 device: cuda # device to use for training / testing 
 
 ckpt_dir: ../ckpts
@@ -46,6 +46,10 @@ num_enc_layers: 12 # Number of encoding layers in the transformer
 
 dim_embed: 384 # Size of the embeddings (dimension of the transformer)
 dim_feature: 1000
+
+dim_feedforward: 2048 # Intermediate size of the feedforward layers in the transformer blocks  
+dropout: 0.1 # Dropout applied in the transformer
+pre_norm: False
 
 num_queries: 64 # Number of query slots
 

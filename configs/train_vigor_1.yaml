@@ -8,7 +8,7 @@ num_workers: 8
 
 batch_size: 1 #12
 
-task: RETR # RETR / POSE 
+retr_only: True
 device: cuda # device to use for training / testing 
 
 ckpt_dir: ../ckpts

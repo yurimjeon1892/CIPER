@@ -8,6 +8,8 @@ from timm.models.vision_transformer import VisionTransformer
 import torchvision
 import numpy as np
 
+from .transformer import TransformerDecoder, TransformerDecoderLayer
+
 class Encoder(VisionTransformer):
     
     def __init__(self, args, img_size, norm_layer=partial(nn.LayerNorm, eps=1e-6)):
@@ -48,29 +50,32 @@ class Encoder(VisionTransformer):
             checkpoint["model"]['head_dist.bias'] = checkpoint["model"]['head.bias'].repeat(5)[:num_classes]
         msg = self.load_state_dict(checkpoint["model"])
         print(msg)
-
-    def forward(self, x):
+    
+    def forward_features(self, x):
         # taken from https://github.com/rwightman/pytorch-image-models/blob/master/timm/models/vision_transformer.py
         # with slight modifications to add the dist_token
         B = x.shape[0]
-        x = self.patch_embed(x) # [8, 3, 320, 320] --> [8, 400, 384]
-          
-        cls_tokens = self.cls_token.expand(B, -1, -1)  # stole cls_tokens impl from Phil Wang, thanks # [8, 1, 384]
-        dist_token = self.dist_token.expand(B, -1, -1) # [8, 1, 384]
-        x = torch.cat((cls_tokens, dist_token, x), dim=1) # [8, 402, 384]
+        x = self.patch_embed(x)
 
-        x = x + self.pos_embed # [8, 402, 384]
+        cls_tokens = self.cls_token.expand(B, -1, -1)  # stole cls_tokens impl from Phil Wang, thanks
+        dist_token = self.dist_token.expand(B, -1, -1)
+        x = torch.cat((cls_tokens, dist_token, x), dim=1)
+
+        x = x + self.pos_embed
         x = self.pos_drop(x)
-                            
+
         for i, blk in enumerate(self.blocks):
             x = blk(x)
 
-        x = self.norm(x) # [8, 402, 384]
-        x, x_dist = x[:, 0], x[:, 1]
-        
-        x = self.head(x) # bs x dim_embed      
-        x_dist =  self.head_dist(x_dist)
-        return (x + x_dist) / 2
+        x = self.norm(x)
+        return x[:, 0], x[:, 1], x[:, 2:], self.pos_embed[:, 2:]
+    
+    def forward(self, x):
+        x, x_dist, mem, pos = self.forward_features(x)
+        x = self.head(x)
+        x_dist = self.head_dist(x_dist)
+        # follow the evaluation of deit, simple average and no distillation during training, could remove the x_dist
+        return (x + x_dist) / 2, (mem, pos)
     
 class Decoder(nn.Module):
     def __init__(self, args):
@@ -81,94 +86,84 @@ class Decoder(nn.Module):
                          DETR can detect in a single image. For COCO, we recommend 100 queries.
         """
         super().__init__()
+                        
+        self.query_embed = nn.Embedding(args["num_queries"], args["dim_embed"])         
+        self.class_embed = nn.Linear(args["dim_embed"], 2)      
+        self.bbox_embed = MLP(args["dim_embed"], args["dim_embed"], output_dim=4, num_layers=3)
         
-        # self.decoder = build_transformer_decoder(args)
-        
-        dim_embed_encoder = args["dim_embed"]
-        dim_embed_decoder = args["dim_embed"] + int(dim_embed_encoder / 2)
-        
-        self.query_embed = nn.Embedding(args["num_queries"], dim_embed_decoder) 
-        
-        self.conv_mem_1 = nn.Sequential(
-            nn.Conv2d(dim_embed_encoder, int(dim_embed_encoder / 4), 3, stride=(2, 2)),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(int(dim_embed_encoder / 4), int(dim_embed_encoder / 16), 3, stride=(2, 2)),
-            nn.ReLU(inplace=True),
-        )
-        self.conv_mem_2 = nn.Linear(int(dim_embed_encoder / 16), int(dim_embed_encoder / 2))  
-        
-        self.conv_pos_1 = nn.Sequential(
-            nn.Conv2d(dim_embed_encoder, int(dim_embed_encoder / 4), 2, stride=(2, 2)),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(int(dim_embed_encoder / 4), int(dim_embed_encoder / 16), 2, stride=(2, 2)),
-            nn.ReLU(inplace=True),
-        )
-        self.conv_pos_2 = nn.Linear(int(dim_embed_encoder / 16), int(dim_embed_encoder / 2))  
-        
-        self.class_embed = nn.Linear(dim_embed_decoder, 2)      
-        self.bbox_embed = MLP(dim_embed_decoder, dim_embed_decoder, output_dim=4, num_layers=3)
-        
-        decoder_layer = TransformerDecoderLayer(dim_embed=dim_embed_decoder, 
+        decoder_layer = TransformerDecoderLayer(dim_embed=args["dim_embed"], 
                                                 num_heads=args["num_heads"], 
                                                 dim_feedforward=args["dim_feedforward"],
                                                 dropout=args["dropout"], 
                                                 activation="relu", 
                                                 normalize_before=args["pre_norm"])
-        decoder_norm = nn.LayerNorm(dim_embed_decoder)
+        decoder_norm = nn.LayerNorm(args["dim_embed"])
         self.decoder = TransformerDecoder(decoder_layer, args["num_dec_layers"], decoder_norm,
                                           return_intermediate=False)
         
-    def forward(self, x_grnd, x_arl, mask):   
+        num_patches = int(args["grnd_img_size"][0] / args["patch_size"]) * int(args["grnd_img_size"][1] / args["patch_size"])        
+        self.mlp_mem_grd = MLP(
+            input_dim=args["dim_embed"],
+            hidden_dim=args["dim_embed"],
+            output_dim=1,
+            num_layers=args["mlp_ratio"],
+        )        
+        self.lin_mem_grd = nn.Linear(num_patches, int(num_patches / 4))         
+        self.mlp_pos_grd = MLP(
+            input_dim=args["dim_embed"],
+            hidden_dim=args["dim_embed"],
+            output_dim=1,
+            num_layers=args["mlp_ratio"],
+        )
+        self.lin_pos_grd = nn.Linear(num_patches, int(num_patches / 4))  
+        
+    def forward(self, x_grd, x_arl):   
         """
-            memory_grnd: bs x dim_embed x h1 x w1
-            pos_grnd: bs x dim_embed x h1 x w1
-            memory_arl: bs x dim_embed x h2 x w2
-            pos_arl: bs x dim_embed x h2 x w2
+            memory_grd: bs x num_patches1 x dim_embed
+            pos_grd: bs x num_patches1 x dim_embed
+            memory_arl: bs x num_patches2 x dim_embed
+            pos_arl: bs x num_patches2 x dim_embed
         """
                 
-        memory_grnd, pos_grnd = x_grnd[0], x_grnd[1]
+        memory_grd, pos_grd = x_grd[0], x_grd[1]
         memory_arl, pos_arl = x_arl[0], x_arl[1]
-        bs = memory_arl.size(0)        
-        # print("in: ", memory_grnd.size(), pos_grnd.size(), memory_arl.size(), pos_arl.size())
+        bs = memory_arl.size(0)
+        print("in: ", memory_grd.size(), pos_grd.size(), memory_arl.size(), pos_arl.size())
+             
+        memory_grd = self.mlp_mem_grd(memory_grd) # bs x num_patches2 x 1
+        print("1a: ", memory_grd.size())
+        memory_grd = self.lin_mem_grd(memory_grd.squeeze(2)) # bs x (num_patches2 / 4)   
+        print("2a: ", memory_grd.size())
+        memory_grd = memory_grd.unsqueeze(1).repeat(1, memory_arl.size(1), 1) # bs x (num_patches2 / 4)  
+        print("3a: ", memory_grd.size())
         
-        memory_arl = memory_arl.flatten(2)        
-        memory_grnd_feat = self.conv_mem_1(memory_grnd)        
+        memory = torch.cat([memory_grd, memory_arl], 2).permute(1, 0, 2) # num_queries x bs x dim_embed
+        print("mem: ", memory_grd.size(), memory_arl.size(), memory.size())
                 
-        _, kc, kh, kw = memory_grnd_feat.size()  
-        memory_filter = torch.randn(kc, kc, kh, kw).cuda()
-        memory_grnd_feat = F.conv2d(memory_grnd_feat, memory_filter, padding=0)     
-        
-        memory_grnd_feat = self.conv_mem_2(memory_grnd_feat.view(bs, -1))        
-        memory_grnd_feat = memory_grnd_feat.unsqueeze(-1).repeat(1, 1, memory_arl.size(2))        
-        memory = torch.cat([memory_grnd_feat, memory_arl], 1).permute(2, 0, 1) # num_queries x bs x dim_embed
-        # print("mem: ", memory_grnd_feat.size(), memory_arl.size())
-                
-        pos_arl = pos_arl.flatten(2)
-        pos_grnd_feat = self.conv_pos_1(pos_grnd)
-        
-        _, kc, kh, kw = pos_grnd_feat.size()  
-        pos_filter = torch.randn(kc, kc, kh, kw).cuda()
-        pos_grnd_feat = F.conv2d(pos_grnd_feat, pos_filter, padding=0)     
-        
-        pos_grnd_feat = self.conv_pos_2(pos_grnd_feat.view(bs, -1))        
-        pos_grnd_feat = pos_grnd_feat.unsqueeze(-1).repeat(1, 1, pos_arl.size(2))    
-        pos_embed = torch.cat([pos_grnd_feat, pos_arl], 1).permute(2, 0, 1) # num_queries x bs x dim_embed  
-        # print("pos: ", pos_grnd_feat.size(), pos_arl.size())
-        
-        mask = mask.flatten(1) # bs x num_queries        
+        pos_grd = self.mlp_pos_grd(pos_grd) # bs x num_patches2 x 1
+        print("1b: ", pos_grd.size())
+        pos_grd = self.lin_pos_grd(pos_grd.squeeze(2)) # bs x (num_patches2 / 4)   
+        print("2b: ", pos_grd.size())
+        pos_grd = pos_grd.unsqueeze(1).repeat(1, pos_arl.size(1), 1) # bs x (num_patches2 / 4)  
+        print("3b: ", pos_grd.size())
+          
+        pos_embed = torch.cat([pos_grd, pos_arl], 2).permute(1, 0, 2) # num_queries x bs x dim_embed  
+        print("pos: ", pos_grd.size(), pos_arl.size(), pos_embed.size())
+            
         query_embed = self.query_embed.weight.unsqueeze(1).repeat(1, bs, 1) # num_queries x bs x dim_embed
+        print("query_embed: ", query_embed.size())
         
-        # print("input", memory.size(), mask.size(), pos_embed.size(), query_embed.size())
+        print("input", memory.size(), pos_embed.size(), query_embed.size())
         tgt = torch.zeros_like(query_embed) # output 이 저장되는 공간         
-        dst = self.decoder(tgt, memory, memory_key_padding_mask=mask,
+        dst = self.decoder(tgt, memory, 
                            pos=pos_embed, query_pos=query_embed
                          ) # num_quries x bs x dim_embed 
         dst = dst.transpose(0, 1) # bs x num_quries x dim_embed
-        # print("dst: ", dst.size())
+        print("dst: ", dst.size())
         
         outputs_class = self.class_embed(dst) # bs x num_quries x 2
         outputs_coord = self.bbox_embed(dst) # bs x num_quries x 4   
-        # print("out: ", outputs_class.size(), outputs_coord.size())     
+        print("out: ", outputs_class.size(), outputs_coord.size())     
         
         out = {'pred_logits': outputs_class, 'pred_boxes': outputs_coord} # [-1]: 가장 마지막 decoder layer결과만 사용
         
