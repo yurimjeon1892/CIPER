@@ -37,7 +37,7 @@ train_pt_list: ./datasets/splits/kitti/train_files.txt
 val_pt_list: ./datasets/splits/kitti/test1_files.txt
 
 # ----- optimizer config
-lr: 0.00005
+lr: 0.0001
 weight_decay: 0.03
 
 optimizer: sam
