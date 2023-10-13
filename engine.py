@@ -101,7 +101,6 @@ def valid_one_epoch(model: torch.nn.Module,
     # retrieval validation
     imgs, stats = valid_retr(model, loader_dict["qry"], loader_dict["ref"], valid_infos)
     valid_infos["metric"] = stats["acc/retr_top1"]    
-    imgs, stats = {}, {}
     
     if not valid_infos["retr_only"]:  
         imgs2, stats2 = valid_local(model, criterion, postprocessors, loader_dict["val"], valid_infos)        

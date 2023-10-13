@@ -18,29 +18,6 @@ pip install -r requirements.txt
 
 ## Data
 
-### CVUSA
-
-Download [CVUSA dataset](https://mvrl.cse.wustl.edu/datasets/cvusa). The folder structure is as follows:
-```
-CVUSA
-├── bingmap
-|   ├── 18
-|   |   ├── 0000001.jpg
-|   |   └── ..
-|   ├── 19
-|   └── ..
-├── streetview
-|   ├── annotations
-|   |   ├── 0000001.png
-|   |   └── ..
-|   └── panos
-|       ├── 0000001.jpg
-|       └── ..
-└── splits
-    ├── train-19zl.csv
-    └── val-19zl.csv
-```
-
 ### KITTI
 
 Download KITTI [street-view images](https://www.cvlibs.net/datasets/kitti/raw_data.php) and [satellite images](https://github.com/shiyujiao/HighlyAccurate). The folder structure is as follows:
@@ -87,4 +64,3 @@ This project is not possible without the following awesome open-source codebases
 * [TransGeo: Transformer Is All You Need for Cross-view Image Geo-localization](https://github.com/Jeff-Zilence/TransGeo2022)
 * [Beyond Cross-view Image Retrieval: Highly Accurate Vehicle Localization Using Satellite Image](https://github.com/shiyujiao/HighlyAccurate)
 * [DETR: End-to-End Object Detection with Transformers](https://github.com/facebookresearch/detr)
-* [UP-DETR: Unsupervised Pre-training for Object Detection with Transformers](https://github.com/dddzg/up-detr/tree/master)
