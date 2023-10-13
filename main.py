@@ -12,193 +12,150 @@ from tensorboardX import SummaryWriter
 import shutil
 
 import sys; sys.path.append("../")
-import common.utils_misc as utils_misc
 
-from common.utils import save_state, load_pretrained, print_pigeon
+from common.utils import save_state, print_pigeon
 from datasets import build_dataset
 from models import build, SAM
 from engine import train_one_epoch, valid_one_epoch, evaluate
 
+def adjust_learning_rate(optimizer, epoch, args):
+    import math
+    """Decay the learning rate based on schedule"""
+    lr = args["lr"]
+    if args["cos"]:  # cosine lr schedule
+        lr *= 0.5 * (1. + math.cos(math.pi * epoch / args["epochs"]))
+    else:  # stepwise lr schedule
+        for milestone in args.schedule:
+            lr *= 0.1 if epoch >= milestone else 1.
+    for param_group in optimizer.param_groups:
+        param_group['lr'] = lr
+        
 def main():
     
-    # parse arguments
     global args
     with open(sys.argv[1], "r") as stream:        
         args = yaml.safe_load(stream)      
                       
     print_pigeon()
-                
-    # utils_misc.init_distributed_mode(args) # Multi-GPU 사용할 거라면, args.gpu / args.world_size / args.rank 가 여기서 정의 된다.
 
-    device = torch.device(args["device"])
-    
-    # Multi-GPU 사용할 거라면, fix the seed for reproducibility 
-    # fix the seed for reproducibility
-    seed = args["seed"] + utils_misc.get_rank()
-    torch.manual_seed(seed)
-    np.random.seed(seed)
-    random.seed(seed)
-    
-    is_local = args["task"] == "LOCAL"
+    model, criterion, postprocessors = build(args)
 
-    model, criterion, postprocessors = build(args["model"], is_local, device)
-
-    # model_without_ddp = model
-    # if args["distributed"]:
-    #     model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args["gpu"]])
-    #     model_without_ddp = model.module
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    # for name, param in model.named_parameters():
-    #     print(name)  
-    # exit()  
     print("[i] number of params:", n_parameters // 10 ** 6, "M")
     
-    if not args["infer"] :
-        
-        ## backbone / Transformer-encoder, decoder / detector head 각각의 learning rate를 다르게 주는 방법
-        param_dicts = [
-            {"params": [p for n, p in model.named_parameters() if "backbone" not in n and p.requires_grad]},
-            {
-                "params": [p for n, p in model.named_parameters() if "backbone" in n and p.requires_grad],
-                "lr": args["train"]["lr_backbone"],
-            },
-        ]
-        
-        ## optimizer and ir_scheduler         
-        if args["train"]["optimizer"] == "adam":            
-            optimizer = torch.optim.Adam(param_dicts, lr=args["train"]["lr"], betas=(0.9, 0.999), eps=1e-08, 
-                                        weight_decay=args["train"]["weight_decay"])
-        elif args["train"]["optimizer"] == "adamw":            
-            optimizer = torch.optim.AdamW(param_dicts, lr=args["train"]["lr"], betas=(0.9, 0.999), eps=1e-08, 
-                                        weight_decay=args["train"]["weight_decay"], amsgrad=False)
-        elif args["train"]["optimizer"] == "sam":            
-            base_optimizer = torch.optim.AdamW
-            optimizer = SAM(param_dicts, base_optimizer, lr=args["train"]["lr"], betas=(0.9, 0.999), eps=1e-08, 
-                            weight_decay=args["train"]["weight_decay"], amsgrad=False, rho=2.5, adaptive=True)
-
-        # lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, args["train"]["lr_drop"], args["train"]["gamma"])
-        lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, args["train"]["lr_drop"])
-        
-        ## data_loader  
-        # train -> dataset -> RandomSampler -> BatchSampler -> DataLoader
-        # val -> dataset -> SequentialSampler -> DataLoader(+batch_size)
-        dataset_train = build_dataset(mode="train", args=args["dataset"])
-        dataset_val_q = build_dataset(mode="valid_qry", args=args["dataset"])
-        dataset_val_r = build_dataset(mode="valid_ref", args=args["dataset"])
-
-        # if args["distributed"]: sampler_train = DistributedSampler(dataset_train)
-        # else: sampler_train = None
-        sampler_train = None
-            
-        # # data_loader에서는 1장씩만 뱉어주면 된다. BatchSampler가 Batch로 묶어 준다.
-        # batch_sampler_train = torch.utils_misc.data.BatchSampler(sampler_train, args["batch_size"], drop_last=True)
-        
-        # 특히 data_loader_train에서 batch_size를 정의하지 않고, BatchSampler라는 함수를 사용했다.
-        # utils_misc.collate_fn 함수에 의해서, (image, label) -> (NestedTensor(tensor,mask), label) 로 바뀐다
-        data_loader_train = DataLoader(dataset_train, batch_size=args["batch_size"], shuffle=(sampler_train is None), sampler=sampler_train,  drop_last=True,
-                                        collate_fn=utils_misc.collate_fn, num_workers=args["num_workers"]) 
-        # data_loader_train = DataLoader(dataset_train, batch_size=args["batch_size"], shuffle=False, sampler=sampler_train,  drop_last=True,
-        #                                 collate_fn=utils_misc.collate_fn, num_workers=args["num_workers"]) 
-        data_loader_val_q = DataLoader(dataset_val_q, batch_size=32, shuffle=True,
-                                        drop_last=False, num_workers=args["num_workers"])
-        data_loader_val_r = DataLoader(dataset_val_r, batch_size=64, shuffle=True,
-                                        drop_last=False, num_workers=args["num_workers"])
-        
-        data_loader_valid = {
-            "qry": data_loader_val_q,
-            "ref": data_loader_val_r
-        }
-            
-        if is_local:            
-            dataset_val = build_dataset(mode="valid", args=args["dataset"])
-            data_loader_val = DataLoader(dataset_val, batch_size=args["batch_size"], shuffle=False, drop_last=True,
-                                        collate_fn=utils_misc.collate_fn, num_workers=args["num_workers"]) 
-            data_loader_valid["val"] = data_loader_val
-        
-        out_dir = os.path.join(args["train"]["ckpt_dir"], 
-                               args["dataset"]["data_name"] + "-" + datetime.datetime.today().strftime("%d-%m-%y-%H:%M:%S"))
-        summary = SummaryWriter(out_dir, "tb")
-        shutil.copyfile(sys.argv[1], os.path.join(out_dir, "config.yaml"))  
-            
-    else:
-        dataset_val_q = build_dataset(mode="valid_qry", args=args["dataset"])
-        dataset_val_r = build_dataset(mode="valid_ref", args=args["dataset"])
-
-        data_loader_val_q = DataLoader(dataset_val_q, batch_size=32, shuffle=False,
-                                        drop_last=False, num_workers=args["num_workers"])
-        data_loader_val_r = DataLoader(dataset_val_r, batch_size=64, shuffle=False,
-                                        drop_last=False, num_workers=args["num_workers"])
-        
-        data_loader_valid = {
-            "qry": data_loader_val_q,
-            "ref": data_loader_val_r
-        }
-        
-        if is_local:            
-            dataset_val = build_dataset(mode="valid", args=args["dataset"])
-            data_loader_val = DataLoader(dataset_val, batch_size=args["batch_size"], shuffle=False, drop_last=True,
-                                        collate_fn=utils_misc.collate_fn, num_workers=args["num_workers"]) 
-            data_loader_valid["val"] = data_loader_val
-
-    # TODO ##########################################################################################################
-    #                                                                                                               #
-    #                                                                                                               #
-    
-    if args["pretrain"] != False:        
-        model = load_pretrained(model, args["pretrain"])
-        print("[i] load pretrained file from:", args["pretrain"])
-    if args["resume"]  != False:
+    if args["resume"] != False:
         checkpoint = torch.load(args["resume"], map_location="cpu")
-        # model_without_ddp.load_state_dict(checkpoint["model"])
         model.load_state_dict(checkpoint["model"])
         if args["infer"]:
             print("[i] load checkpoint from:", args["resume"], "for inference")
         elif "optimizer" in checkpoint and "lr_scheduler" in checkpoint and "epoch" in checkpoint:
-            # optimizer.load_state_dict(checkpoint["optimizer"])
-            # lr_scheduler.load_state_dict(checkpoint["lr_scheduler"])
-            args["train"]["start_epoch"] = checkpoint["epoch"] + 1        
+            args["start_epoch"] = checkpoint["epoch"] + 1        
             print("[i] load checkpoint from:", args["resume"], "for train")
         else:
             print("[i] failed to load checkpoint from:", args["resume"])
-            return        
+            return  
+    
+    if not args["infer"] :
+        
+        param_dicts = list(filter(lambda p: p.requires_grad, model.parameters()))
+        
+        # optimizer and ir_scheduler         
+        if args["optimizer"] == "adam":            
+            optimizer = torch.optim.Adam(param_dicts, lr=args["lr"], betas=(0.9, 0.999), eps=1e-08, 
+                                        weight_decay=args["weight_decay"])
+        elif args["optimizer"] == "adamw":            
+            optimizer = torch.optim.AdamW(param_dicts, lr=args["lr"], betas=(0.9, 0.999), eps=1e-08, 
+                                        weight_decay=args["weight_decay"], amsgrad=False)
+        elif args["optimizer"] == "sam":            
+            base_optimizer = torch.optim.AdamW
+            optimizer = SAM(param_dicts, base_optimizer, lr=args["lr"], betas=(0.9, 0.999), eps=1e-08, 
+                            weight_decay=args["weight_decay"], amsgrad=False, rho=2.5, adaptive=True)
+        
+        ## data_loader  
+        dataset_train = build_dataset(mode="train", args=args)
+        dataset_val_q = build_dataset(mode="valid_qry", args=args)
+        dataset_val_r = build_dataset(mode="valid_ref", args=args)
+
+        sampler_train = None
+            
+        data_loader_train = DataLoader(dataset_train, batch_size=args["batch_size"], shuffle=(sampler_train is None), 
+                                       num_workers=args["num_workers"], pin_memory=True, sampler=sampler_train, drop_last=True)
+        data_loader_val_q = DataLoader(dataset_val_q, batch_size=32, shuffle=False,
+                                        num_workers=args["num_workers"], pin_memory=True) 
+        data_loader_val_r = DataLoader(dataset_val_r, batch_size=64, shuffle=False,
+                                        num_workers=args["num_workers"], pin_memory=True)
+        
+        data_loader_valid = {
+            "qry": data_loader_val_q,
+            "ref": data_loader_val_r
+        }
+            
+        if not args["retr_only"]:            
+            dataset_val = build_dataset(mode="valid", args=args)
+            data_loader_val = DataLoader(dataset_val, batch_size=args["batch_size"], shuffle=False, drop_last=False,
+                                        num_workers=args["num_workers"]) 
+            data_loader_valid["val"] = data_loader_val
+        
+        out_dir = os.path.join(args["ckpt_dir"], 
+                               args["data_name"] + "-" + datetime.datetime.today().strftime("%d-%m-%y-%H:%M:%S"))
+        summary = SummaryWriter(out_dir, "tb")
+        shutil.copyfile(sys.argv[1], os.path.join(out_dir, "config.yaml"))  
+            
+    # else:
+    #     dataset_val_q = build_dataset(mode="valid_qry", args=args)
+    #     dataset_val_r = build_dataset(mode="valid_ref", args=args)
+
+    #     data_loader_val_q = DataLoader(dataset_val_q, batch_size=32, shuffle=False,
+    #                                     drop_last=True, num_workers=args["num_workers"])
+    #     data_loader_val_r = DataLoader(dataset_val_r, batch_size=64, shuffle=False,
+    #                                     drop_last=True, num_workers=args["num_workers"])
+        
+    #     data_loader_valid = {
+    #         "qry": data_loader_val_q,
+    #         "ref": data_loader_val_r
+    #     }
+        
+    #     if IS_POSE:            
+    #         dataset_val = build_dataset(mode="valid", args=args)
+    #         data_loader_val = DataLoader(dataset_val, batch_size=args["batch_size"], shuffle=False, drop_last=False,
+    #                                     num_workers=args["num_workers"]) 
+    #         data_loader_valid["val"] = data_loader_val
 
     if args["infer"]:
         eval_infos = {
-        "device": device,
-        "is_local": is_local,
-        "dim_feature": args["model"]["dim_feature"],        
+        "device": args["device"],
+        "retr_only": args["retr_only"],
+        "dim_feature": args["dim_feature"],        
         }        
         evaluate(model, criterion, postprocessors, data_loader_valid, eval_infos)
         return
-    #                                                                                                               #
-    #                                                                                                               #
-    #################################################################################################################
 
     print("[i] start training ~")
     train_infos = {
         "iter" : 0,
         "epoch": -1,
-        "device": device,
-        "is_local": is_local,
-        # "clip_max_norm": args["train"]["clip_max_norm"],
-        "optimizer": args["train"]["optimizer"]
+        "device": args["device"],
+        "retr_only": args["retr_only"],
+        # "clip_max_norm": args["clip_max_norm"],
+        "optimizer": args["optimizer"]
     }
     valid_infos = {
         "epoch": -1,
-        "device": device,
+        "device": args["device"],
+        "retr_only": args["retr_only"],
         "best_metric": -1,
-        "is_local": is_local,
-        "dim_feature": args["model"]["dim_feature"],        
+        "dim_feature": args["dim_feature"],        
     }
-     
-    for epoch in range(args["train"]["start_epoch"], args["train"]["epochs"] + 1):
-        # if args["distributed"]:
-        #     sampler_train.set_epoch(epoch)
+
+    # print(len(data_loader_valid["qry"].dataset), len(data_loader_valid["ref"].dataset)); exit()
+        
+    for epoch in range(args["start_epoch"], args["epochs"] + 1):
+        
+        adjust_learning_rate(optimizer, epoch, args)
 
         train_infos["epoch"] = epoch
         train_infos = train_one_epoch(
                 model, criterion, postprocessors, data_loader_train, optimizer, train_infos, summary)
-        lr_scheduler.step() 
             
         valid_infos["epoch"] = epoch
         valid_infos = valid_one_epoch(model, criterion, postprocessors, data_loader_valid, valid_infos, summary)   
@@ -208,7 +165,7 @@ def main():
             valid_infos["best_metric"] = valid_infos["metric"]
             is_best = True       
             
-        save_state(out_dir, model, optimizer, lr_scheduler, epoch, is_best)
-
+        save_state(out_dir, model, optimizer, epoch, is_best)
+        
 if __name__ == "__main__":
     main()

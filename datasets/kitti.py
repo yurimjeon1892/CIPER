@@ -16,11 +16,11 @@ class KITTI(torch.utils.data.Dataset):
         self.mode = mode
         self.root = args["data_root"]
         
-        self.transform_query = input_transform(size=args["grnd_img_size"])        
+        self.transform_query = input_transform(size=args["grd_img_size"])        
         self.transform_reference = input_transform(size=args["arl_img_size"])
         
         self.arl_img_size = args["arl_img_size"]
-        self.grnd_img_size = args["grnd_img_size"] # 256, 1024 -> need to be reduced (320, 640 maybe? )
+        self.grd_img_size = args["grd_img_size"] # 256, 1024 -> need to be reduced (320, 640 maybe? )
         
         self.arl_zoom_ratio = args["arl_zoom_ratio"]
 
@@ -89,8 +89,8 @@ class KITTI(torch.utils.data.Dataset):
             
         # =================== read ground image ===================================      
         left_img_name = os.path.join(self.root, "raw", drive_dir, "image_02/data", image_no.lower())      
-        with Image.open(left_img_name, 'r') as grnd_img:
-            try: grnd_img = grnd_img.convert('RGB')   
+        with Image.open(left_img_name, 'r') as grd_img:
+            try: grd_img = grd_img.convert('RGB')   
             except: print(left_img_name)
 
         # =================== read satellite map ===================================
@@ -117,29 +117,7 @@ class KITTI(torch.utils.data.Dataset):
         # the homography is defined on: from target pixel to source pixel
         # now north direction is the real vehicle heading direction
         
-        return grnd_img, arl_align_cam, gt_shift_x, gt_shift_y, theta
-    
-    def prep_data(self, grnd_img=None, arl_img=None, gt_shift_x=None, gt_shift_y=None, theta=None):
-        
-        if grnd_img is not None:        
-            grnd_img = self.transform_query(grnd_img)
-            
-        if arl_img is not None:     
-                        
-            arl_rand_shift = \
-                arl_img.transform(
-                    arl_img.size, Image.AFFINE,
-                    (1, 0, -gt_shift_x * self.shift_range_pixels_lon,
-                    0, 1, -gt_shift_y * self.shift_range_pixels_lat),
-                    resample=Image.BILINEAR)
-                            
-            arl_rand_shift_rand_rot = \
-                arl_rand_shift.rotate(theta * self.rotation_range)
-         
-            arl_img = TF.center_crop(arl_rand_shift_rand_rot, self.arl_img_size[0] * self.arl_zoom_ratio)            
-            arl_img = self.transform_reference(arl_img)
-        
-        return grnd_img, arl_img
+        return grd_img, arl_align_cam, gt_shift_x, gt_shift_y, theta
     
     def prep_gt(self, gt_shift_x, gt_shift_y, theta):
         
@@ -151,7 +129,7 @@ class KITTI(torch.utils.data.Dataset):
         tgt_rad = np.deg2rad(theta * self.rotation_range + 180.)
         tgt_cos = np.cos(tgt_rad)
         tgt_sin = np.sin(tgt_rad)
-        
+                
         target = {
             "boxes": torch.tensor(
                 [[tgt_x, tgt_y, tgt_cos, tgt_sin]]
@@ -168,30 +146,56 @@ class KITTI(torch.utils.data.Dataset):
     
     def __getitem__(self, index):
 
-        if self.mode in "train":            
-            idx = index % len(self.sample_list)       
-            # print(self.sample_list[idx])
-            grnd_img, arl_img, gt_shift_x, gt_shift_y, theta = self.read_data(idx)        
-            img_qry, img_ref = self.prep_data(grnd_img, arl_img, gt_shift_x, gt_shift_y, theta)            
-            target = self.prep_gt(gt_shift_x, gt_shift_y, theta)            
+        if self.mode == "train" or self.mode == "valid":            
+            
+            idx = index % len(self.sample_list)    
+            
+            grd_img, arl_img, gt_shift_x, gt_shift_y, theta = self.read_data(idx)   
+            
+            img_qry = self.transform_query(grd_img)
+            
+            arl_rand_shift = \
+                arl_img.transform(
+                    arl_img.size, Image.AFFINE,
+                    (1, 0, -gt_shift_x * self.shift_range_pixels_lon,
+                    0, 1, -gt_shift_y * self.shift_range_pixels_lat),
+                    resample=Image.BILINEAR)
+                            
+            arl_rand_shift_rand_rot = \
+                arl_rand_shift.rotate(theta * self.rotation_range)
+         
+            arl_img = TF.center_crop(arl_rand_shift_rand_rot, self.arl_img_size[0] * self.arl_zoom_ratio)            
+            img_ref = self.transform_reference(arl_img)            
+                    
+            target = self.prep_gt(gt_shift_x, gt_shift_y, theta)    
+                    
             return img_qry, img_ref, target
 
         elif self.mode == "valid_ref":                 
-            _, arl_img, gt_shift_x, gt_shift_y, theta = self.read_data(index)        
-            _, img_ref = self.prep_data(arl_img=arl_img, gt_shift_x=gt_shift_x, gt_shift_y=gt_shift_y, theta=theta)        
+            
+            _, arl_img, gt_shift_x, gt_shift_y, theta = self.read_data(index)   
+                 
+            arl_rand_shift = \
+                arl_img.transform(
+                    arl_img.size, Image.AFFINE,
+                    (1, 0, -gt_shift_x * self.shift_range_pixels_lon,
+                    0, 1, -gt_shift_y * self.shift_range_pixels_lat),
+                    resample=Image.BILINEAR)
+                            
+            arl_rand_shift_rand_rot = \
+                arl_rand_shift.rotate(theta * self.rotation_range)
+         
+            arl_img = TF.center_crop(arl_rand_shift_rand_rot, self.arl_img_size[0] * self.arl_zoom_ratio)            
+            img_ref = self.transform_reference(arl_img)   
+            
             return img_ref, torch.tensor(index), 0
 
         elif self.mode == "valid_qry":           
-            grnd_img, _, _, _, _ = self.read_data(index)            
-            img_qry, _ = self.prep_data(grnd_img=grnd_img)
+            
+            grd_img, _, _, _, _ = self.read_data(index)          
+            img_qry = self.transform_query(grd_img)
+            
             return img_qry, torch.tensor(index), torch.tensor(index)
-        
-        elif self.mode == "valid":
-            idx = index % len(self.sample_list)            
-            grnd_img, arl_img, gt_shift_x, gt_shift_y, theta = self.read_data(idx)        
-            img_qry, img_ref = self.prep_data(grnd_img, arl_img, gt_shift_x, gt_shift_y, theta)            
-            target = self.prep_gt(gt_shift_x, gt_shift_y, theta)            
-            return img_qry, img_ref, target
         
         else:
             print('not implemented!!')

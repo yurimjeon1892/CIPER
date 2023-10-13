@@ -5,13 +5,16 @@ import torch.nn.functional as F
 # from scipy.stats import truncnorm
 from torch import nn
 
-from .encdec import build_encoder, build_decoder
+
+# from .base import build_baseA
 from .matcher import build_matcher
 from .soft_triplet import SoftTripletBiLoss
 
+from .transformer_wrapper import Encoder, Decoder
+
 class CIPER(nn.Module):
     """ This is the CIPER module that performs cross-view image geo-localization """
-    def __init__(self, args, is_local):
+    def __init__(self, args):
         """ Initializes the model.
         Parameters:
             backbone: torch module of the backbone to be used. See backbone.py
@@ -20,23 +23,21 @@ class CIPER(nn.Module):
         """
         super().__init__()
         
-        self.query_net = build_encoder(args)
-        self.reference_net = build_encoder(args)   
+        self.query_net = Encoder(args, args["grd_img_size"])
+        self.reference_net = Encoder(args, args["arl_img_size"])
+        self.retr_only = args["retr_only"]
+        if not self.retr_only: self.pose_net = Decoder(args)
         
-        self.is_loc = is_local
-        if self.is_loc: self.pose_net = build_decoder(args)
+    def forward(self, im_grd, im_arl):
         
-    def forward(self, im_grnd, im_arl):
-        
-        embed_grnd, memory_grnd, _, pos_grnd = self.query_net(im_grnd)
-        embed_arl, memory_arl, mask, pos_arl = self.reference_net(im_arl)      
+        emb_grd, x_grd = self.query_net(im_grd)
+        emb_arl, x_arl = self.reference_net(im_arl)
         outputs = {
-            "grnd": embed_grnd,
-            "arl": embed_arl,
+            "grd": emb_grd,
+            "arl": emb_arl,
         }
-          
-        if self.is_loc: 
-            out_pos = self.pose_net((memory_grnd, pos_grnd), (memory_arl, pos_arl), mask)
+        if not self.retr_only: 
+            out_pos = self.pose_net(x_grd, x_arl)
             outputs.update(out_pos)
         
         return outputs
@@ -61,8 +62,8 @@ class SetCriterion(nn.Module):
         if "retrieval" in losses:          
             self.soft_triplet_loss = SoftTripletBiLoss().cuda()
         
-    def loss_retrieval(self, outputs, targets, indices):        
-        loss_ir, mean_p, mean_n = self.soft_triplet_loss(outputs["grnd"], outputs["arl"])
+    def loss_retrieval(self, outputs, targets, indices):     
+        loss_ir, mean_p, mean_n = self.soft_triplet_loss(outputs["grd"], outputs["arl"])
         losses = {"retrieval": loss_ir}
         return losses
     
@@ -179,27 +180,27 @@ class PostProcess(nn.Module):
         
         return results
     
-def build(args, is_local, device):
-    # build model
-    model = CIPER(args, is_local).to(device)
+def build(args):
     
+    model = CIPER(args)
+        
     # build criterion    
-    if is_local:
-        matcher = build_matcher(args)
-        weight_dict = {"retrieval": 1, "labels": args["label_loss_coef"], "boxes": args["bbox_loss_coef"]}
-        eos_coef = args["eos_coef"]
-        losses = ["retrieval", "labels", "boxes"]   
-    else:
+    if args["retr_only"]:
         matcher = None
         weight_dict = {"retrieval": 1}
         eos_coef = 0
         losses = ["retrieval"]
-    criterion = SetCriterion(matcher=matcher, weight_dict=weight_dict, eos_coef=eos_coef, losses=losses).to(device)
-    
-    # build post processor   
-    if is_local:    
-        postprocessors = {"bbox": PostProcess()}
     else:
-        postprocessors = None
+        matcher = build_matcher(args)
+        weight_dict = {"retrieval": 1, "labels": args["label_loss_coef"], "boxes": args["bbox_loss_coef"]}
+        eos_coef = args["eos_coef"]
+        losses = ["retrieval", "labels", "boxes"]   
+    criterion = SetCriterion(matcher=matcher, weight_dict=weight_dict, eos_coef=eos_coef, losses=losses)
     
-    return model, criterion, postprocessors
+    # build post processor           
+    if args["retr_only"]:
+        postprocessors = None
+    else:
+        postprocessors = {"bbox": PostProcess()}
+    
+    return model.to(args["device"]), criterion.to(args["device"]), postprocessors

@@ -2,16 +2,6 @@ import os
 import torch
 import numpy as np
 import shutil
-import matplotlib.pyplot as plt
-
-import random
-
-from PIL import Image, ImageDraw
-
-# __all__ = [
-#     "save_state",
-#     "save_image"
-# ]
 
 class AverageMeter(object):
     def __init__(self):
@@ -29,14 +19,12 @@ class AverageMeter(object):
         self.count += n
         self.avg = self.sum / self.count
 
-def save_state(save_path, model, optimizer, lr_scheduler, epoch, is_best, filename="checkpoint.pth"):
+def save_state(save_path, model, optimizer, epoch, is_best, filename="checkpoint.pth"):
     os.makedirs(save_path, exist_ok=True)
     state_dict = {
         "model": model.state_dict(),
         "optimizer": optimizer.state_dict(),
-        "lr_scheduler": lr_scheduler.state_dict(),
         "epoch": epoch,
-        # "best_metric": best_metric
     }
     torch.save(state_dict, os.path.join(save_path, filename))
     shutil.copyfile(
@@ -54,61 +42,15 @@ def save_state(save_path, model, optimizer, lr_scheduler, epoch, is_best, filena
         if os.path.exists(prev_checkpoint_filename):
             os.remove(prev_checkpoint_filename)
 
-def load_pretrained(model, default_path):
-    
-    pretrained_dict = torch.load(default_path)["model"]
-    # pretrained_dict = torch.hub.load('facebookresearch/detr:main', 'detr_resnet50', pretrained=True, map_location="cpu")
-    update_dict = change_param_name(pretrained_dict)    
-    model_dict = model.state_dict()
-    
-    # ins, outs = [], []    
-    # for k in model_dict:
-    #     if k in update_dict.keys(): ins.append(k)
-    #     else: outs.append(k)
-    
-    # update_dict = {k: v for k, v in update_dict.items() if k in model_dict}    
-    model_dict.update(update_dict)
-    model.load_state_dict(update_dict, strict=False)
-    
-    return model
-
-def change_param_name(pretrained_dict):
-    update_dict = {}
-    for pretrainedk in pretrained_dict.keys():        
-        
-        if "transformer" in pretrainedk :
-            newk = pretrainedk.replace("transformer", "reference_net")
-            update_dict[newk] = pretrained_dict[pretrainedk]
-            print(pretrainedk , '-->', newk)
-            
-            newk = pretrainedk.replace("transformer", "query_net")
-            update_dict[newk] = pretrained_dict[pretrainedk]
-            print(pretrainedk , '-->', newk)
-        
-        elif "backbone" in pretrainedk :
-            newk = pretrainedk.replace("backbone", "reference_net.backbone")
-            update_dict[newk] = pretrained_dict[pretrainedk]
-            print(pretrainedk , '-->', newk)
-            
-            newk = pretrainedk.replace("backbone", "query_net.backbone")
-            update_dict[newk] = pretrained_dict[pretrainedk]
-            print(pretrainedk , '-->', newk)
-            
-        else:            
-            update_dict[pretrainedk] = pretrained_dict[pretrainedk]
-            print(pretrainedk)
-            
-    return update_dict
-
 def retr_accuracy(qry_feat, ref_feat, qry_label, topk=[1, 5, 10]):
     """Computes the accuracy over the k top predictions for the specified values of k"""
-
     N = qry_feat.shape[0]
     M = ref_feat.shape[0]
+    print("N: ", N, "M: ", M)
     topk.append(M//100)
     results = np.zeros([len(topk)])
     # for CVUSA, CVACT
-    if N < 80000:
+    if N < 10000:
         qry_feat_norm = np.sqrt(np.sum(qry_feat**2, axis=1, keepdims=True))
         ref_feat_norm = np.sqrt(np.sum(ref_feat ** 2, axis=1, keepdims=True))
         similarity = np.matmul(qry_feat/qry_feat_norm, (ref_feat/ref_feat_norm).transpose())
@@ -118,25 +60,32 @@ def retr_accuracy(qry_feat, ref_feat, qry_label, topk=[1, 5, 10]):
             for j, k in enumerate(topk):
                 if ranking < k:
                     results[j] += 1.
-                    # print(ranking, k)
-                    # ww = similarity[i,:]>=similarity[i,qry_label[i]]
-                    # print(list(ww).index(True))
     else:
+        DENOM = 7
+        print("Watch out! Due to device issue, we devide the features with number: ", DENOM, ", if you evaluate for paper, you MUST check this!")
+        print("N: ", N, ", M: ", M, ", N_D: ", N // DENOM)
         # split the queries if the matrix is too large, e.g. VIGOR
-        assert N % 4 == 0
-        N_4 = N // 4
-        for split in range(4):
-            qry_feat_i = qry_feat[(split*N_4):((split+1)*N_4), :]
-            qry_label_i = qry_label[(split*N_4):((split+1)*N_4)]
+        assert N % DENOM == 0 # ??
+        N_D = N // DENOM
+        for split in range(DENOM):
+            print("split 1")
+            qry_feat_i = qry_feat[(split*N_D):((split+1)*N_D), :]
+            print("split 2")
+            qry_label_i = qry_label[(split*N_D):((split+1)*N_D)]
+            print("split 3")
             qry_feat_norm = np.sqrt(np.sum(qry_feat_i ** 2, axis=1, keepdims=True))
+            print("split 4")
             ref_feat_norm = np.sqrt(np.sum(ref_feat ** 2, axis=1, keepdims=True))
+            print("split 5")
             similarity = np.matmul(qry_feat_i / qry_feat_norm,
                                    (ref_feat / ref_feat_norm).transpose())
+            print("split 6")
             for i in range(qry_feat_i.shape[0]):
                 ranking = np.sum((similarity[i, :] > similarity[i, qry_label_i[i]])*1.)
                 for j, k in enumerate(topk):
                     if ranking < k:
                         results[j] += 1.        
+            print("split 7")
     results = results/ qry_feat.shape[0] * 100.
     # print("Percentage-top1:{:.2f}, top5:{:.2f}, top10:{:.2f}, top1%:{:.2f}".format(results[0], results[1], results[2], results[-1]))
     return results
@@ -187,7 +136,7 @@ def local_accuracy(targets, results):
         init = np.sum(init_dis < metrics[idx]) / init_dis.shape[0] * 100
         shift_acc[str(metrics[idx])] = pred
 
-        # line = "distance within " + str(metrics[idx]) + " meters (pred, init): " + str(pred) + " " + str(init)
+        line = "distance within " + str(metrics[idx]) + " meters (pred, init): " + str(pred) + " " + str(init)
         # print(line)
 
     diff_shifts = np.abs(pred_shifts - gt_shifts)
@@ -224,31 +173,10 @@ def local_accuracy(targets, results):
 
     # result = np.sum((distance < metrics[0]) & (angle_diff < angles[0])) / distance.shape[0] * 100
     
-    acc1 = np.sum((distance < metrics[0]) & (angle_diff < angles[0]))
-    acc5 = np.sum((distance < metrics[2]) & (angle_diff < angles[2]))
+    # acc1 = np.sum((distance < metrics[0]) & (angle_diff < angles[0]))
+    # acc5 = np.sum((distance < metrics[2]) & (angle_diff < angles[2]))
     
-    return acc1, acc5, distance, angle_diff
-
-def print_this():
-    print(r"""\
-        
-     ⠀⠀⠀⠰⡿⠿⠛⠛⠻⠿⣷
-    ⠀⠀⠀⠀⠀⠀⣀⣄⡀⠀⠀⠀⠀⢀⣀⣀⣤⣄⣀⡀
-    ⠀⠀⠀⠀⠀⢸⣿⣿⣷⠀⠀⠀⠀⠛⠛⣿⣿⣿⡛⠿⠷
-    ⠀⠀⠀⠀⠀⠘⠿⠿⠋⠀⠀⠀⠀⠀⠀⣿⣿⣿⠇
-    ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠉⠁
-    ⠀⠀⠀⠀⣿⣷⣄⠀⢶⣶⣷⣶⣶⣤⣀
-    ⠀⠀⠀⠀⣿⣿⣿⠀⠀⠀⠀⠀⠈⠙⠻⠗
-    ⠀⠀⠀⣰⣿⣿⣿⠀⠀⠀⠀⢀⣀⣠⣤⣴⣶⡄
-    ⠀⣠⣾⣿⣿⣿⣥⣶⣶⣿⣿⣿⣿⣿⠿⠿⠛⠃
-    ⢰⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡄
-    ⢸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡁
-    ⠈⢿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠁
-    ⠀⠀⠛⢿⣿⣿⣿⣿⣿⣿⡿⠟
-    ⠀⠀⠀⠀⠀⠉⠉⠉
-    """)
-
-    return
+    return distance, angle_diff
 
 def print_pigeon():
     print(r"""\

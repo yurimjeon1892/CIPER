@@ -34,9 +34,9 @@ def summary_image_draw(imgs):
 
 def plot_result(img_gnd, img_arl, targets, results, th):
     
-    rand_ind = random.choice(range(img_gnd.tensors.size(0)))       
-    img_gnd_ = img_gnd.tensors[rand_ind, :, :, :].detach().cpu().numpy()
-    img_arl_ = img_arl.tensors[rand_ind, :, :, :].detach().cpu().numpy()
+    rand_ind = random.choice(range(img_gnd.size(0)))       
+    img_gnd_ = img_gnd[rand_ind, :, :, :].detach().cpu().numpy()
+    img_arl_ = img_arl[rand_ind, :, :, :].detach().cpu().numpy()
     
     if "scores" in results[rand_ind].keys():
         
@@ -52,9 +52,9 @@ def plot_result(img_gnd, img_arl, targets, results, th):
         
         target_boxes = torch.cat([v["boxes"] for v in targets])
         target_boxes = target_boxes[rand_ind].detach().cpu().numpy()                    
-        target_bbox_img = plot_gt_dot(img_arl_, target_boxes, arl_img_size, "red")
+        target_bbox_img = plot_gt_dot(img_arl_, target_boxes, arl_img_size, "orange")
         
-        img_bbox = np.concatenate([src_bbox_img, target_bbox_img], 1)
+        img_bbox = np.concatenate([target_bbox_img, src_bbox_img], 1)
         
         imgs = {
             "1_gnd": img_gnd_,
@@ -72,7 +72,6 @@ def draw_pin(draw, x, y, theta, img_size, color, radius):
     draw.ellipse([(py - radius, px - radius), (py + radius, px + radius)], fill=color)     
     draw.line([(py, px), (py + 25 * np.sin(theta), px + 25 * np.cos(theta ))], fill=color, width=3)
     return draw   
-    
 
 def plot_pred_dot(img_np, boxes, is_valid, img_size, color, radius=5):    
     

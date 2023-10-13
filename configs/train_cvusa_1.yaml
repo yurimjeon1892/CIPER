@@ -19,8 +19,8 @@ train:
 
   lr: 0.0001
   weight_decay: 0.03  
-  # lr_drop: 200
-  # clip_max_norm: 0.1 # gradient clipping max norm
+  lr_drop: 200
+  clip_max_norm: 0.1 # gradient clipping max norm
 
   optimizer: sam
   cos: True
@@ -34,8 +34,9 @@ dataset:
   grd_img_size: [112, 616] # [112, 616]
   arl_img_size: [256, 256]
 
-  train_pt_list: ./datasets/splits/cvusa/train-19zl.csv
-  val_pt_list: ./datasets/splits/cvusa/val-19zl.csv
+  # cvusa only
+  train_pt_list: ./datasets/splits/cvusa/train-mini.csv
+  val_pt_list: ./datasets/splits/cvusa/train-mini.csv
   
 model:
 
