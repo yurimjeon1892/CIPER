@@ -12,7 +12,6 @@ from tensorboardX import SummaryWriter
 import shutil
 
 import sys; sys.path.append("../")
-import common.utils_misc as utils_misc
 
 from common.utils import save_state, print_pigeon
 from datasets import build_dataset
@@ -91,7 +90,7 @@ def main():
             "ref": data_loader_val_r
         }
             
-        if args["task"] == "POSE":            
+        if not args["retr_only"]:            
             dataset_val = build_dataset(mode="valid", args=args)
             data_loader_val = DataLoader(dataset_val, batch_size=args["batch_size"], shuffle=False, drop_last=False,
                                         num_workers=args["num_workers"]) 
@@ -125,7 +124,7 @@ def main():
     if args["infer"]:
         eval_infos = {
         "device": args["device"],
-        "task": args["task"],
+        "retr_only": args["retr_only"],
         "dim_feature": args["dim_feature"],        
         }        
         evaluate(model, criterion, postprocessors, data_loader_valid, eval_infos)
@@ -136,14 +135,14 @@ def main():
         "iter" : 0,
         "epoch": -1,
         "device": args["device"],
-        "task": args["task"],
+        "retr_only": args["retr_only"],
         # "clip_max_norm": args["clip_max_norm"],
         "optimizer": args["optimizer"]
     }
     valid_infos = {
         "epoch": -1,
         "device": args["device"],
-        "task": args["task"],
+        "retr_only": args["retr_only"],
         "best_metric": -1,
         "dim_feature": args["dim_feature"],        
     }
@@ -166,7 +165,7 @@ def main():
             valid_infos["best_metric"] = valid_infos["metric"]
             is_best = True       
             
-        save_state(out_dir, model, optimizer, None, epoch, is_best)
+        save_state(out_dir, model, optimizer, epoch, is_best)
         
 if __name__ == "__main__":
     main()

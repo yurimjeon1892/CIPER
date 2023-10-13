@@ -86,86 +86,88 @@ class Decoder(nn.Module):
                          DETR can detect in a single image. For COCO, we recommend 100 queries.
         """
         super().__init__()
-                        
-        self.query_embed = nn.Embedding(args["num_queries"], args["dim_embed"])         
-        self.class_embed = nn.Linear(args["dim_embed"], 2)      
-        self.bbox_embed = MLP(args["dim_embed"], args["dim_embed"], output_dim=4, num_layers=3)
         
-        decoder_layer = TransformerDecoderLayer(dim_embed=args["dim_embed"], 
-                                                num_heads=args["num_heads"], 
+        num_patches = int(args["grd_img_size"][0] / args["patch_size"]) * int(args["grd_img_size"][1] / args["patch_size"])  
+        dim_embed_dec = args["dim_embed"] + args["dim_embed_2"]
+        
+        self.query_embed = nn.Embedding(args["num_queries"], dim_embed_dec)         
+        self.class_embed = nn.Linear(args["dim_embed"]  + args["dim_embed_2"], 2)      
+        self.bbox_embed = MLP(args["dim_embed"] + args["dim_embed_2"], args["dim_embed"] + args["dim_embed_2"], output_dim=4, num_layers=3)
+        
+        decoder_layer = TransformerDecoderLayer(d_model=dim_embed_dec, 
+                                                nhead=args["num_heads"], 
                                                 dim_feedforward=args["dim_feedforward"],
                                                 dropout=args["dropout"], 
                                                 activation="relu", 
                                                 normalize_before=args["pre_norm"])
-        decoder_norm = nn.LayerNorm(args["dim_embed"])
+        decoder_norm = nn.LayerNorm(dim_embed_dec)
         self.decoder = TransformerDecoder(decoder_layer, args["num_dec_layers"], decoder_norm,
                                           return_intermediate=False)
-        
-        num_patches = int(args["grnd_img_size"][0] / args["patch_size"]) * int(args["grnd_img_size"][1] / args["patch_size"])        
+            
         self.mlp_mem_grd = MLP(
             input_dim=args["dim_embed"],
             hidden_dim=args["dim_embed"],
             output_dim=1,
             num_layers=args["mlp_ratio"],
         )        
-        self.lin_mem_grd = nn.Linear(num_patches, int(num_patches / 4))         
+        self.lin_mem_grd = nn.Linear(num_patches, args["dim_embed_2"])         
         self.mlp_pos_grd = MLP(
             input_dim=args["dim_embed"],
             hidden_dim=args["dim_embed"],
             output_dim=1,
             num_layers=args["mlp_ratio"],
         )
-        self.lin_pos_grd = nn.Linear(num_patches, int(num_patches / 4))  
+        self.lin_pos_grd = nn.Linear(num_patches, args["dim_embed_2"])  
         
     def forward(self, x_grd, x_arl):   
         """
             memory_grd: bs x num_patches1 x dim_embed
-            pos_grd: bs x num_patches1 x dim_embed
+            pos_grd: 1 x num_patches1 x dim_embed
             memory_arl: bs x num_patches2 x dim_embed
-            pos_arl: bs x num_patches2 x dim_embed
+            pos_arl: 1 x num_patches2 x dim_embed
         """
                 
         memory_grd, pos_grd = x_grd[0], x_grd[1]
         memory_arl, pos_arl = x_arl[0], x_arl[1]
         bs = memory_arl.size(0)
-        print("in: ", memory_grd.size(), pos_grd.size(), memory_arl.size(), pos_arl.size())
+        # print("in: ", memory_grd.size(), pos_grd.size(), memory_arl.size(), pos_arl.size())
              
-        memory_grd = self.mlp_mem_grd(memory_grd) # bs x num_patches2 x 1
-        print("1a: ", memory_grd.size())
-        memory_grd = self.lin_mem_grd(memory_grd.squeeze(2)) # bs x (num_patches2 / 4)   
-        print("2a: ", memory_grd.size())
-        memory_grd = memory_grd.unsqueeze(1).repeat(1, memory_arl.size(1), 1) # bs x (num_patches2 / 4)  
-        print("3a: ", memory_grd.size())
+        memory_grd = self.mlp_mem_grd(memory_grd) # bs x num_patches1 x 1
+        # print("1a: ", memory_grd.size())
+        memory_grd = self.lin_mem_grd(memory_grd.squeeze(2)) # bs x dim_embed_dec
+        # print("2a: ", memory_grd.size())
+        memory_grd = memory_grd.unsqueeze(1).repeat(1, memory_arl.size(1), 1) # bs x num_patches2 x dim_embed_dec
+        # print("3a: ", memory_grd.size())
         
-        memory = torch.cat([memory_grd, memory_arl], 2).permute(1, 0, 2) # num_queries x bs x dim_embed
-        print("mem: ", memory_grd.size(), memory_arl.size(), memory.size())
+        memory = torch.cat([memory_grd, memory_arl], 2).permute(1, 0, 2) # num_patches2 x bs x dim_embed_dec
+        # print("mem: ", memory_grd.size(), memory_arl.size(), memory.size())
                 
-        pos_grd = self.mlp_pos_grd(pos_grd) # bs x num_patches2 x 1
-        print("1b: ", pos_grd.size())
-        pos_grd = self.lin_pos_grd(pos_grd.squeeze(2)) # bs x (num_patches2 / 4)   
-        print("2b: ", pos_grd.size())
-        pos_grd = pos_grd.unsqueeze(1).repeat(1, pos_arl.size(1), 1) # bs x (num_patches2 / 4)  
-        print("3b: ", pos_grd.size())
+        pos_grd = self.mlp_pos_grd(pos_grd) # bs x num_patches1 x 1
+        # print("1b: ", pos_grd.size())
+        pos_grd = self.lin_pos_grd(pos_grd.squeeze(2)) # bs x dim_embed_dec
+        # print("2b: ", pos_grd.size())
+        pos_grd = pos_grd.unsqueeze(1).repeat(1, pos_arl.size(1), 1) # bs x num_patches2 x dim_embed_dec
+        # print("3b: ", pos_grd.size())
           
-        pos_embed = torch.cat([pos_grd, pos_arl], 2).permute(1, 0, 2) # num_queries x bs x dim_embed  
-        print("pos: ", pos_grd.size(), pos_arl.size(), pos_embed.size())
+        pos_embed = torch.cat([pos_grd, pos_arl], 2).permute(1, 0, 2) # num_patches2 x bs x dim_embed_dec
+        # print("pos: ", pos_grd.size(), pos_arl.size(), pos_embed.size())
             
-        query_embed = self.query_embed.weight.unsqueeze(1).repeat(1, bs, 1) # num_queries x bs x dim_embed
-        print("query_embed: ", query_embed.size())
+        query_embed = self.query_embed.weight.unsqueeze(1).repeat(1, bs, 1) # num_queries x bs x dim_embed_dec
+        # print("query_embed: ", query_embed.size())
         
-        print("input", memory.size(), pos_embed.size(), query_embed.size())
+        # print("input", memory.size(), pos_embed.size(), query_embed.size())
         tgt = torch.zeros_like(query_embed) # output 이 저장되는 공간         
         dst = self.decoder(tgt, memory, 
                            pos=pos_embed, query_pos=query_embed
-                         ) # num_quries x bs x dim_embed 
-        dst = dst.transpose(0, 1) # bs x num_quries x dim_embed
-        print("dst: ", dst.size())
+                         ) 
+        dst = dst.transpose(1, 2) # 1 x bs x num_quries x dim_embed_dec
+        # print("dst: ", dst.size())
         
-        outputs_class = self.class_embed(dst) # bs x num_quries x 2
-        outputs_coord = self.bbox_embed(dst) # bs x num_quries x 4   
-        print("out: ", outputs_class.size(), outputs_coord.size())     
+        outputs_class = self.class_embed(dst) # 1 x bs x num_quries x 2
+        outputs_coord = self.bbox_embed(dst) # 1 x bs x num_quries x 4   
+        # print("out: ", outputs_class.size(), outputs_coord.size())     
         
-        out = {'pred_logits': outputs_class, 'pred_boxes': outputs_coord} # [-1]: 가장 마지막 decoder layer결과만 사용
+        out = {'pred_logits': outputs_class[-1], 'pred_boxes': outputs_coord[-1]} # [-1]: 가장 마지막 decoder layer결과만 사용
         
         return out
     

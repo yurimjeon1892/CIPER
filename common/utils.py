@@ -2,9 +2,6 @@ import os
 import torch
 import numpy as np
 import shutil
-# import matplotlib.pyplot as plt
-# import random
-# from PIL import Image, ImageDraw
 
 class AverageMeter(object):
     def __init__(self):
@@ -22,14 +19,12 @@ class AverageMeter(object):
         self.count += n
         self.avg = self.sum / self.count
 
-def save_state(save_path, model, optimizer, lr_scheduler, epoch, is_best, filename="checkpoint.pth"):
+def save_state(save_path, model, optimizer, epoch, is_best, filename="checkpoint.pth"):
     os.makedirs(save_path, exist_ok=True)
     state_dict = {
         "model": model.state_dict(),
         "optimizer": optimizer.state_dict(),
-        # "lr_scheduler": lr_scheduler.state_dict(),
         "epoch": epoch,
-        # "best_metric": best_metric
     }
     torch.save(state_dict, os.path.join(save_path, filename))
     shutil.copyfile(
@@ -141,7 +136,7 @@ def local_accuracy(targets, results):
         init = np.sum(init_dis < metrics[idx]) / init_dis.shape[0] * 100
         shift_acc[str(metrics[idx])] = pred
 
-        # line = "distance within " + str(metrics[idx]) + " meters (pred, init): " + str(pred) + " " + str(init)
+        line = "distance within " + str(metrics[idx]) + " meters (pred, init): " + str(pred) + " " + str(init)
         # print(line)
 
     diff_shifts = np.abs(pred_shifts - gt_shifts)
@@ -178,31 +173,10 @@ def local_accuracy(targets, results):
 
     # result = np.sum((distance < metrics[0]) & (angle_diff < angles[0])) / distance.shape[0] * 100
     
-    acc1 = np.sum((distance < metrics[0]) & (angle_diff < angles[0]))
-    acc5 = np.sum((distance < metrics[2]) & (angle_diff < angles[2]))
+    # acc1 = np.sum((distance < metrics[0]) & (angle_diff < angles[0]))
+    # acc5 = np.sum((distance < metrics[2]) & (angle_diff < angles[2]))
     
-    return acc1, acc5, distance, angle_diff
-
-def print_this():
-    print(r"""\
-        
-     ⠀⠀⠀⠰⡿⠿⠛⠛⠻⠿⣷
-    ⠀⠀⠀⠀⠀⠀⣀⣄⡀⠀⠀⠀⠀⢀⣀⣀⣤⣄⣀⡀
-    ⠀⠀⠀⠀⠀⢸⣿⣿⣷⠀⠀⠀⠀⠛⠛⣿⣿⣿⡛⠿⠷
-    ⠀⠀⠀⠀⠀⠘⠿⠿⠋⠀⠀⠀⠀⠀⠀⣿⣿⣿⠇
-    ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠉⠁
-    ⠀⠀⠀⠀⣿⣷⣄⠀⢶⣶⣷⣶⣶⣤⣀
-    ⠀⠀⠀⠀⣿⣿⣿⠀⠀⠀⠀⠀⠈⠙⠻⠗
-    ⠀⠀⠀⣰⣿⣿⣿⠀⠀⠀⠀⢀⣀⣠⣤⣴⣶⡄
-    ⠀⣠⣾⣿⣿⣿⣥⣶⣶⣿⣿⣿⣿⣿⠿⠿⠛⠃
-    ⢰⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡄
-    ⢸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡁
-    ⠈⢿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠁
-    ⠀⠀⠛⢿⣿⣿⣿⣿⣿⣿⡿⠟
-    ⠀⠀⠀⠀⠀⠉⠉⠉
-    """)
-
-    return
+    return distance, angle_diff
 
 def print_pigeon():
     print(r"""\

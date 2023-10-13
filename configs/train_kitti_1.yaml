@@ -11,23 +11,30 @@ batch_size: 8 # 12
 retr_only: False
 device: cuda # device to use for training / testing 
 
-ckpt_dir: ../tmp
+ckpt_dir: ../ckpts
 epochs: 50
 start_epoch: 1
 
 # ----- data config
-data_name: vigor
-data_root: /storage2/public/vigor/    
+data_name: kitti
+data_root: /storage2/public/kitti    
 
-grd_img_size: [320, 640] 
+grd_img_size: [128, 512]
 arl_img_size: [320, 320]
 
-shift_range_lat: 0 
-shift_range_lon: 0 
-rotation_range: 0 
+shift_range_lat: 20 
+shift_range_lon: 20 
+rotation_range: 10 
 fov: 0
 
-same_area: True
+arl_zoom_ratio: 2.0
+
+# kitti only
+# train_pt_list: ./datasets/splits/kitti/test1_mini.txt
+# val_pt_list: ./datasets/splits/kitti/test1_mini.txt
+
+train_pt_list: ./datasets/splits/kitti/train_files.txt
+val_pt_list: ./datasets/splits/kitti/test1_files.txt
 
 # ----- optimizer config
 lr: 0.00005

@@ -6,7 +6,7 @@ resume: False
 seed: 42
 num_workers: 8
 
-batch_size: 8 # 12
+batch_size: 16 
 
 retr_only: False
 device: cuda # device to use for training / testing 
@@ -14,6 +14,13 @@ device: cuda # device to use for training / testing
 ckpt_dir: ../tmp
 epochs: 50
 start_epoch: 1
+
+# ----- optimizer config
+lr: 0.00005
+weight_decay: 0.03
+
+optimizer: sam
+cos: True
 
 # ----- data config
 data_name: vigor
@@ -28,13 +35,6 @@ rotation_range: 0
 fov: 0
 
 same_area: True
-
-# ----- optimizer config
-lr: 0.00005
-weight_decay: 0.03
-
-optimizer: sam
-cos: True
 
 # ----- model config
 patch_size: 16
