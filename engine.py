@@ -233,7 +233,6 @@ def valid_pose(model: torch.nn.Module,
 
 @torch.no_grad()
 def evaluate(model: torch.nn.Module, 
-             criterion: torch.nn.Module,
              postprocessors: torch.nn.Module,
              loader_dict: dict, 
              eval_infos: dict, 
@@ -250,8 +249,6 @@ def evaluate(model: torch.nn.Module,
     qry_feat = np.zeros([len(loader_dict["qry"].dataset), eval_infos["dim_feature"]])    
     ref_feat = np.zeros([len(loader_dict["ref"].dataset), eval_infos["dim_feature"]])
     
-    img_grd_, img_arl_ = None, None
-    # query features
     description = "[i] Eval qry"
     for i, (img_grd, idx_grd, labels) in enumerate(tqdm(loader_dict["qry"], desc=description, unit="batches")):
         
@@ -259,23 +256,17 @@ def evaluate(model: torch.nn.Module,
         idx_grd = idx_grd.to(eval_infos["device"])
         labels = labels.to(eval_infos["device"])
         
-        # compute output
-        out_emb_grd, _, _, _ = model_query(img_grd)
+        out_emb_grd, _ = model_query(img_grd)
         qry_feat[idx_grd.cpu().numpy(), :] = out_emb_grd.cpu().numpy()
         qry_label[idx_grd.cpu().numpy()] = labels.cpu().numpy()
-                    
-        if i == 0: img_grd_ = img_grd[0, :, :, :]
-        
-    # reference features
+    
     description = "[i] Eval ref"
     for i, (img_arl, idx_arl, _) in enumerate(tqdm(loader_dict["ref"], desc=description, unit="batches")):
-        
         img_arl = img_arl.to(eval_infos["device"])            
-        out_emb_arl, _, _, _ = model_reference(img_arl)  # delta           
-            
+        out_emb_arl, _ = model_reference(img_arl)  # delta           
+        
         ref_feat[idx_arl.cpu().numpy(), :] = out_emb_arl.detach().cpu().numpy()
-        if i == 0: img_arl_ = img_arl[0, :, :, :]
-
+    
     retr_acc = retr_accuracy(qry_feat, ref_feat, qry_label.astype(int))
         
     stats = {
@@ -285,41 +276,37 @@ def evaluate(model: torch.nn.Module,
         "acc/retr_top1pc": retr_acc[3],
     }   
     
-    if eval_infos["IS_POSE"]:   
+    if eval_infos["retr_only"] == False:   
     
         model.eval()
-        criterion.eval()
-        
-        losses_meter = {}
-        for k in criterion.losses: losses_meter[k] = AverageMeter()
-        
-        acc1s, acc5s, denoms = 0, 0, 0
+        trs_errs, rot_errs = [], []    
+                
         description = "[i] Eval pose"
         for i, (img_grd, img_arl, targets) in enumerate(tqdm(loader_dict["val"], desc=description, unit="batches")):
             
             img_grd = img_grd.to(eval_infos["device"])
             img_arl = img_arl.to(eval_infos["device"])
-            targets = [{k: v.to(eval_infos["device"]) for k, v in t.items()} for t in targets]
+            targets = [ {k: targets[k][b].to(eval_infos["device"]) for k in targets.keys()} for b in range(img_grd.size(0))]
             
             outputs = model(im_grd=img_grd, im_arl=img_arl)
             results = postprocessors["bbox"](outputs, targets)
-
-            loss_dict = criterion(outputs, targets)      
-            for k in loss_dict.keys(): losses_meter[k].update(loss_dict[k].item(), img_grd.tensors.size(0))
                 
-            acc1, acc5, trs_mean, trs_median, rot_mean, rot_median = pose_accuracy(results, targets)
-            acc1s += acc1
-            acc5s += acc5
-            denoms += img_grd.tensors.size(0)
+            trs_err, rot_err = pose_accuracy(results, targets)
+            trs_errs.extend(trs_err)
+            rot_errs.extend(rot_err)
+            
+        stats = {}
                     
-        loss_total = 0
-        for k in losses_meter.keys():
-            stats["loss/" + k] =  losses_meter[k].avg
-            loss_total += losses_meter[k].avg
-        stats["loss/total"] = loss_total
+        stats["acc/pose_trs_d1"] = np.sum((trs_err < 1)) / trs_err.shape[0] * 100
+        stats["acc/pose_trs_d5"] = np.sum((trs_err < 5)) / trs_err.shape[0] * 100
         
-        stats["acc/pose_d1"] = (acc1s / denoms) * 100
-        stats["acc/pose_d5"] = (acc5s / denoms) * 100
+        stats["acc/pose_rot_d1"] = np.sum((rot_err < 1)) / rot_err.shape[0] * 100
+        stats["acc/pose_rot_d5"] = np.sum((rot_err < 5)) / rot_err.shape[0] * 100
+        
+        stats["err/pose_trs_mean"] = np.mean(trs_errs)
+        stats["err/pose_trs_median"] = np.median(trs_errs)
+        stats["err/pose_rot_mean"] = np.mean(rot_errs)
+        stats["err/pose_rot_median"] = np.median(rot_errs)
     
     print("[i] Eval ", end = "\n")
     for k in stats.keys():
