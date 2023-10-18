@@ -78,7 +78,8 @@ def main():
 
         sampler_train = None
             
-        data_loader_train = DataLoader(dataset_train, batch_size=args["batch_size"], shuffle=(sampler_train is None), 
+        data_loader_train = DataLoader(dataset_train, batch_size=args["batch_size"], shuffle=False,
+                                    #    shuffle=(sampler_train is None), 
                                        num_workers=args["num_workers"], pin_memory=True, sampler=sampler_train, drop_last=True)
         data_loader_val_q = DataLoader(dataset_val_q, batch_size=32, shuffle=False,
                                         num_workers=args["num_workers"], pin_memory=True) 

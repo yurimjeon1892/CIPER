@@ -163,12 +163,9 @@ class PostProcess(nn.Module):
         xs, ys = [], []        
         for b in range(len(out_logits)):
             arl_img_size = targets[b]["orig_size"]
-            arl_zoom_ratio = targets[b]["arl_zoom_ratio"][0]
             meter_per_pixel = targets[b]["meter_per_pixel"][0]
-            # shift_range_lon = targets[b]["shift_range_lon"][0]
-            # shift_range_lat = targets[b]["shift_range_lat"][0]            
-            x = x_c[b] * arl_img_size[0] * arl_zoom_ratio * meter_per_pixel
-            y = y_c[b] * arl_img_size[1] * arl_zoom_ratio * meter_per_pixel           
+            x = x_c[b] * arl_img_size[0] * meter_per_pixel
+            y = y_c[b] * arl_img_size[1] * meter_per_pixel           
             xs.append(x)
             ys.append(y)
         xs = torch.stack(xs, 0)

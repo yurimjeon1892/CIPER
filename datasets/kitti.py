@@ -22,13 +22,11 @@ class KITTI(torch.utils.data.Dataset):
         self.arl_img_size = args["arl_img_size"]
         self.grd_img_size = args["grd_img_size"] # 256, 1024 -> need to be reduced (320, 640 maybe? )
         
-        self.arl_zoom_ratio = args["arl_zoom_ratio"]
-
         shift_range_lat = float(args["shift_range_lat"])
         shift_range_lon = float(args["shift_range_lon"])
         rotation_range = float(args["rotation_range"])
 
-        self.meter_per_pixel = get_meter_per_pixel(scale=1/self.arl_zoom_ratio)
+        self.meter_per_pixel = get_meter_per_pixel(scale=1)
         self.shift_range_meters_lat = shift_range_lat  # in terms of meters
         self.shift_range_meters_lon = shift_range_lon  # in terms of meters
         self.shift_range_pixels_lat = shift_range_lat / float(self.meter_per_pixel)  # shift range is in terms of meters
@@ -68,7 +66,7 @@ class KITTI(torch.utils.data.Dataset):
         
     def read_data(self, index):
         
-        if "train" in self.mode: 
+        if "train" in self.pt_list: 
             file_name = self.sample_list[index].split(' ')[0]
             # day_dir = file_name[:10]
             drive_dir = file_name[:38]
@@ -121,10 +119,8 @@ class KITTI(torch.utils.data.Dataset):
     
     def prep_gt(self, gt_shift_x, gt_shift_y, theta):
         
-        # tgt_y = (self.arl_img_size[0] / 2 + (gt_shift_x * self.shift_range_pixels_lon / self.arl_zoom_ratio)) / self.arl_img_size[0]
-        # tgt_x = (self.arl_img_size[1] / 2 + (gt_shift_y * self.shift_range_pixels_lat / self.arl_zoom_ratio)) / self.arl_img_size[1]
-        tgt_y = (gt_shift_x * self.shift_range_pixels_lon / self.arl_zoom_ratio) / self.arl_img_size[1]
-        tgt_x = (gt_shift_y * self.shift_range_pixels_lat / self.arl_zoom_ratio) / self.arl_img_size[0]
+        tgt_y = (gt_shift_x * self.shift_range_pixels_lon) / self.arl_img_size[1]
+        tgt_x = (gt_shift_y * self.shift_range_pixels_lat) / self.arl_img_size[0]
         
         tgt_rad = np.deg2rad(theta * self.rotation_range + 180.)
         tgt_cos = np.cos(tgt_rad)
@@ -135,12 +131,8 @@ class KITTI(torch.utils.data.Dataset):
                 [[tgt_x, tgt_y, tgt_cos, tgt_sin]]
             ),
             "labels": torch.tensor([0]),
-            "orig_size": torch.as_tensor([int(self.arl_img_size[0]), int(self.arl_img_size[1])]),   
-            "arl_zoom_ratio": torch.tensor([self.arl_zoom_ratio]),     
-            "meter_per_pixel": torch.tensor([self.meter_per_pixel]),         
-            # "shift_range_lon": torch.tensor([self.shift_range_pixels_lon / self.arl_zoom_ratio]),
-            # "shift_range_lat": torch.tensor([self.shift_range_pixels_lat / self.arl_zoom_ratio]),
-            # "rotation_range": torch.tensor([self.rotation_range]),
+            "orig_size": torch.as_tensor([int(self.arl_img_size[0]), int(self.arl_img_size[1])]),      
+            "meter_per_pixel": torch.tensor([self.meter_per_pixel]),  
         }
         return target
     
@@ -164,7 +156,7 @@ class KITTI(torch.utils.data.Dataset):
             arl_rand_shift_rand_rot = \
                 arl_rand_shift.rotate(theta * self.rotation_range)
          
-            arl_img = TF.center_crop(arl_rand_shift_rand_rot, self.arl_img_size[0] * self.arl_zoom_ratio)            
+            arl_img = TF.center_crop(arl_rand_shift_rand_rot, self.arl_img_size[0])            
             img_ref = self.transform_reference(arl_img)            
                     
             target = self.prep_gt(gt_shift_x, gt_shift_y, theta)    
@@ -185,7 +177,7 @@ class KITTI(torch.utils.data.Dataset):
             arl_rand_shift_rand_rot = \
                 arl_rand_shift.rotate(theta * self.rotation_range)
          
-            arl_img = TF.center_crop(arl_rand_shift_rand_rot, self.arl_img_size[0] * self.arl_zoom_ratio)            
+            arl_img = TF.center_crop(arl_rand_shift_rand_rot, self.arl_img_size[0])            
             img_ref = self.transform_reference(arl_img)   
             
             return img_ref, torch.tensor(index), 0

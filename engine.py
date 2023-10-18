@@ -10,7 +10,7 @@ import numpy as np
 import tensorboardX
 
 import random 
-from common.utils import AverageMeter, retr_accuracy, local_accuracy
+from common.utils import AverageMeter, retr_accuracy, pose_accuracy
 from common.utils_summary import update_summary, plot_result
 
 def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module, postprocessors: torch.nn.Module,
@@ -23,7 +23,6 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module, postproc
     
     losses_meter = {}
     for k in criterion.losses: losses_meter[k] = AverageMeter()
-    # losses_meter = AverageMeter()
     
     plot_imgs = {}
     
@@ -41,10 +40,10 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module, postproc
         outputs = model(im_grd=img_grd, im_arl=img_arl)  
         
         if not train_infos["retr_only"]:
-            targets = [ {k: targets[k][b].to(train_infos["device"]) for k in targets.keys()} for b in range(bs) ]
+            targets = [{k: targets[k][b].to(train_infos["device"]) for k in targets.keys()} for b in range(bs) ]
             results = postprocessors["bbox"](outputs, targets)
             if i == sample_ind: 
-                p_imgs = plot_result(img_grd, img_arl, targets, results, th=0.1)
+                p_imgs = plot_result(results, targets, img_grd, img_arl)
                 plot_imgs.update(p_imgs)
 
         loss_dict = criterion(outputs, targets)
@@ -103,7 +102,7 @@ def valid_one_epoch(model: torch.nn.Module,
     valid_infos["metric"] = stats["acc/retr_top1"]    
     
     if not valid_infos["retr_only"]:  
-        imgs2, stats2 = valid_local(model, criterion, postprocessors, loader_dict["val"], valid_infos)        
+        imgs2, stats2 = valid_pose(model, criterion, postprocessors, loader_dict["val"], valid_infos)        
         imgs.update(imgs2)
         stats.update(stats2)
     
@@ -171,11 +170,11 @@ def valid_retr(model: torch.nn.Module,
              
     return imgs, stats
 
-def valid_local(model: torch.nn.Module, 
-                criterion: torch.nn.Module,
-                postprocessors: torch.nn.Module,
-                data_loader: Iterable, 
-                valid_infos: dict):
+def valid_pose(model: torch.nn.Module, 
+               criterion: torch.nn.Module,
+               postprocessors: torch.nn.Module,
+               data_loader: Iterable, 
+               valid_infos: dict):
     
     model.eval()
     criterion.eval()
@@ -184,9 +183,10 @@ def valid_local(model: torch.nn.Module,
     for k in criterion.losses: losses_meter[k] = AverageMeter()
     
     trs_errs, rot_errs = [], []    
-    sample_ind = random.choice(range(len(data_loader)))    
+    # sample_ind = random.choice(range(len(data_loader)))  
+    sample_ind = 0  
     with torch.no_grad():
-        description = "[i] Valid loc"
+        description = "[i] Valid pose"
         for i, (img_grd, img_arl, targets) in enumerate(tqdm(data_loader, desc=description, unit="batches")):
             
             img_grd = img_grd.to(valid_infos["device"])
@@ -201,9 +201,9 @@ def valid_local(model: torch.nn.Module,
             for k in loss_dict.keys(): losses_meter[k].update(loss_dict[k].item(), img_grd.size(0))
             
             if i == sample_ind: 
-                plot_imgs = plot_result(img_grd, img_arl, targets, results, 0.1)
+                plot_imgs = plot_result(results, targets, img_grd, img_arl)
                 
-            trs_err, rot_err = local_accuracy(targets, results)
+            trs_err, rot_err = pose_accuracy(results, targets)
             trs_errs.extend(trs_err)
             rot_errs.extend(rot_err)
                 
@@ -218,16 +218,16 @@ def valid_local(model: torch.nn.Module,
         loss_total += losses_meter[k].avg
     stats["loss/total"] = loss_total
     
-    stats["acc/local_trs_d1"] = np.sum((trs_err < 1)) / trs_err.shape[0] * 100
-    stats["acc/local_trs_d5"] = np.sum((trs_err < 5)) / trs_err.shape[0] * 100
+    stats["acc/pose_trs_d1"] = np.sum((trs_err < 1)) / trs_err.shape[0] * 100
+    stats["acc/pose_trs_d5"] = np.sum((trs_err < 5)) / trs_err.shape[0] * 100
     
-    stats["acc/local_rot_d1"] = np.sum((rot_err < 1)) / rot_err.shape[0] * 100
-    stats["acc/local_rot_d5"] = np.sum((rot_err < 5)) / rot_err.shape[0] * 100
+    stats["acc/pose_rot_d1"] = np.sum((rot_err < 1)) / rot_err.shape[0] * 100
+    stats["acc/pose_rot_d5"] = np.sum((rot_err < 5)) / rot_err.shape[0] * 100
     
-    stats["acc/local_trs_mean"] = np.mean(trs_errs)
-    stats["acc/local_trs_median"] = np.median(trs_errs)
-    stats["acc/local_rot_mean"] = np.mean(rot_errs)
-    stats["acc/local_rot_median"] = np.median(rot_errs)
+    stats["err/pose_trs_mean"] = np.mean(trs_errs)
+    stats["err/pose_trs_median"] = np.median(trs_errs)
+    stats["err/pose_rot_mean"] = np.mean(rot_errs)
+    stats["err/pose_rot_median"] = np.median(rot_errs)
              
     return imgs, stats
 
@@ -294,7 +294,7 @@ def evaluate(model: torch.nn.Module,
         for k in criterion.losses: losses_meter[k] = AverageMeter()
         
         acc1s, acc5s, denoms = 0, 0, 0
-        description = "[i] Eval loc"
+        description = "[i] Eval pose"
         for i, (img_grd, img_arl, targets) in enumerate(tqdm(loader_dict["val"], desc=description, unit="batches")):
             
             img_grd = img_grd.to(eval_infos["device"])
@@ -307,7 +307,7 @@ def evaluate(model: torch.nn.Module,
             loss_dict = criterion(outputs, targets)      
             for k in loss_dict.keys(): losses_meter[k].update(loss_dict[k].item(), img_grd.tensors.size(0))
                 
-            acc1, acc5, trs_mean, trs_median, rot_mean, rot_median = local_accuracy(targets, results)
+            acc1, acc5, trs_mean, trs_median, rot_mean, rot_median = pose_accuracy(results, targets)
             acc1s += acc1
             acc5s += acc5
             denoms += img_grd.tensors.size(0)
@@ -318,8 +318,8 @@ def evaluate(model: torch.nn.Module,
             loss_total += losses_meter[k].avg
         stats["loss/total"] = loss_total
         
-        stats["acc/local_d1"] = (acc1s / denoms) * 100
-        stats["acc/local_d5"] = (acc5s / denoms) * 100
+        stats["acc/pose_d1"] = (acc1s / denoms) * 100
+        stats["acc/pose_d5"] = (acc5s / denoms) * 100
     
     print("[i] Eval ", end = "\n")
     for k in stats.keys():

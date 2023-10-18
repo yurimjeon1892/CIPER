@@ -89,8 +89,8 @@ def retr_accuracy(qry_feat, ref_feat, qry_label, topk=[1, 5, 10]):
     results = results/ qry_feat.shape[0] * 100.
     # print("Percentage-top1:{:.2f}, top5:{:.2f}, top10:{:.2f}, top1%:{:.2f}".format(results[0], results[1], results[2], results[-1]))
     return results
-
-def local_accuracy(targets, results):
+    
+def pose_accuracy(results, targets):
     
     # shift_range_lons, shift_range_lats, rotation_ranges = [], [], []
     
@@ -98,26 +98,25 @@ def local_accuracy(targets, results):
     for b in range(len(results)):
         
         arl_img_size = targets[b]["orig_size"].detach().cpu().numpy()
-        arl_zoom_ratio = targets[b]["arl_zoom_ratio"][0].detach().cpu().numpy()
         meter_per_pixel = targets[b]["meter_per_pixel"][0].detach().cpu().numpy()
                 
         tgt = targets[b]["boxes"][0].detach().cpu().numpy()
-        tgt = np.array([[tgt[0] * arl_img_size[0] * arl_zoom_ratio * meter_per_pixel,
-                         tgt[1] * arl_img_size[1] * arl_zoom_ratio * meter_per_pixel, 
-                         np.rad2deg(np.arctan2(tgt[3], tgt[2]))]])
+        tgt = np.array([[tgt[0] * arl_img_size[0] * meter_per_pixel,
+                         tgt[1] * arl_img_size[1] * meter_per_pixel, 
+                         np.arctan2(tgt[3], tgt[2])]])
         gts.append(tgt)
                          
         scores = results[b]["scores"].detach().cpu().numpy()
         shifts = results[b]["boxes"].detach().cpu().numpy()
         shifts_max = shifts[np.argmax(scores), :]
-        shifts_max = np.array([[shifts_max[0], shifts_max[1], np.rad2deg(shifts_max[2])]])
+        shifts_max = np.array([[shifts_max[0], shifts_max[1], shifts_max[2]]])
         preds.append(shifts_max)
         
     gts = np.concatenate(gts, 0)
     preds = np.concatenate(preds, 0)
     
-    gt_shifts, gt_headings = gts[:, :2], gts[:, 2]    
-    pred_shifts, pred_headings = preds[:, :2], preds[:, 2]
+    gt_shifts, gt_headings = gts[:, :2], np.rad2deg(gts[:, 2])   
+    pred_shifts, pred_headings = preds[:, :2], np.rad2deg(preds[:, 2])
     
     distance = np.sqrt(np.sum((pred_shifts - gt_shifts) ** 2, axis=1))  # [N]
     angle_diff = np.remainder(np.abs(pred_headings - gt_headings), 360)
