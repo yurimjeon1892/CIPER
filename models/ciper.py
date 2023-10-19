@@ -5,8 +5,6 @@ import torch.nn.functional as F
 # from scipy.stats import truncnorm
 from torch import nn
 
-
-# from .base import build_baseA
 from .matcher import build_matcher
 from .soft_triplet import SoftTripletBiLoss
 
@@ -26,7 +24,8 @@ class CIPER(nn.Module):
         self.query_net = Encoder(args, args["grd_img_size"])
         self.reference_net = Encoder(args, args["arl_img_size"])
         self.retr_only = args["retr_only"]
-        if not self.retr_only: self.pose_net = Decoder(args)
+        if not self.retr_only: 
+            self.pose_net = Decoder(args)
         
     def forward(self, im_grd, im_arl):
         
@@ -72,17 +71,22 @@ class SetCriterion(nn.Module):
         targets dicts must contain the key "labels" containing a tensor of dim [nb_target_boxes]
         """
         assert "pred_logits" in outputs
-        src_logits = outputs["pred_logits"]
+        src_logits = outputs["pred_logits"] # bs x num_queries x 2
 
         idx = self._get_src_permutation_idx(indices)
         target_classes_o = torch.cat([t["labels"][J] for t, (_, J) in zip(targets, indices)])
         target_classes = torch.full(src_logits.shape[:2], self.num_classes,
                                     dtype=torch.int64, device=src_logits.device)
         target_classes[idx] = target_classes_o
-
-        loss_ce = F.cross_entropy(src_logits.transpose(1, 2), target_classes, self.empty_weight)
-        losses = {"labels": loss_ce}
-
+      
+        # loss_ce = F.cross_entropy(src_logits.transpose(1, 2), target_classes, self.empty_weight)
+        # losses = {"labels": loss_ce}
+        
+        a = src_logits.squeeze(-1) # src_logits.transpose(1, 2)
+        b = 1 - target_classes.float()
+        loss_bce = F.binary_cross_entropy_with_logits(a, b)
+        losses = {"labels": loss_bce}
+        
         return losses
         
     def loss_boxes(self, outputs, targets, indices):
@@ -95,7 +99,8 @@ class SetCriterion(nn.Module):
         src_boxes = outputs["pred_boxes"][idx]
         target_boxes = torch.cat([t["boxes"][i] for t, (_, i) in zip(targets, indices)], dim=0)
 
-        loss_bbox = F.l1_loss(src_boxes, target_boxes, reduction="none")
+        # loss_bbox = F.l1_loss(src_boxes, target_boxes, reduction="none")
+        loss_bbox = F.mse_loss(src_boxes, target_boxes.float(), reduction="none")
 
         losses = {}
         losses["boxes"] = loss_bbox.sum() 
@@ -154,8 +159,11 @@ class PostProcess(nn.Module):
         
         assert len(out_logits) == len(targets)
         
-        prob = F.softmax(out_logits, -1)
-        scores, labels = prob[..., :-1].max(-1)
+        # prob = F.softmax(out_logits, -1)
+        # scores, labels = prob[..., :-1].max(-1)
+        
+        prob = torch.sigmoid(out_logits)
+        scores = prob
         
         x_c, y_c, c, s = out_bbox.unbind(-1) # bs x num_quries
         yaw = torch.atan2(s, c)       
@@ -173,7 +181,8 @@ class PostProcess(nn.Module):
          
         boxes = torch.stack([xs, ys, yaw], dim=-1)
 
-        results = [{"scores": s, "labels": l, "boxes": b} for s, l, b in zip(scores, labels, boxes)]
+        # results = [{"scores": s, "labels": l, "boxes": b} for s, l, b in zip(scores, labels, boxes)]
+        results = [{"scores": s, "boxes": b} for s, b in zip(scores, boxes)]
         
         return results
     

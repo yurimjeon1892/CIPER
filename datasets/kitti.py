@@ -33,7 +33,7 @@ class KITTI(torch.utils.data.Dataset):
         self.shift_range_pixels_lon = shift_range_lon / float(self.meter_per_pixel)  # shift range is in terms of meters
 
         self.rotation_range = rotation_range  # in terms of degree
-
+                
         if "train" in self.mode: self.pt_list = args["train_pt_list"]
         elif "valid" in self.mode: self.pt_list = args["val_pt_list"]
         elif "test" in self.mode: self.pt_list = args["test_pt_list"]

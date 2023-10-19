@@ -99,10 +99,13 @@ class Decoder(nn.Module):
         self.decoder = TransformerDecoder(decoder_layer, args["num_dec_layers"], decoder_norm,
                                           return_intermediate=False)      
         
-        self.query_conv = nn.Conv2d(args["dim_embed"], args["dim_embed"], kernel_size=3, stride=2)
+        self.query_conv = nn.Conv2d(args["dim_embed"], args["dim_embed"], kernel_size=2, stride=2)
         
-        self.class_embed = nn.Linear(args["dim_embed"], 2)      
-        self.bbox_embed = MLP(args["dim_embed"], args["dim_embed"] * 4, output_dim=4, num_layers=3)    
+        self.class_embed = nn.Linear(args["dim_embed"], 1)      
+        self.bbox_embed = MLP(args["dim_embed"], args["dim_embed"] * 4, output_dim=4, num_layers=3)           
+        
+        num_queries = int((args["arl_img_size"][0] / args["patch_size"]) * (args["arl_img_size"][1] / args["patch_size"]) / 4)
+        self.query_embed = nn.Embedding(num_queries, args["dim_embed"]) 
         
     def forward(self, x_grd, x_arl):   
         """
@@ -110,18 +113,20 @@ class Decoder(nn.Module):
             x_arl: bs x num_patches2 x dim_embed
         """
         
+        query_embed = self.query_embed.weight.unsqueeze(1).repeat(1, x_arl.size(0), 1)
+        
         q2 = int(x_arl.size(1) ** 0.5)
         x_arl = x_arl.permute(0, 2, 1).view((x_arl.size(0), x_arl.size(2), q2, q2))
         x_arl = self.query_conv(x_arl).flatten(2).permute(0, 2, 1)
         
         x_grd = x_grd.permute(1, 0, 2) # num_patches1 x bs x dim_embed
         x_arl = x_arl.permute(1, 0, 2) # num_patches2 x bs x dim_embed
-        # print("input", x_grd.size(), x_arl.size())
         
-        tgt = torch.zeros_like(x_arl) # output 이 저장되는 공간         
-        dst = self.decoder(tgt, x_grd, 
-                           pos=x_grd, query_pos=x_arl
-                         ) 
+        # print("input", x_grd.size(), x_arl.size(), query_embed.size())
+        
+        # tgt = torch.zeros_like(x_arl) # output 이 저장되는 공간         
+        dst = self.decoder(x_arl, x_grd, 
+                           query_pos=query_embed) 
         dst = dst.transpose(1, 2) # 1 x bs x num_patches2 x dim_embed_dec
         # print("dst: ", dst.size())
         

@@ -46,7 +46,7 @@ def retr_accuracy(qry_feat, ref_feat, qry_label, topk=[1, 5, 10]):
     """Computes the accuracy over the k top predictions for the specified values of k"""
     N = qry_feat.shape[0]
     M = ref_feat.shape[0]
-    print("N: ", N, "M: ", M)
+    # print("N: ", N, "M: ", M)
     topk.append(M//100)
     results = np.zeros([len(topk)])
     # for CVUSA, CVACT
@@ -111,6 +111,8 @@ def pose_accuracy(results, targets):
         shifts_max = shifts[np.argmax(scores), :]
         shifts_max = np.array([[shifts_max[0], shifts_max[1], shifts_max[2]]])
         preds.append(shifts_max)
+        
+        print("max score: ", scores[np.argmax(scores)])
         
     gts = np.concatenate(gts, 0)
     preds = np.concatenate(preds, 0)

@@ -47,18 +47,19 @@ def plot_result(results, targets, img_grd, img_arl):
         tgt = np.array([[tgt[0] * arl_img_size[0] * meter_per_pixel,
                          tgt[1] * arl_img_size[1] * meter_per_pixel,
                          np.arctan2(tgt[3], tgt[2])]])         
-        target_bbox_img = plot_dot(img_arl_, tgt, arl_img_size, meter_per_pixel, "orange")
+        target_img = plot_dot(img_arl_, tgt, arl_img_size, meter_per_pixel, "orange")
         
         scores = results[rand_ind]["scores"].detach().cpu().numpy()
         shifts = results[rand_ind]['boxes'].detach().cpu().numpy()    
         shifts_max = shifts[np.argmax(scores), :]
         shifts_max = np.array([[shifts_max[0], shifts_max[1], shifts_max[2]]])
-        src_bbox_img = plot_dot(img_arl_, shifts, arl_img_size, meter_per_pixel, "cyan")
+        pred_img = plot_dot(img_arl_, shifts, arl_img_size, meter_per_pixel, "blue")
+        pred_img = plot_dot(pred_img, shifts_max, arl_img_size, meter_per_pixel, "cyan")
         
         print("pred: ", shifts_max.astype(float))
         print("target: ", tgt.astype(float))
         
-        img_bbox = np.concatenate([target_bbox_img, src_bbox_img], 1)
+        img_bbox = np.concatenate([target_img, pred_img], 1)
         
         imgs = {
             "1_gnd": img_grd_,
@@ -79,7 +80,8 @@ def draw_pin(draw, x, y, theta, img_size, color, radius):
 
 def plot_dot(img_np, boxes, img_size, meter_per_pixel, color, radius=5):    
     
-    img_np = np.transpose(img_np, (1, 2, 0)).copy() 
+    if img_np.shape[0] == 3: img_np = np.transpose(img_np, (1, 2, 0)).copy() 
+    else: img_np = img_np.copy() 
     img_np = (img_np - np.min(img_np)) / (np.max(img_np) - np.min(img_np))  
     img = Image.fromarray(np.uint8(np.array(img_np).copy() * 255))
     
