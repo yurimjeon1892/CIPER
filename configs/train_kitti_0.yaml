@@ -34,9 +34,8 @@ val_pt_list: ./datasets/splits/kitti/test1_mini.txt
 # val_pt_list: ./datasets/splits/kitti/test1_files.txt
 
 # ----- optimizer config
-lr: 0.00005
-# weight_decay: 0.03
-weight_decay: 0.0001
+lr: 0.00001
+weight_decay: 0.03
 
 optimizer: adamw
 cos: True
@@ -63,4 +62,4 @@ set_cost_bbox: 5 # L1 box coefficient in the matching cost
 label_loss_coef: 10
 bbox_loss_coef: 1
 
-eos_coef: 0.1 # Relative classification weight of the no-object class
+eos_coef: 0.0001 # Relative classification weight of the no-object class

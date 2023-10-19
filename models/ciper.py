@@ -73,18 +73,26 @@ class SetCriterion(nn.Module):
         assert "pred_logits" in outputs
         src_logits = outputs["pred_logits"] # bs x num_queries x 2
 
-        idx = self._get_src_permutation_idx(indices)
-        target_classes_o = torch.cat([t["labels"][J] for t, (_, J) in zip(targets, indices)])
-        target_classes = torch.full(src_logits.shape[:2], self.num_classes,
-                                    dtype=torch.int64, device=src_logits.device)
-        target_classes[idx] = target_classes_o
+        # idx = self._get_src_permutation_idx(indices)
+        # target_classes_o = torch.cat([t["labels"][J] for t, (_, J) in zip(targets, indices)])
+        # target_classes = torch.full(src_logits.shape[:2], self.num_classes,
+        #                             dtype=torch.int64, device=src_logits.device)
+        # target_classes[idx] = target_classes_o
       
         # loss_ce = F.cross_entropy(src_logits.transpose(1, 2), target_classes, self.empty_weight)
         # losses = {"labels": loss_ce}
         
-        a = src_logits.squeeze(-1) # src_logits.transpose(1, 2)
-        b = 1 - target_classes.float()
-        loss_bce = F.binary_cross_entropy_with_logits(a, b)
+        idx = self._get_src_permutation_idx(indices)
+        target_classes = torch.zeros_like(src_logits)
+        target_classes[:, :, -1] = 1.0
+        target_classes[idx] = torch.tensor([1.0, 0.0]).to(src_logits.device)
+        
+        # print("aa", torch.sum(target_classes[:, :, 0]), torch.sum(target_classes[:, :, 1]), torch.sum(target_classes, dim=2))
+        
+        # o = torch.flatten(src_logits, 0, 1)
+        # t = torch.flatten(target_classes, 0, 1)
+        o, t = src_logits, target_classes
+        loss_bce = F.binary_cross_entropy_with_logits(o, t.float(), self.empty_weight)
         losses = {"labels": loss_bce}
         
         return losses
@@ -163,7 +171,7 @@ class PostProcess(nn.Module):
         # scores, labels = prob[..., :-1].max(-1)
         
         prob = torch.sigmoid(out_logits)
-        scores = prob
+        scores = prob[..., :-1]
         
         x_c, y_c, c, s = out_bbox.unbind(-1) # bs x num_quries
         yaw = torch.atan2(s, c)       
