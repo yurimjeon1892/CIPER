@@ -113,7 +113,7 @@ class Decoder(nn.Module):
             x_arl: bs x num_patches2 x dim_embed
         """
         
-        query_embed = self.query_embed.weight.unsqueeze(1).repeat(1, x_arl.size(0), 1)
+        query_embed = self.query_embed.weight.unsqueeze(1).repeat(1, x_grd.size(0), 1)
         
         # q2 = int(x_arl.size(1) ** 0.5)
         # x_arl = x_arl.permute(0, 2, 1).view((x_arl.size(0), x_arl.size(2), q2, q2))
@@ -124,8 +124,9 @@ class Decoder(nn.Module):
         
         # print("input", x_grd.size(), x_arl.size(), query_embed.size())
         
+        # tgt: q / memory: k, v
         # tgt = torch.zeros_like(x_arl) # output 이 저장되는 공간         
-        dst = self.decoder(x_arl, x_grd, 
+        dst = self.decoder(x_grd, x_arl, 
                            query_pos=query_embed) 
         dst = dst.transpose(1, 2) # 1 x bs x num_patches2 x dim_embed_dec
         # print("dst: ", dst.size())

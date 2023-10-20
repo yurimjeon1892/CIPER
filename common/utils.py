@@ -112,7 +112,7 @@ def pose_accuracy(results, targets):
         shifts_max = np.array([[shifts_max[0], shifts_max[1], shifts_max[2]]])
         preds.append(shifts_max)
         
-        print("score: ", np.min(scores), np.max(scores))
+        # print("score: ", np.min(scores), np.max(scores))
         
     gts = np.concatenate(gts, 0)
     preds = np.concatenate(preds, 0)
