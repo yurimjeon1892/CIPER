@@ -124,8 +124,7 @@ class Decoder(nn.Module):
         
         # print("input", x_grd.size(), x_arl.size(), query_embed.size())
         
-        # tgt: q / memory: k, v
-        # tgt = torch.zeros_like(x_arl) # output 이 저장되는 공간         
+        # tgt: q / memory: k, v    
         dst = self.decoder(x_grd, x_arl, 
                            query_pos=query_embed) 
         dst = dst.transpose(1, 2) # 1 x bs x num_patches2 x dim_embed_dec

@@ -62,4 +62,4 @@ set_cost_bbox: 5 # L1 box coefficient in the matching cost
 label_loss_coef: 10
 bbox_loss_coef: 1
 
-eos_coef: 0.001 # Relative classification weight of the no-object class
+eos_coef: 0.01 # Relative classification weight of the no-object class

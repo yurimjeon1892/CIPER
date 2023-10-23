@@ -191,7 +191,6 @@ def valid_pose(model: torch.nn.Module,
             
             img_grd = img_grd.to(valid_infos["device"])
             img_arl = img_arl.to(valid_infos["device"])
-            # targets = [{k: v.to(valid_infos["device"]) for k, v in t.items()} for t in targets]
             targets = [ {k: targets[k][b].to(valid_infos["device"]) for k in targets.keys()} for b in range(img_grd.size(0)) ]
             
             outputs = model(im_grd=img_grd, im_arl=img_arl)
