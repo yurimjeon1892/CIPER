@@ -5,8 +5,6 @@ import torch.nn.functional as F
 # from scipy.stats import truncnorm
 from torch import nn
 
-
-# from .base import build_baseA
 from .matcher import build_matcher
 from .soft_triplet import SoftTripletBiLoss
 
@@ -26,7 +24,8 @@ class CIPER(nn.Module):
         self.query_net = Encoder(args, args["grd_img_size"])
         self.reference_net = Encoder(args, args["arl_img_size"])
         self.retr_only = args["retr_only"]
-        if not self.retr_only: self.pose_net = Decoder(args)
+        if not self.retr_only: 
+            self.pose_net = Decoder(args)
         
     def forward(self, im_grd, im_arl):
         
@@ -72,17 +71,30 @@ class SetCriterion(nn.Module):
         targets dicts must contain the key "labels" containing a tensor of dim [nb_target_boxes]
         """
         assert "pred_logits" in outputs
-        src_logits = outputs["pred_logits"]
+        src_logits = outputs["pred_logits"] # bs x num_queries x 2
 
+        # idx = self._get_src_permutation_idx(indices)
+        # target_classes_o = torch.cat([t["labels"][J] for t, (_, J) in zip(targets, indices)])
+        # target_classes = torch.full(src_logits.shape[:2], self.num_classes,
+        #                             dtype=torch.int64, device=src_logits.device)
+        # target_classes[idx] = target_classes_o
+      
+        # loss_ce = F.cross_entropy(src_logits.transpose(1, 2), target_classes, self.empty_weight)
+        # losses = {"labels": loss_ce}
+        
         idx = self._get_src_permutation_idx(indices)
-        target_classes_o = torch.cat([t["labels"][J] for t, (_, J) in zip(targets, indices)])
-        target_classes = torch.full(src_logits.shape[:2], self.num_classes,
-                                    dtype=torch.int64, device=src_logits.device)
-        target_classes[idx] = target_classes_o
-
-        loss_ce = F.cross_entropy(src_logits.transpose(1, 2), target_classes, self.empty_weight)
-        losses = {"labels": loss_ce}
-
+        target_classes = torch.zeros_like(src_logits)
+        target_classes[:, :, -1] = 1.0
+        target_classes[idx] = torch.tensor([1.0, 0.0]).to(src_logits.device)
+        
+        # print("aa", torch.sum(target_classes[:, :, 0]), torch.sum(target_classes[:, :, 1]), torch.sum(target_classes, dim=2))
+        
+        # o = torch.flatten(src_logits, 0, 1)
+        # t = torch.flatten(target_classes, 0, 1)
+        o, t = src_logits, target_classes
+        loss_bce = F.binary_cross_entropy_with_logits(o, t.float(), self.empty_weight)
+        losses = {"labels": loss_bce}
+        
         return losses
         
     def loss_boxes(self, outputs, targets, indices):
@@ -95,7 +107,8 @@ class SetCriterion(nn.Module):
         src_boxes = outputs["pred_boxes"][idx]
         target_boxes = torch.cat([t["boxes"][i] for t, (_, i) in zip(targets, indices)], dim=0)
 
-        loss_bbox = F.l1_loss(src_boxes, target_boxes, reduction="none")
+        # loss_bbox = F.l1_loss(src_boxes, target_boxes, reduction="none")
+        loss_bbox = F.mse_loss(src_boxes, target_boxes.float(), reduction="none")
 
         losses = {}
         losses["boxes"] = loss_bbox.sum() 
@@ -154,8 +167,11 @@ class PostProcess(nn.Module):
         
         assert len(out_logits) == len(targets)
         
-        prob = F.softmax(out_logits, -1)
-        scores, labels = prob[..., :-1].max(-1)
+        # prob = F.softmax(out_logits, -1)
+        # scores, labels = prob[..., :-1].max(-1)
+        
+        prob = torch.sigmoid(out_logits)
+        scores = prob[..., :-1]
         
         x_c, y_c, c, s = out_bbox.unbind(-1) # bs x num_quries
         yaw = torch.atan2(s, c)       
@@ -163,12 +179,9 @@ class PostProcess(nn.Module):
         xs, ys = [], []        
         for b in range(len(out_logits)):
             arl_img_size = targets[b]["orig_size"]
-            arl_zoom_ratio = targets[b]["arl_zoom_ratio"][0]
             meter_per_pixel = targets[b]["meter_per_pixel"][0]
-            # shift_range_lon = targets[b]["shift_range_lon"][0]
-            # shift_range_lat = targets[b]["shift_range_lat"][0]            
-            x = x_c[b] * arl_img_size[0] * arl_zoom_ratio * meter_per_pixel
-            y = y_c[b] * arl_img_size[1] * arl_zoom_ratio * meter_per_pixel           
+            x = x_c[b] * arl_img_size[0] * meter_per_pixel
+            y = y_c[b] * arl_img_size[1] * meter_per_pixel           
             xs.append(x)
             ys.append(y)
         xs = torch.stack(xs, 0)
@@ -176,7 +189,8 @@ class PostProcess(nn.Module):
          
         boxes = torch.stack([xs, ys, yaw], dim=-1)
 
-        results = [{"scores": s, "labels": l, "boxes": b} for s, l, b in zip(scores, labels, boxes)]
+        # results = [{"scores": s, "labels": l, "boxes": b} for s, l, b in zip(scores, labels, boxes)]
+        results = [{"scores": s, "boxes": b} for s, b in zip(scores, boxes)]
         
         return results
     

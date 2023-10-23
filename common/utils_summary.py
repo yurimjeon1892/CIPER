@@ -32,37 +32,42 @@ def summary_image_draw(imgs):
         outs[k] = img_np
     return outs
 
-def plot_result(img_gnd, img_arl, targets, results, th):
+def plot_result(results, targets, img_grd, img_arl):
     
-    rand_ind = random.choice(range(img_gnd.size(0)))       
-    img_gnd_ = img_gnd[rand_ind, :, :, :].detach().cpu().numpy()
+    rand_ind = random.choice(range(img_grd.size(0)))       
+    img_grd_ = img_grd[rand_ind, :, :, :].detach().cpu().numpy()
     img_arl_ = img_arl[rand_ind, :, :, :].detach().cpu().numpy()
     
     if "scores" in results[rand_ind].keys():
         
-        arl_img_size = img_arl_.shape[1:]        
-        
-        arl_zoom_ratio = targets[rand_ind]["arl_zoom_ratio"][0].detach().cpu().numpy()
+        arl_img_size = targets[rand_ind]["orig_size"].detach().cpu().numpy()
         meter_per_pixel = targets[rand_ind]["meter_per_pixel"][0].detach().cpu().numpy()
         
-        src_scores = results[rand_ind]["scores"].detach().cpu().numpy()
-        src_boxes = results[rand_ind]['boxes'].detach().cpu().numpy()        
-        src_boxes[:, :2] /= (arl_zoom_ratio * meter_per_pixel) 
-        src_bbox_img = plot_pred_dot(img_arl_, src_boxes, src_scores > th, arl_img_size, "cyan")
+        tgt = targets[rand_ind]["boxes"][0].detach().cpu().numpy()   
+        tgt = np.array([[tgt[0] * arl_img_size[0] * meter_per_pixel,
+                         tgt[1] * arl_img_size[1] * meter_per_pixel,
+                         np.arctan2(tgt[3], tgt[2])]])         
+        target_img = plot_dot(img_arl_, tgt, arl_img_size, meter_per_pixel, "orange")
         
-        target_boxes = torch.cat([v["boxes"] for v in targets])
-        target_boxes = target_boxes[rand_ind].detach().cpu().numpy()                    
-        target_bbox_img = plot_gt_dot(img_arl_, target_boxes, arl_img_size, "orange")
+        scores = results[rand_ind]["scores"].detach().cpu().numpy()
+        shifts = results[rand_ind]['boxes'].detach().cpu().numpy()    
+        shifts_max = shifts[np.argmax(scores), :]
+        shifts_max = np.array([[shifts_max[0], shifts_max[1], shifts_max[2]]])
+        pred_img = plot_dot(img_arl_, shifts, arl_img_size, meter_per_pixel, "blue")
+        pred_img = plot_dot(pred_img, shifts_max, arl_img_size, meter_per_pixel, "cyan")
         
-        img_bbox = np.concatenate([target_bbox_img, src_bbox_img], 1)
+        print("pred: ", shifts_max.astype(float))
+        print("target: ", tgt.astype(float))
+        
+        img_bbox = np.concatenate([target_img, pred_img], 1)
         
         imgs = {
-            "1_gnd": img_gnd_,
+            "1_gnd": img_grd_,
             "2_bbox": img_bbox,
         }
     else:        
         imgs = {
-            "1_gnd": img_gnd_,
+            "1_gnd": img_grd_,
             "1_arl": img_arl_,
         }
     return imgs
@@ -73,30 +78,18 @@ def draw_pin(draw, x, y, theta, img_size, color, radius):
     draw.line([(py, px), (py + 25 * np.sin(theta), px + 25 * np.cos(theta ))], fill=color, width=3)
     return draw   
 
-def plot_pred_dot(img_np, boxes, is_valid, img_size, color, radius=5):    
+def plot_dot(img_np, boxes, img_size, meter_per_pixel, color, radius=5):    
     
-    img_np = np.transpose(img_np, (1, 2, 0)).copy() 
+    if img_np.shape[0] == 3: img_np = np.transpose(img_np, (1, 2, 0)).copy() 
+    else: img_np = img_np.copy() 
     img_np = (img_np - np.min(img_np)) / (np.max(img_np) - np.min(img_np))  
     img = Image.fromarray(np.uint8(np.array(img_np).copy() * 255))
-    draw = ImageDraw.Draw(img)
     
+    if boxes.shape[0] == 0: return np.array(img)
+    
+    draw = ImageDraw.Draw(img)    
     for i in range(boxes.shape[0]):
-        if is_valid[i] == False: continue
-        px, py, theta = boxes[i, 0], boxes[i, 1], boxes[i, 2]
+        px, py, theta = boxes[i, 0] / meter_per_pixel , boxes[i, 1] / meter_per_pixel, boxes[i, 2]
         draw_pin(draw, px, py, theta, img_size, color, radius)
         
-    return np.array(img)
-
-def plot_gt_dot(img_np, box, img_size, color, radius=5):    
-    
-    img_np = np.transpose(img_np, (1, 2, 0)).copy() 
-    img_np = (img_np - np.min(img_np)) / (np.max(img_np) - np.min(img_np))  
-    img = Image.fromarray(np.uint8(np.array(img_np).copy() * 255))
-    draw = ImageDraw.Draw(img)
-        
-    px, py = box[0] * img_size[1], box[1] * img_size[0]
-    theta = np.arctan2(box[3], box[2])
-    
-    draw_pin(draw, px, py, theta, img_size, color, radius)
-    
     return np.array(img)

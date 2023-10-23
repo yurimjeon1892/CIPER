@@ -7,7 +7,7 @@
     "remoteUser": "${localEnv:USER}",
     "mounts": [
         "source=/tmp/.X11-unix,target=/tmp/.X11-unix,type=bind,consistency=cached",
-        "source=/home/dsseo/data,target=/home/dsseo/data,type=bind", // for local data mount
+        // "source=/home/dsseo/data,target=/home/dsseo/data,type=bind", // for local data mount
     ],
     "settings": {
         "editor.detectIndentation": false,

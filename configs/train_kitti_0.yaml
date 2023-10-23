@@ -11,7 +11,7 @@ batch_size: 8 # 12
 retr_only: False
 device: cuda # device to use for training / testing 
 
-ckpt_dir: ../ckpts
+ckpt_dir: ../tmp
 epochs: 100
 start_epoch: 1
 
@@ -27,14 +27,14 @@ shift_range_lon: 20
 rotation_range: 10 
 
 # kitti only
-# train_pt_list: ./datasets/splits/kitti/test1_mini.txt
-# val_pt_list: ./datasets/splits/kitti/test1_mini.txt
+train_pt_list: ./datasets/splits/kitti/test1_mini.txt
+val_pt_list: ./datasets/splits/kitti/test1_mini.txt
 
-train_pt_list: ./datasets/splits/kitti/train_files.txt
-val_pt_list: ./datasets/splits/kitti/test1_files.txt
+# train_pt_list: ./datasets/splits/kitti/train_files.txt
+# val_pt_list: ./datasets/splits/kitti/test1_files.txt
 
 # ----- optimizer config
-lr: 0.0001
+lr: 0.00001
 weight_decay: 0.03
 
 optimizer: adamw
@@ -62,4 +62,4 @@ set_cost_bbox: 5 # L1 box coefficient in the matching cost
 label_loss_coef: 10
 bbox_loss_coef: 1
 
-eos_coef: 0.01 # Relative classification weight of the no-object class
+eos_coef: 0.1 # Relative classification weight of the no-object class

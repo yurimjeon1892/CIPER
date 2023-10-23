@@ -78,7 +78,8 @@ def main():
 
         sampler_train = None
             
-        data_loader_train = DataLoader(dataset_train, batch_size=args["batch_size"], shuffle=(sampler_train is None), 
+        data_loader_train = DataLoader(dataset_train, batch_size=args["batch_size"], 
+                                       shuffle=(sampler_train is None), 
                                        num_workers=args["num_workers"], pin_memory=True, sampler=sampler_train, drop_last=True)
         data_loader_val_q = DataLoader(dataset_val_q, batch_size=32, shuffle=False,
                                         num_workers=args["num_workers"], pin_memory=True) 
@@ -101,25 +102,25 @@ def main():
         summary = SummaryWriter(out_dir, "tb")
         shutil.copyfile(sys.argv[1], os.path.join(out_dir, "config.yaml"))  
             
-    # else:
-    #     dataset_val_q = build_dataset(mode="valid_qry", args=args)
-    #     dataset_val_r = build_dataset(mode="valid_ref", args=args)
+    else:
+        dataset_val_q = build_dataset(mode="valid_qry", args=args)
+        dataset_val_r = build_dataset(mode="valid_ref", args=args)
 
-    #     data_loader_val_q = DataLoader(dataset_val_q, batch_size=32, shuffle=False,
-    #                                     drop_last=True, num_workers=args["num_workers"])
-    #     data_loader_val_r = DataLoader(dataset_val_r, batch_size=64, shuffle=False,
-    #                                     drop_last=True, num_workers=args["num_workers"])
+        data_loader_val_q = DataLoader(dataset_val_q, batch_size=32, shuffle=False,
+                                        num_workers=args["num_workers"], pin_memory=True) 
+        data_loader_val_r = DataLoader(dataset_val_r, batch_size=64, shuffle=False,
+                                        num_workers=args["num_workers"], pin_memory=True)
         
-    #     data_loader_valid = {
-    #         "qry": data_loader_val_q,
-    #         "ref": data_loader_val_r
-    #     }
+        data_loader_valid = {
+            "qry": data_loader_val_q,
+            "ref": data_loader_val_r
+        }
         
-    #     if IS_POSE:            
-    #         dataset_val = build_dataset(mode="valid", args=args)
-    #         data_loader_val = DataLoader(dataset_val, batch_size=args["batch_size"], shuffle=False, drop_last=False,
-    #                                     num_workers=args["num_workers"]) 
-    #         data_loader_valid["val"] = data_loader_val
+        if not args["retr_only"]:         
+            dataset_val = build_dataset(mode="valid", args=args)
+            data_loader_val = DataLoader(dataset_val, batch_size=args["batch_size"], shuffle=False, drop_last=False,
+                                        num_workers=args["num_workers"]) 
+            data_loader_valid["val"] = data_loader_val
 
     if args["infer"]:
         eval_infos = {
@@ -127,7 +128,7 @@ def main():
         "retr_only": args["retr_only"],
         "dim_feature": args["dim_feature"],        
         }        
-        evaluate(model, criterion, postprocessors, data_loader_valid, eval_infos)
+        evaluate(model, postprocessors, data_loader_valid, eval_infos)
         return
 
     print("[i] start training ~")
