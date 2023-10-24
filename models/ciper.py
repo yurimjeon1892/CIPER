@@ -21,7 +21,7 @@ class CIPER(nn.Module):
         """
         super().__init__()
         
-        self.query_net = Encoder(args, args["grd_img_size"])
+        self.query_net = Encoder(args, args["grd_img_size"], mode="query")
         self.reference_net = Encoder(args, args["arl_img_size"])
         self.retr_only = args["retr_only"]
         if not self.retr_only: 

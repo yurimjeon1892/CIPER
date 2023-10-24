@@ -13,7 +13,7 @@ from .prompt_encoder import PositionEmbeddingRandom
 
 class Encoder(VisionTransformer):
     
-    def __init__(self, args, img_size, norm_layer=partial(nn.LayerNorm, eps=1e-6)):
+    def __init__(self, args, img_size, mode="reference", norm_layer=partial(nn.LayerNorm, eps=1e-6)):
         super().__init__(img_size=img_size, patch_size=args["patch_size"], embed_dim=args["dim_embed"], num_classes=args["dim_feature"], depth=args["num_enc_layers"], num_heads=args["num_heads"], mlp_ratio=args["mlp_ratio"], qkv_bias=args["qkv_bias"], norm_layer=norm_layer)
 
         num_patches = self.patch_embed.num_patches
@@ -27,11 +27,14 @@ class Encoder(VisionTransformer):
         
         self.head = nn.Linear(self.embed_dim, self.num_classes)
         self.head_dist = nn.Linear(self.embed_dim, self.num_classes) 
-        
         self.head.apply(self._init_weights)
         self.head_dist.apply(self._init_weights)
                 
         self._load_pretrained(img_size, args["dim_feature"], args["patch_size"])
+        
+        self.mode = mode
+        if self.mode == "query": 
+            self.head_qry = MLP(args["dim_embed"], args["dim_embed"], output_dim=args["dim_embed"], num_layers=4)      
         
     def _load_pretrained(self, img_size, num_classes, patch_size):        
         checkpoint = torch.hub.load_state_dict_from_url("https://dl.fbaipublicfiles.com/deit/deit_small_distilled_patch16_224-649709d9.pth", map_location="cpu")     
@@ -75,10 +78,14 @@ class Encoder(VisionTransformer):
     
     def forward(self, x):
         x, x_dist, mem = self.forward_features(x)
-        x = self.head(x)
-        x_dist = self.head_dist(x_dist)
+        x_1 = self.head(x)
+        x_2 = self.head_dist(x_dist)
         # follow the evaluation of deit, simple average and no distillation during training, could remove the x_dist
-        return (x + x_dist) / 2, mem
+        if self.mode == "query": 
+            x_q = self.head_qry(x)
+            return (x_1 + x_2) / 2, x_q
+        else:
+            return (x_1 + x_2) / 2, mem
     
 class Decoder(nn.Module):
     def __init__(self, args):
@@ -100,8 +107,11 @@ class Decoder(nn.Module):
         self.bbox_embed = MLP(args["dim_embed"], args["dim_embed"] * 4, output_dim=4, num_layers=3)           
         
         self.image_embedding_size = (int(args["arl_img_size"][0] / args["patch_size"]), int(args["arl_img_size"][1] / args["patch_size"]))
-        self.query_embed = nn.Embedding(self.image_embedding_size[0] * self.image_embedding_size[1], args["dim_embed"])         
+        
         self.pe_layer = PositionEmbeddingRandom(args["dim_embed"] // 2)
+        
+        self.num_queries = args["num_queries"]
+        self.query_embed = nn.Embedding(self.num_queries, args["dim_embed"])         
         
     def get_dense_pe(self) -> torch.Tensor:
         # taken from https://github.com/facebookresearch/segment-anything/blob/main/segment_anything/modeling/prompt_encoder.py
@@ -117,24 +127,21 @@ class Decoder(nn.Module):
         
     def forward(self, x_grd, x_arl):   
         """
-            x_grd: bs x num_patches1 x dim_embed
+            x_grd: bs x dim_embed
             x_arl: bs x num_patches2 x dim_embed
         """        
-        x_grd = x_grd.permute(1, 0, 2) # num_patches1 x bs x dim_embed
+        x_grd = torch.repeat_interleave(x_grd.unsqueeze(0), self.num_queries, dim=0) # num_queries x bs x dim_embed          
+        query_pos = torch.repeat_interleave(self.query_embed.weight.unsqueeze(1), x_grd.shape[1], dim=1) # num_queries x bs x dim_embed
+              
         x_arl = x_arl.permute(1, 0, 2) # num_patches2 x bs x dim_embed
-        
-        query_embed = torch.repeat_interleave(self.query_embed.weight.unsqueeze(1), x_grd.shape[1], dim=1)
-        
         # taken from https://github.com/facebookresearch/segment-anything/blob/main/segment_anything/modeling/prompt_encoder.py        
         image_pe = self.get_dense_pe().flatten(2).permute(2, 0, 1) # num_patches2 x 1 x dim_embed
-        pos_src = torch.repeat_interleave(image_pe, x_arl.shape[1], dim=1) # num_patches2 x bs x dim_embed
+        pos = torch.repeat_interleave(image_pe, x_arl.shape[1], dim=1) # num_patches2 x bs x dim_embed
+        # print("input", x_grd.size(), query_pos.size(), x_arl.size(), pos.size())
         
-        # print("input", x_grd.size(), x_arl.size(), query_embed.size(), pos_src.size())
-        
-        # tgt: q / memory: k, v    
         dst = self.decoder(tgt=x_grd, memory=x_arl, 
-                           pos=pos_src,
-                           query_pos=query_embed) 
+                        #    pos=pos,
+                           query_pos=query_pos) 
         dst = dst.transpose(1, 2) # 1 x bs x num_patches2 x dim_embed_dec
         # print("dst: ", dst.size())
         
