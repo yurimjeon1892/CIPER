@@ -36,7 +36,7 @@ class Encoder(VisionTransformer):
         
         self.mode = mode
         if self.mode == "query": 
-            self.head_qry = MLP(args["dim_embed"], args["dim_embed"], output_dim=args["dim_embed"], num_layers=4)      
+            self.head_qry = MLP(args["dim_embed"], args["dim_embed"], output_dim=args["dim_embed"], num_layers=3)      
         
     def _load_pretrained(self, img_size, num_classes, patch_size):        
         checkpoint = torch.hub.load_state_dict_from_url("https://dl.fbaipublicfiles.com/deit/deit_small_distilled_patch16_224-649709d9.pth", map_location="cpu")     
@@ -88,4 +88,3 @@ class Encoder(VisionTransformer):
             return (x_1 + x_2) / 2, x_q
         else:
             return (x_1 + x_2) / 2, mem
-    

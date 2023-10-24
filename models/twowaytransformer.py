@@ -12,7 +12,7 @@ from torch import Tensor, nn
 import math
 from typing import Tuple, Type
 
-# from .common import MLPBlock
+from .common import MLPBlock
 
 class TwoWayTransformer(nn.Module):
     def __init__(
@@ -240,18 +240,4 @@ class Attention(nn.Module):
 
         return out
     
-# From https://github.com/facebookresearch/segment-anything/blob/6fdee8f2727f4506cfbbe553e23b895e27956588/segment_anything/modeling/common.py
-class MLPBlock(nn.Module):
-    def __init__(
-        self,
-        embedding_dim: int,
-        mlp_dim: int,
-        act: Type[nn.Module] = nn.GELU,
-    ) -> None:
-        super().__init__()
-        self.lin1 = nn.Linear(embedding_dim, mlp_dim)
-        self.lin2 = nn.Linear(mlp_dim, embedding_dim)
-        self.act = act()
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.lin2(self.act(self.lin1(x)))
