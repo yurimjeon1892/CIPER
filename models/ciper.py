@@ -1,14 +1,14 @@
+# From https://github.com/facebookresearch/detr/blob/HEAD/models/detr.py
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
 import torch
 import torch.nn.functional as F
-# import math
-# from scipy.stats import truncnorm
 from torch import nn
 
 from .matcher import build_matcher
 from .soft_triplet import SoftTripletBiLoss
 
-from .transformer_wrapper import Encoder, Decoder
+from .encoder import Encoder
+from .decoder import Decoder
 
 class CIPER(nn.Module):
     """ This is the CIPER module that performs cross-view image geo-localization """
