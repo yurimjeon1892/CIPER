@@ -12,6 +12,7 @@ import tensorboardX
 import random 
 from common.utils import AverageMeter, retr_accuracy, pose_accuracy
 from common.utils_summary import update_summary, plot_result
+import wandb
 
 def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module, postprocessors: torch.nn.Module,
                     data_loader: Iterable, optimizer: torch.optim.Optimizer,
@@ -80,6 +81,7 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module, postproc
         stats["loss/" + k] =  losses_meter[k].avg
         loss_total += losses_meter[k].avg
     stats["loss/total"] = loss_total
+    wandb.log(stats)
     
     update_summary(summary, imgs, stats, train_infos["epoch"], "train")
         
@@ -100,11 +102,13 @@ def valid_one_epoch(model: torch.nn.Module,
     # retrieval validation
     imgs, stats = valid_retr(model, loader_dict["qry"], loader_dict["ref"], valid_infos)
     valid_infos["metric"] = stats["acc/retr_top1"]    
+    wandb.log(stats)
     
     if not valid_infos["retr_only"]:  
         imgs2, stats2 = valid_pose(model, criterion, postprocessors, loader_dict["val"], valid_infos)        
         imgs.update(imgs2)
         stats.update(stats2)
+        wandb.log(stats2)
     
     update_summary(summary, imgs, stats, valid_infos["epoch"], "valid")
     
@@ -223,10 +227,10 @@ def valid_pose(model: torch.nn.Module,
     stats["acc/pose_rot_d1"] = np.sum((rot_err < 1)) / rot_err.shape[0] * 100
     stats["acc/pose_rot_d5"] = np.sum((rot_err < 5)) / rot_err.shape[0] * 100
     
-    stats["err/pose_trs_mean"] = np.mean(trs_errs)
-    stats["err/pose_trs_median"] = np.median(trs_errs)
-    stats["err/pose_rot_mean"] = np.mean(rot_errs)
-    stats["err/pose_rot_median"] = np.median(rot_errs)
+    stats["err/pose_trs_mean(m)"] = np.mean(trs_errs)
+    stats["err/pose_trs_median(m)"] = np.median(trs_errs)
+    stats["err/pose_rot_mean(deg)"] = np.mean(rot_errs)
+    stats["err/pose_rot_median(deg)"] = np.median(rot_errs)
              
     return imgs, stats
 

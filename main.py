@@ -18,6 +18,8 @@ from datasets import build_dataset
 from models import build, SAM
 from engine import train_one_epoch, valid_one_epoch, evaluate
 
+import wandb
+
 def adjust_learning_rate(optimizer, epoch, args):
     import math
     """Decay the learning rate based on schedule"""
@@ -35,7 +37,14 @@ def main():
     global args
     with open(sys.argv[1], "r") as stream:        
         args = yaml.safe_load(stream)      
-                      
+    
+    wandb.init(
+        # set the wandb project where this run will be logged
+        project="CIPER",
+        config=args,
+        name=sys.argv[1].split('/')[-1].split('.')[0]
+    )
+
     print_pigeon()
 
     model, criterion, postprocessors = build(args)
@@ -79,8 +88,8 @@ def main():
         sampler_train = None
             
         data_loader_train = DataLoader(dataset_train, batch_size=args["batch_size"], 
-                                       shuffle=(sampler_train is None), 
-                                       num_workers=args["num_workers"], pin_memory=True, sampler=sampler_train, drop_last=True)
+                                    shuffle=(sampler_train is None), 
+                                    num_workers=args["num_workers"], pin_memory=True, sampler=sampler_train, drop_last=True)
         data_loader_val_q = DataLoader(dataset_val_q, batch_size=32, shuffle=False,
                                         num_workers=args["num_workers"], pin_memory=True) 
         data_loader_val_r = DataLoader(dataset_val_r, batch_size=64, shuffle=False,
@@ -98,7 +107,7 @@ def main():
             data_loader_valid["val"] = data_loader_val
         
         out_dir = os.path.join(args["ckpt_dir"], 
-                               args["data_name"] + "-" + datetime.datetime.today().strftime("%d-%m-%y-%H:%M:%S"))
+                            args["data_name"] + "-" + datetime.datetime.today().strftime("%d-%m-%y-%H:%M:%S"))
         summary = SummaryWriter(out_dir, "tb")
         shutil.copyfile(sys.argv[1], os.path.join(out_dir, "config.yaml"))  
             
@@ -167,6 +176,8 @@ def main():
             is_best = True       
             
         save_state(out_dir, model, optimizer, epoch, is_best)
+
+    wandb.finish()
         
 if __name__ == "__main__":
     main()
