@@ -1,3 +1,4 @@
+# From https://github.com/facebookresearch/detr/blob/HEAD/models/transformer.py
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
 """
 DETR Transformer class.
