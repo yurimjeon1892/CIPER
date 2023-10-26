@@ -1,9 +1,5 @@
-import os
 import torch
 import numpy as np
-import shutil
-import matplotlib.pyplot as plt
-
 import random
 
 from PIL import Image, ImageDraw

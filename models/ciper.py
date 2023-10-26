@@ -8,7 +8,7 @@ from .matcher import build_matcher
 from .soft_triplet import SoftTripletBiLoss
 
 from .encoder import Encoder
-from .decoder import Decoder
+from .decoder import Decoder, TwoWayDecoder
 
 class CIPER(nn.Module):
     """ This is the CIPER module that performs cross-view image geo-localization """
@@ -25,7 +25,7 @@ class CIPER(nn.Module):
         self.reference_net = Encoder(args, args["arl_img_size"])
         self.retr_only = args["retr_only"]
         if not self.retr_only: 
-            self.pose_net = Decoder(args)
+            self.pose_net = TwoWayDecoder(args)
         
     def forward(self, im_grd, im_arl):
         

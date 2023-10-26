@@ -62,44 +62,39 @@ class TwoWayTransformer(nn.Module):
 
     def forward(
         self,
-        image_embedding: Tensor,
-        image_pe: Tensor,
-        point_embedding: Tensor,
+        key_img_embedding: Tensor,
+        key_img_pe: Tensor,
+        query_img_embedding: Tensor,
     ) -> Tuple[Tensor, Tensor]:
         """
         Args:
-          image_embedding (torch.Tensor): image to attend to. Should be shape
-            B x embedding_dim x h x w for any h and w.
-          image_pe (torch.Tensor): the positional encoding to add to the image. Must
-            have the same shape as image_embedding.
-          point_embedding (torch.Tensor): the embedding to add to the query points.
-            Must have shape B x N_points x embedding_dim for any N_points.
+          key_img_embedding (torch.Tensor): image to attend to. Should be shape
+            B x num_patches x dim_embed 
+          key_img_pe (torch.Tensor): the positional encoding to add to the image. Must
+            have the same shape as key_img_embedding.
+          query_img_embedding (torch.Tensor): the embedding to add to the query points.
+            Must have shape B x num_queries x dim_embed for any N_points.
 
         Returns:
-          torch.Tensor: the processed point_embedding
-          torch.Tensor: the processed image_embedding
+          torch.Tensor: the processed query_img_embedding
+          torch.Tensor: the processed key_img_embedding
         """
-        # BxCxHxW -> BxHWxC == B x N_image_tokens x C
-        bs, c, h, w = image_embedding.shape
-        image_embedding = image_embedding.flatten(2).permute(0, 2, 1)
-        image_pe = image_pe.flatten(2).permute(0, 2, 1)
-
         # Prepare queries
-        queries = point_embedding
-        keys = image_embedding
+        queries = query_img_embedding
+        keys = key_img_embedding
 
         # Apply transformer blocks and final layernorm
         for layer in self.layers:
             queries, keys = layer(
                 queries=queries,
                 keys=keys,
-                query_pe=point_embedding,
-                key_pe=image_pe,
+                query_pe=query_img_embedding,
+                key_pe=key_img_pe,
             )
 
         # Apply the final attention layer from the points to the image
-        q = queries + point_embedding
-        k = keys + image_pe
+        q = queries + query_img_embedding
+        k = keys + key_img_pe
         attn_out = self.final_attn_token_to_image(q=q, k=k, v=keys)
         queries = queries + attn_out
         queries = self.norm_final_attn(queries)
