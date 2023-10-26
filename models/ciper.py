@@ -1,4 +1,5 @@
 # From https://github.com/facebookresearch/detr/blob/HEAD/models/detr.py
+
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
 import torch
 import torch.nn.functional as F

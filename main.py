@@ -1,9 +1,6 @@
-# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
 import os, sys, yaml
-import random
 import datetime
 
-import numpy as np
 import torch
 from torch.utils.data import DataLoader
 

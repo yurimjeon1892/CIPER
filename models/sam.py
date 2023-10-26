@@ -1,3 +1,5 @@
+# From https://github.com/Jeff-Zilence/TransGeo2022/blob/main/criterion/sam.py
+
 import torch
 
 # This is a pytorch implementation of ASAM from https://github.com/davda54/sam
