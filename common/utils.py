@@ -1,7 +1,6 @@
 import os
 import torch
 import numpy as np
-import shutil
 
 class AverageMeter(object):
     def __init__(self):
@@ -19,23 +18,18 @@ class AverageMeter(object):
         self.count += n
         self.avg = self.sum / self.count
 
-def save_state(save_path, model, optimizer, epoch, is_best, filename="checkpoint.pth"):
+def save_state(save_path, model, optimizer, epoch, is_best):
     os.makedirs(save_path, exist_ok=True)
     state_dict = {
         "model": model.state_dict(),
         "optimizer": optimizer.state_dict(),
         "epoch": epoch,
     }
-    torch.save(state_dict, os.path.join(save_path, filename))
-    shutil.copyfile(
-        os.path.join(save_path, filename),
-        os.path.join(save_path, "epoch_" + str(epoch)+".pth"))
+    torch.save(state_dict, os.path.join(save_path, "epoch_" + str(epoch)+".pth"))
     print("[i] checkpoint saved in ", os.path.join(save_path, "epoch_" + str(epoch)+".pth"))
     if is_best:
-        shutil.copyfile(
-            os.path.join(save_path, filename),
-            os.path.join(save_path, "model_best.pth"))
-        print("[i] checkpoint saved in ", os.path.join(save_path, "model_best.pth"))
+        torch.save(state_dict, os.path.join(save_path, "model_best.pth"))
+        print("[i] best checkpoint saved in ", os.path.join(save_path, "model_best.pth"))
     if epoch > 3:
         prev_checkpoint_filename = os.path.join(
             save_path, "epoch_" + str(epoch - 3) + ".pth")

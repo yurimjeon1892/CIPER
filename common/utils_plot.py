@@ -1,32 +1,7 @@
-import torch
 import numpy as np
 import random
 
 from PIL import Image, ImageDraw
-
-def update_summary(summary, imgs, stats, iter, mode):
-
-    for k in stats.keys():
-        summary.add_scalar(mode + "/" + k, stats[k], iter) 
-
-    imgs = summary_image_draw(imgs) 
-    for k in list(imgs.keys()):
-        summary.add_image(mode + '/' + k, imgs[k], iter)    
-
-    return
-
-def summary_image_draw(imgs):    
-    outs = {}    
-    for k in imgs.keys():
-        if torch.is_tensor(imgs[k]): img_np = imgs[k].cpu().detach().numpy()
-        else: img_np = imgs[k]        
-        img_np = img_np.astype('float')
-        img_np = (img_np - np.min(img_np)) / (np.max(img_np) - np.min(img_np)) * 255
-        img_np = img_np.astype('uint8') 
-        if img_np.shape[2] == 3:
-            img_np = np.transpose(img_np, (2, 0, 1))
-        outs[k] = img_np
-    return outs
 
 def plot_result(results, targets, img_grd, img_arl):
     
@@ -43,14 +18,14 @@ def plot_result(results, targets, img_grd, img_arl):
         tgt = np.array([[tgt[0] * arl_img_size[0] * meter_per_pixel,
                          tgt[1] * arl_img_size[1] * meter_per_pixel,
                          np.arctan2(tgt[3], tgt[2])]])         
-        target_img = plot_dot(img_arl_, tgt, arl_img_size, meter_per_pixel, "orange")
+        target_img = draw_3dof_pin(img_arl_, tgt, arl_img_size, meter_per_pixel, "orange")
         
         scores = results[rand_ind]["scores"].detach().cpu().numpy()
         shifts = results[rand_ind]['boxes'].detach().cpu().numpy()    
         shifts_max = shifts[np.argmax(scores), :]
         shifts_max = np.array([[shifts_max[0], shifts_max[1], shifts_max[2]]])
-        pred_img = plot_dot(img_arl_, shifts, arl_img_size, meter_per_pixel, "blue")
-        pred_img = plot_dot(pred_img, shifts_max, arl_img_size, meter_per_pixel, "cyan")
+        pred_img = draw_3dof_pin(img_arl_, shifts, arl_img_size, meter_per_pixel, "blue")
+        pred_img = draw_3dof_pin(pred_img, shifts_max, arl_img_size, meter_per_pixel, "cyan")
         
         print("pred: ", shifts_max.astype(float))
         print("target: ", tgt.astype(float))
@@ -66,15 +41,9 @@ def plot_result(results, targets, img_grd, img_arl):
             "1_gnd": img_grd_,
             "1_arl": img_arl_,
         }
-    return imgs
+    return imgs 
 
-def draw_pin(draw, x, y, theta, img_size, color, radius):
-    px, py = int(x + img_size[0] / 2), int(y + img_size[1] / 2)
-    draw.ellipse([(py - radius, px - radius), (py + radius, px + radius)], fill=color)     
-    draw.line([(py, px), (py + 25 * np.sin(theta), px + 25 * np.cos(theta ))], fill=color, width=3)
-    return draw   
-
-def plot_dot(img_np, boxes, img_size, meter_per_pixel, color, radius=5):    
+def draw_3dof_pin(img_np, boxes, img_size, meter_per_pixel, color, radius=5):    
     
     if img_np.shape[0] == 3: img_np = np.transpose(img_np, (1, 2, 0)).copy() 
     else: img_np = img_np.copy() 
@@ -86,6 +55,7 @@ def plot_dot(img_np, boxes, img_size, meter_per_pixel, color, radius=5):
     draw = ImageDraw.Draw(img)    
     for i in range(boxes.shape[0]):
         px, py, theta = boxes[i, 0] / meter_per_pixel , boxes[i, 1] / meter_per_pixel, boxes[i, 2]
-        draw_pin(draw, px, py, theta, img_size, color, radius)
-        
+        px, py = int(px + img_size[0] / 2), int(py + img_size[1] / 2)
+        draw.ellipse([(py - radius, px - radius), (py + radius, px + radius)], fill=color)     
+        draw.line([(py, px), (py + 25 * np.sin(theta), px + 25 * np.cos(theta ))], fill=color, width=3)        
     return np.array(img)

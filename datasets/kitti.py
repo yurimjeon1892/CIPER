@@ -1,5 +1,4 @@
 import torch
-from torchvision import transforms
 import torchvision.transforms.functional as TF
 
 from PIL import Image

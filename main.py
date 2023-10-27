@@ -4,8 +4,6 @@ import datetime
 import torch
 from torch.utils.data import DataLoader
 
-from tensorboardX import SummaryWriter
-
 import shutil
 
 import sys; sys.path.append("../")
@@ -105,7 +103,7 @@ def main():
         
         out_dir = os.path.join(args["ckpt_dir"], 
                             args["data_name"] + "-" + datetime.datetime.today().strftime("%d-%m-%y-%H:%M:%S"))
-        summary = SummaryWriter(out_dir, "tb")
+        os.makedirs(out_dir)
         shutil.copyfile(sys.argv[1], os.path.join(out_dir, "config.yaml"))  
             
     else:
@@ -162,10 +160,10 @@ def main():
 
         train_infos["epoch"] = epoch
         train_infos = train_one_epoch(
-                model, criterion, postprocessors, data_loader_train, optimizer, train_infos, summary)
+                model, criterion, postprocessors, data_loader_train, optimizer, train_infos)
             
         valid_infos["epoch"] = epoch
-        valid_infos = valid_one_epoch(model, criterion, postprocessors, data_loader_valid, valid_infos, summary)   
+        valid_infos = valid_one_epoch(model, criterion, postprocessors, data_loader_valid, valid_infos)   
         
         is_best = False
         if valid_infos["metric"] > valid_infos["best_metric"]:
