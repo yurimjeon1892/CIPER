@@ -32,9 +32,15 @@ class KITTI(torch.utils.data.Dataset):
         self.shift_range_pixels_lon = shift_range_lon / float(self.meter_per_pixel)  # shift range is in terms of meters
 
         self.rotation_range = rotation_range  # in terms of degree
+        
+        ## hardcoded. sorry
+        train_pt_list = "./datasets/splits/kitti/train_files.txt"
+        val_pt_list = "./datasets/splits/kitti/test1_files.txt"
+        val2_pt_list = "./datasets/splits/kitti/test2_files.txt"
                 
-        if "train" in self.mode: self.pt_list = args["train_pt_list"]
-        elif "valid" in self.mode: self.pt_list = args["val_pt_list"]
+        if "train" in self.mode: self.pt_list = train_pt_list
+        elif "valid2" in self.mode: self.pt_list = val2_pt_list
+        elif "valid" in self.mode: self.pt_list = val_pt_list
         elif "test" in self.mode: self.pt_list = args["test_pt_list"]
         
         self.make_sample_list()
@@ -42,12 +48,8 @@ class KITTI(torch.utils.data.Dataset):
     def make_sample_list(self):
 
         ignore_drive_list = [
-            "2011_10_03/2011_10_03_drive_0034_sync/",
-            "2011_09_30/2011_09_30_drive_0028_sync/"
         ] # due to download error. broken zip file 
         ignore_file_list = [
-            "2011_09_26/2011_09_26_drive_0022_sync/0000000340.png",
-            "2011_10_03/2011_10_03_drive_0047_sync/0000000678.png",
         ]
         
         with open(self.pt_list, 'r') as f:
@@ -57,93 +59,71 @@ class KITTI(torch.utils.data.Dataset):
         self.sample_list = []
         for file_ in file_name_list :
             file_ = file_[:-1]
-            if file_[:38] in ignore_drive_list: continue
-            if file_ in ignore_file_list: continue
+            if file_[:37] in ignore_drive_list: continue
+            if file_[:52] in ignore_file_list: continue
             self.sample_list.append(file_)
-
         print("[i] {} data loaded, size:{}".format(self.mode, len(self.sample_list)))
-        
-    def read_data(self, index):
-        
-        if "train" in self.pt_list: 
-            file_name = self.sample_list[index].split(' ')[0]
-            # day_dir = file_name[:10]
-            drive_dir = file_name[:38]
-            image_no = file_name[38:]            
-            # randomly generate shift
-            gt_shift_x = np.random.uniform(-1, 1)  # --> right as positive, parallel to the heading direction
-            gt_shift_y = np.random.uniform(-1, 1)  # --> up as positive, vertical to the heading direction
-            # randomly generate roation
-            theta = np.random.uniform(-1, 1)
-            
-        else:
-            line = self.sample_list[index]
-            file_name, gt_shift_x, gt_shift_y, theta = line.split(' ')
-            gt_shift_x, gt_shift_y, theta = float(gt_shift_x), float(gt_shift_y), float(theta)
-            # day_dir = file_name[:10]
-            drive_dir = file_name[:38]
-            image_no = file_name[38:]
-            
-        # =================== read ground image ===================================      
-        left_img_name = os.path.join(self.root, "raw", drive_dir, "image_02/data", image_no.lower())      
-        with Image.open(left_img_name, 'r') as grd_img:
-            try: grd_img = grd_img.convert('RGB')   
-            except: print(left_img_name)
-
-        # =================== read satellite map ===================================
-        arl_img_name = os.path.join(self.root, "satellite", file_name)
-        with Image.open(arl_img_name, 'r') as arl_img:
-            try: arl_img = arl_img.convert('RGB')
-            except: print(arl_img_name)
-
-        # =================== initialize some required variables ============================
-        # oxt: such as 0000000000.txt
-        oxts_file_name = os.path.join(self.root, "raw", drive_dir, "oxts/data",
-                                      image_no.lower().replace('.png', '.txt'))
-        with open(oxts_file_name, 'r') as f:
-            content = f.readline().split(' ')
-            # get heading
-            heading = float(content[5])
-            heading = torch.from_numpy(np.asarray(heading))            
-            
-        arl_rot = arl_img.rotate(-heading / np.pi * 180 + 90.)
-        arl_align_cam = arl_rot.transform(arl_rot.size, Image.AFFINE,
-                                          (1, 0, CameraGPS_shift_left[0] / self.meter_per_pixel,
-                                           0, 1, CameraGPS_shift_left[1] / self.meter_per_pixel),
-                                          resample=Image.BILINEAR)
-        # the homography is defined on: from target pixel to source pixel
-        # now north direction is the real vehicle heading direction
-        
-        return grd_img, arl_align_cam, gt_shift_x, gt_shift_y, theta
-    
-    def prep_gt(self, gt_shift_x, gt_shift_y, theta):
-        
-        tgt_y = (gt_shift_x * self.shift_range_pixels_lon) / self.arl_img_size[1]
-        tgt_x = (gt_shift_y * self.shift_range_pixels_lat) / self.arl_img_size[0]
-        
-        tgt_rad = np.deg2rad(theta * self.rotation_range + 180.)
-        tgt_cos = np.cos(tgt_rad)
-        tgt_sin = np.sin(tgt_rad)
-                
-        target = {
-            "boxes": torch.tensor(
-                [[tgt_x, tgt_y, tgt_cos, tgt_sin]]
-            ),
-            "labels": torch.tensor([0]),
-            "orig_size": torch.as_tensor([int(self.arl_img_size[0]), int(self.arl_img_size[1])]),      
-            "meter_per_pixel": torch.tensor([self.meter_per_pixel]),  
-        }
-        return target
     
     def __getitem__(self, index):
 
-        if self.mode == "train" or self.mode == "valid":            
+        if self.mode == "train" or self.mode == "valid" or self.mode == "valid2":            
             
             idx = index % len(self.sample_list)    
             
-            grd_img, arl_img, gt_shift_x, gt_shift_y, theta = self.read_data(idx)   
-            
-            img_qry = self.transform_query(grd_img)
+            if "train" in self.pt_list: 
+                file_name = self.sample_list[idx].split(' ')[0]
+                # day_dir = file_name[:10]
+                drive_dir = file_name[:38]
+                image_no = file_name[38:]            
+                # randomly generate shift
+                gt_shift_x = np.random.uniform(-1, 1)  # --> right as positive, parallel to the heading direction
+                gt_shift_y = np.random.uniform(-1, 1)  # --> up as positive, vertical to the heading direction
+                # randomly generate roation
+                theta = np.random.uniform(-1, 1)
+            else:
+                line = self.sample_list[idx]
+                file_name, gt_shift_x, gt_shift_y, theta = line.split(' ')
+                gt_shift_x, gt_shift_y, theta = float(gt_shift_x), float(gt_shift_y), float(theta)
+                # day_dir = file_name[:10]
+                drive_dir = file_name[:38]
+                image_no = file_name[38:]
+                
+            # =================== read ground image ===================================      
+            left_img_name = os.path.join(self.root, "raw", drive_dir, "image_02/data", image_no.lower())   
+            # with Image.open(left_img_name, 'r') as grd_img:
+            #     try: grd_img = grd_img.convert('RGB')
+            #     except: print(left_img_name)
+            try: grd_img = Image.open(left_img_name, 'r'); grd_img = grd_img.convert('RGB')   
+            except: print(left_img_name)
+
+            # =================== read satellite map ===================================
+            arl_img_name = os.path.join(self.root, "satellite", file_name)
+            # with Image.open(arl_img_name, 'r') as arl_img:
+            #     try: arl_img = arl_img.convert('RGB')
+            #     except: print(arl_img_name)
+            try: arl_img = Image.open(arl_img_name, 'r'); arl_img = arl_img.convert('RGB')   
+            except: print(arl_img_name)
+
+            # =================== initialize some required variables ============================
+            # oxt: such as 0000000000.txt
+            oxts_file_name = os.path.join(self.root, "raw", drive_dir, "oxts/data",
+                                        image_no.lower().replace('.png', '.txt'))
+            with open(oxts_file_name, 'r') as f:
+                content = f.readline().split(' ')
+                # get heading
+                heading = float(content[5])
+                heading = torch.from_numpy(np.asarray(heading))            
+                
+            arl_rot = arl_img.rotate(-heading / np.pi * 180 + 90.)
+            arl_align_cam = arl_rot.transform(arl_rot.size, Image.AFFINE,
+                                            (1, 0, CameraGPS_shift_left[0] / self.meter_per_pixel,
+                                            0, 1, CameraGPS_shift_left[1] / self.meter_per_pixel),
+                                            resample=Image.BILINEAR)
+            arl_img = arl_align_cam
+            # the homography is defined on: from target pixel to source pixel
+            # now north direction is the real vehicle heading direction
+                        
+            grd_img = self.transform_query(grd_img)
             
             arl_rand_shift = \
                 arl_img.transform(
@@ -156,15 +136,62 @@ class KITTI(torch.utils.data.Dataset):
                 arl_rand_shift.rotate(theta * self.rotation_range)
          
             arl_img = TF.center_crop(arl_rand_shift_rand_rot, self.arl_img_size[0])            
-            img_ref = self.transform_reference(arl_img)            
+            arl_img = self.transform_reference(arl_img)            
                     
-            target = self.prep_gt(gt_shift_x, gt_shift_y, theta)    
-                    
-            return img_qry, img_ref, target
-
-        elif self.mode == "valid_ref":                 
+            # target 
+            tgt_y = (gt_shift_x * self.shift_range_pixels_lon) / self.arl_img_size[1]
+            tgt_x = (gt_shift_y * self.shift_range_pixels_lat) / self.arl_img_size[0]
             
-            _, arl_img, gt_shift_x, gt_shift_y, theta = self.read_data(index)   
+            tgt_rad = np.deg2rad(theta * self.rotation_range + 180.)
+            tgt_cos = np.cos(tgt_rad)
+            tgt_sin = np.sin(tgt_rad)
+                    
+            target = {
+                "boxes": torch.tensor(
+                    [[tgt_x, tgt_y, tgt_cos, tgt_sin]]
+                ),
+                "labels": torch.tensor([0]),
+                "orig_size": torch.as_tensor([int(self.arl_img_size[0]), int(self.arl_img_size[1])]),      
+                "meter_per_pixel": torch.tensor([self.meter_per_pixel]),  
+            } 
+                    
+            return grd_img, arl_img, target
+
+        elif self.mode == "valid_ref" or self.mode == "valid2_ref":            
+            
+            line = self.sample_list[index]
+            file_name, gt_shift_x, gt_shift_y, theta = line.split(' ')
+            gt_shift_x, gt_shift_y, theta = float(gt_shift_x), float(gt_shift_y), float(theta)
+            # day_dir = file_name[:10]
+            drive_dir = file_name[:38]
+            image_no = file_name[38:]
+
+            # =================== read satellite map ===================================
+            arl_img_name = os.path.join(self.root, "satellite", file_name)
+            # with Image.open(arl_img_name, 'r') as arl_img:
+            #     try: arl_img = arl_img.convert('RGB')
+            #     except: print(arl_img_name)
+            try: arl_img = Image.open(arl_img_name, 'r'); arl_img = arl_img.convert('RGB')   
+            except: print(arl_img_name)
+
+            # =================== initialize some required variables ============================
+            # oxt: such as 0000000000.txt
+            oxts_file_name = os.path.join(self.root, "raw", drive_dir, "oxts/data",
+                                        image_no.lower().replace('.png', '.txt'))
+            with open(oxts_file_name, 'r') as f:
+                content = f.readline().split(' ')
+                # get heading
+                heading = float(content[5])
+                heading = torch.from_numpy(np.asarray(heading))            
+                
+            arl_rot = arl_img.rotate(-heading / np.pi * 180 + 90.)
+            arl_align_cam = arl_rot.transform(arl_rot.size, Image.AFFINE,
+                                            (1, 0, CameraGPS_shift_left[0] / self.meter_per_pixel,
+                                            0, 1, CameraGPS_shift_left[1] / self.meter_per_pixel),
+                                            resample=Image.BILINEAR)
+            arl_img = arl_align_cam
+            # the homography is defined on: from target pixel to source pixel
+            # now north direction is the real vehicle heading direction 
                  
             arl_rand_shift = \
                 arl_img.transform(
@@ -177,16 +204,30 @@ class KITTI(torch.utils.data.Dataset):
                 arl_rand_shift.rotate(theta * self.rotation_range)
          
             arl_img = TF.center_crop(arl_rand_shift_rand_rot, self.arl_img_size[0])            
-            img_ref = self.transform_reference(arl_img)   
+            arl_img = self.transform_reference(arl_img)   
             
-            return img_ref, torch.tensor(index), 0
+            return arl_img, torch.tensor(index), 0
 
-        elif self.mode == "valid_qry":           
+        elif self.mode == "valid_qry" or self.mode == "valid2_qry":   
             
-            grd_img, _, _, _, _ = self.read_data(index)          
-            img_qry = self.transform_query(grd_img)
+            line = self.sample_list[index]
+            file_name, gt_shift_x, gt_shift_y, theta = line.split(' ')
+            gt_shift_x, gt_shift_y, theta = float(gt_shift_x), float(gt_shift_y), float(theta)
+            # day_dir = file_name[:10]
+            drive_dir = file_name[:38]
+            image_no = file_name[38:]
             
-            return img_qry, torch.tensor(index), torch.tensor(index)
+            # =================== read ground image ===================================      
+            left_img_name = os.path.join(self.root, "raw", drive_dir, "image_02/data", image_no.lower())   
+            # with Image.open(left_img_name, 'r') as grd_img:
+            #     try: grd_img = grd_img.convert('RGB')
+            #     except: print(left_img_name)
+            try: grd_img = Image.open(left_img_name, 'r'); grd_img = grd_img.convert('RGB')   
+            except: print(left_img_name)        
+                    
+            grd_img = self.transform_query(grd_img)
+            
+            return grd_img, torch.tensor(index), torch.tensor(index)
         
         else:
             print('not implemented!!')

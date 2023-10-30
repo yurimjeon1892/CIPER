@@ -100,6 +100,21 @@ def main():
             data_loader_val = DataLoader(dataset_val, batch_size=args["batch_size"], shuffle=False, drop_last=False,
                                         num_workers=args["num_workers"]) 
             data_loader_valid["val"] = data_loader_val
+            
+        if args["data_name"] == "kitti":
+            dataset_val_q2 = build_dataset(mode="valid2_qry", args=args)
+            dataset_val_r2 = build_dataset(mode="valid2_ref", args=args)
+            data_loader_val_q2 = DataLoader(dataset_val_q2, batch_size=32, shuffle=False,
+                                        num_workers=args["num_workers"], pin_memory=True) 
+            data_loader_val_r2 = DataLoader(dataset_val_r2, batch_size=64, shuffle=False,
+                                        num_workers=args["num_workers"], pin_memory=True)
+            data_loader_valid["qry2"] = data_loader_val_q2
+            data_loader_valid["ref2"] = data_loader_val_r2
+            if not args["retr_only"]:       
+                dataset_val2 = build_dataset(mode="valid2", args=args)
+                data_loader_val2 = DataLoader(dataset_val2, batch_size=args["batch_size"], shuffle=False, drop_last=False,
+                                            num_workers=args["num_workers"]) 
+                data_loader_valid["val2"] = data_loader_val2
         
         out_dir = os.path.join(args["ckpt_dir"], 
                             args["data_name"] + "-" + datetime.datetime.today().strftime("%d-%m-%y-%H:%M:%S"))
@@ -149,7 +164,8 @@ def main():
         "device": args["device"],
         "retr_only": args["retr_only"],
         "best_metric": -1,
-        "dim_feature": args["dim_feature"],        
+        "dim_feature": args["dim_feature"],     
+        "data_name": args["data_name"],        
     }
 
     # print(len(data_loader_valid["qry"].dataset), len(data_loader_valid["ref"].dataset)); exit()
@@ -158,9 +174,9 @@ def main():
         
         adjust_learning_rate(optimizer, epoch, args)
 
-        train_infos["epoch"] = epoch
-        train_infos = train_one_epoch(
-                model, criterion, postprocessors, data_loader_train, optimizer, train_infos)
+        # train_infos["epoch"] = epoch
+        # train_infos = train_one_epoch(
+        #         model, criterion, postprocessors, data_loader_train, optimizer, train_infos)
             
         valid_infos["epoch"] = epoch
         valid_infos = valid_one_epoch(model, criterion, postprocessors, data_loader_valid, valid_infos)   

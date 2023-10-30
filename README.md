@@ -22,7 +22,7 @@ pip install -r requirements.txt
 
 Download KITTI [street-view images](https://www.cvlibs.net/datasets/kitti/raw_data.php) and [satellite images](https://github.com/shiyujiao/HighlyAccurate). The folder structure is as follows:
 ```
-KITTI
+kitti
 ├── raw
 |   ├── 2011_09_26
 |   |   ├── 2011_09_26_drive_0001_sync
@@ -43,6 +43,29 @@ KITTI
     ├── 2011_09_28
     └── ..
 
+```
+
+### Ford
+
+Download Ford [street-view images](https://avdata.ford.com/downloads/default.aspx) and [satellite images](https://github.com/shiyujiao/HighlyAccurate). The folder structure is as follows:
+```
+ford
+├── 2017-08-04
+|   └── V2
+|       ├── Log1
+|       |   ├── 2017-08-04-V2-Log1-FL
+|       |   ├── SatelliteMaps_18
+|       |   └── grd_sat_quaternion_latlon.txt   
+|       ├── Log2   
+|       └── ..
+├── 2017-10-26
+|   └── V2
+|       ├── Log1
+|       └── ..
+└── Calibration-V2
+    └── V2
+        ├── cameraFrontLeft_body.yaml
+        └── ..
 ```
 
 ## Run

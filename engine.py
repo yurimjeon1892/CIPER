@@ -83,9 +83,7 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module, postproc
         loss_total += losses_meter[k].avg
     stats["train_loss/total"] = loss_total
     wandb.log(stats)
-    
-    # update_summary(summary, imgs, stats, train_infos["epoch"], "train")
-        
+            
     for k in stats.keys():
         print("   ", k + ": {:.8f}".format(stats[k]), end = "\n")
     
@@ -101,17 +99,36 @@ def valid_one_epoch(model: torch.nn.Module,
     
     # retrieval validation
     imgs, stats = valid_retr(model, loader_dict["qry"], loader_dict["ref"], valid_infos)
-    valid_infos["metric"] = stats["valid_acc/retr_top1"]    
-    # wandb.log(imgs)
-    wandb.log(stats)
+    valid_infos["metric"] = stats["valid_acc/retr_top1"] 
+    wandb.log(stats) 
+    
+    if valid_infos["data_name"] == "kitti":
+        imgs_val2_retr, stats_val2_retr = valid_retr(model, loader_dict["qry2"], loader_dict["ref2"], valid_infos)
+        stats_val2_retrn = {}
+        for k in stats_val2_retr.keys():
+            nk = k.replace("valid", "valid2")
+            stats_val2_retrn[nk] = stats_val2_retr[k]
+        wandb.log(stats_val2_retrn); stats.update(stats_val2_retrn)
     
     if not valid_infos["retr_only"]:  
-        imgs2, stats2 = valid_pose(model, criterion, postprocessors, loader_dict["val"], valid_infos)        
-        imgs.update(imgs2); stats.update(stats2)
-        wandb.log(imgs2); wandb.log(stats2)
-    
-    # update_summary(summary, imgs, stats, valid_infos["epoch"], "valid")
-    
+        imgs_val_pose, stats_val_pose = valid_pose(model, criterion, postprocessors, loader_dict["val"], valid_infos)        
+        valid_infos["metric"] = stats["valid_acc/pose_trs_d1"] 
+        wandb.log(imgs_val_pose); wandb.log(stats_val_pose); stats.update(stats_val_pose)
+        
+        if valid_infos["data_name"] == "kitti":
+            imgs_val2_pose, stats_val2_pose = valid_pose(model, criterion, postprocessors, loader_dict["val2"], valid_infos)  
+            
+            imgs_val2_posen, stats_val2_posen = {}, {}
+            for k in imgs_val2_pose.keys():
+                nk = k.replace("valid", "valid2")
+                imgs_val2_posen[nk] = imgs_val2_pose[k]
+
+            for k in stats_val2_pose.keys():
+                nk = k.replace("valid", "valid2")
+                stats_val2_posen[nk] = stats_val2_pose[k]
+                
+            wandb.log(imgs_val2_posen); wandb.log(stats_val2_posen); stats.update(stats_val2_posen)
+        
     print("[i] Valid {:>2}:".format(valid_infos["epoch"]), end = "\n")
     for k in stats.keys():
         print("   ", k + ": {:.8f}".format(stats[k]), end = "\n")
