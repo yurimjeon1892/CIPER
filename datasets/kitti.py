@@ -19,7 +19,7 @@ class KITTI(torch.utils.data.Dataset):
         self.transform_reference = input_transform(size=args["arl_img_size"])
         
         self.arl_img_size = args["arl_img_size"]
-        self.grd_img_size = args["grd_img_size"] # 256, 1024 -> need to be reduced (320, 640 maybe? )
+        self.grd_img_size = args["grd_img_size"] # 256, 1024 
         
         shift_range_lat = float(args["shift_range_lat"])
         shift_range_lon = float(args["shift_range_lon"])
@@ -33,10 +33,14 @@ class KITTI(torch.utils.data.Dataset):
 
         self.rotation_range = rotation_range  # in terms of degree
         
-        ## hardcoded. sorry
+        ## paths
         train_pt_list = "./datasets/splits/kitti/train_files.txt"
         val_pt_list = "./datasets/splits/kitti/test1_files.txt"
         val2_pt_list = "./datasets/splits/kitti/test2_files.txt"
+        
+        # train_pt_list = "./datasets/splits/kitti/test1_mini.txt"
+        # val_pt_list = "./datasets/splits/kitti/test1_mini.txt"
+        # val2_pt_list = "./datasets/splits/kitti/test1_mini.txt"
                 
         if "train" in self.mode: self.pt_list = train_pt_list
         elif "valid2" in self.mode: self.pt_list = val2_pt_list

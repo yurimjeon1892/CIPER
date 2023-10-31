@@ -191,8 +191,7 @@ class PostProcess(nn.Module):
         boxes = torch.stack([xs, ys, yaw], dim=-1)
 
         # results = [{"scores": s, "labels": l, "boxes": b} for s, l, b in zip(scores, labels, boxes)]
-        results = [{"scores": s, "boxes": b} for s, b in zip(scores, boxes)]
-        
+        results = [{"scores": s, "boxes": b} for s, b in zip(scores, boxes)]        
         return results
     
 def build(args):

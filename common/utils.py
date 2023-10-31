@@ -1,4 +1,3 @@
-import os
 import torch
 import numpy as np
 
@@ -17,24 +16,6 @@ class AverageMeter(object):
         self.sum += val * n
         self.count += n
         self.avg = self.sum / self.count
-
-def save_state(save_path, model, optimizer, epoch, is_best):
-    os.makedirs(save_path, exist_ok=True)
-    state_dict = {
-        "model": model.state_dict(),
-        "optimizer": optimizer.state_dict(),
-        "epoch": epoch,
-    }
-    torch.save(state_dict, os.path.join(save_path, "epoch_" + str(epoch)+".pth"))
-    print("[i] checkpoint saved in ", os.path.join(save_path, "epoch_" + str(epoch)+".pth"))
-    if is_best:
-        torch.save(state_dict, os.path.join(save_path, "model_best.pth"))
-        print("[i] best checkpoint saved in ", os.path.join(save_path, "model_best.pth"))
-    if epoch > 3:
-        prev_checkpoint_filename = os.path.join(
-            save_path, "epoch_" + str(epoch - 3) + ".pth")
-        if os.path.exists(prev_checkpoint_filename):
-            os.remove(prev_checkpoint_filename)
 
 def retr_accuracy(qry_feat, ref_feat, qry_label, topk=[1, 5, 10]):
     """Computes the accuracy over the k top predictions for the specified values of k"""

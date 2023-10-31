@@ -74,7 +74,7 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module, postproc
         if plot_imgs[k].shape[0] == 3:
             plot_imgs[k] = np.transpose(plot_imgs[k], (1, 2, 0))
         imgs["train_image/" + k] = wandb.Image(plot_imgs[k])
-    wandb.log(imgs)
+    wandb.log(imgs, step=train_infos["epoch"])
     
     stats = {}
     loss_total = 0
@@ -82,7 +82,7 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module, postproc
         stats["train_loss/" + k] =  losses_meter[k].avg
         loss_total += losses_meter[k].avg
     stats["train_loss/total"] = loss_total
-    wandb.log(stats)
+    wandb.log(stats, step=train_infos["epoch"])
             
     for k in stats.keys():
         print("   ", k + ": {:.8f}".format(stats[k]), end = "\n")
@@ -100,7 +100,7 @@ def valid_one_epoch(model: torch.nn.Module,
     # retrieval validation
     imgs, stats = valid_retr(model, loader_dict["qry"], loader_dict["ref"], valid_infos)
     valid_infos["metric"] = stats["valid_acc/retr_top1"] 
-    wandb.log(stats) 
+    wandb.log(stats, step=valid_infos["epoch"])
     
     if valid_infos["data_name"] == "kitti":
         imgs_val2_retr, stats_val2_retr = valid_retr(model, loader_dict["qry2"], loader_dict["ref2"], valid_infos)
@@ -108,12 +108,14 @@ def valid_one_epoch(model: torch.nn.Module,
         for k in stats_val2_retr.keys():
             nk = k.replace("valid", "valid2")
             stats_val2_retrn[nk] = stats_val2_retr[k]
-        wandb.log(stats_val2_retrn); stats.update(stats_val2_retrn)
+        wandb.log(stats_val2_retrn, step=valid_infos["epoch"]); stats.update(stats_val2_retrn)
     
     if not valid_infos["retr_only"]:  
         imgs_val_pose, stats_val_pose = valid_pose(model, criterion, postprocessors, loader_dict["val"], valid_infos)        
-        valid_infos["metric"] = stats["valid_acc/pose_trs_d1"] 
-        wandb.log(imgs_val_pose); wandb.log(stats_val_pose); stats.update(stats_val_pose)
+        valid_infos["metric"] = stats_val_pose["valid_acc/pose_trs_d1"] 
+        wandb.log(imgs_val_pose, step=valid_infos["epoch"]) 
+        wandb.log(stats_val_pose, step=valid_infos["epoch"]) 
+        stats.update(stats_val_pose)
         
         if valid_infos["data_name"] == "kitti":
             imgs_val2_pose, stats_val2_pose = valid_pose(model, criterion, postprocessors, loader_dict["val2"], valid_infos)  
@@ -126,8 +128,10 @@ def valid_one_epoch(model: torch.nn.Module,
             for k in stats_val2_pose.keys():
                 nk = k.replace("valid", "valid2")
                 stats_val2_posen[nk] = stats_val2_pose[k]
-                
-            wandb.log(imgs_val2_posen); wandb.log(stats_val2_posen); stats.update(stats_val2_posen)
+            
+            wandb.log(imgs_val2_posen, step=valid_infos["epoch"]) 
+            wandb.log(stats_val2_posen, step=valid_infos["epoch"]) 
+            stats.update(stats_val2_posen)
         
     print("[i] Valid {:>2}:".format(valid_infos["epoch"]), end = "\n")
     for k in stats.keys():

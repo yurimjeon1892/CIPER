@@ -32,8 +32,8 @@ class Ford(torch.utils.data.Dataset):
         self.shift_range_meters_lat = shift_range_lat  # in terms of meters
         self.shift_range_meters_lon = shift_range_lon  # in terms of meters
         self.meters_per_pixel = 0.22
-        self.shift_range_pixels_lat = shift_range_lat / float(self.meter_per_pixel)  # in terms of pixels
-        self.shift_range_pixels_lon = shift_range_lon / float(self.meter_per_pixel)  # in terms of pixels
+        self.shift_range_pixels_lat = shift_range_lat / float(self.meters_per_pixel)  # in terms of pixels
+        self.shift_range_pixels_lon = shift_range_lon / float(self.meters_per_pixel)  # in terms of pixels
 
         self.rotation_range = rotation_range  # in terms of degree
                 
@@ -50,9 +50,9 @@ class Ford(torch.utils.data.Dataset):
             logs = train_logs
             logs_img_inds = train_logs_img_inds
             data_file = "grd_sat_quaternion_latlon.txt"
-        elif self.mode == "valid": 
+        else: 
             logs = test_logs
-            logs_img_inds=test_logs_img_inds
+            logs_img_inds = test_logs_img_inds
             data_file = "grd_sat_quaternion_latlon_test.txt"
 
         file_name = []
@@ -199,7 +199,7 @@ class Ford(torch.utils.data.Dataset):
                 ),
                 "labels": torch.tensor([0]),
                 "orig_size": torch.as_tensor([int(self.arl_img_size[0]), int(self.arl_img_size[1])]),      
-                "meter_per_pixel": torch.tensor([self.meter_per_pixel]),  
+                "meter_per_pixel": torch.tensor([self.meters_per_pixel]),  
                 "R_FL": self.R_FL,
                 "T_FL": self.T_FL,
                 "grd_name": grd_name

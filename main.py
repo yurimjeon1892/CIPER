@@ -1,14 +1,11 @@
 import os, sys, yaml
-import datetime
 
 import torch
 from torch.utils.data import DataLoader
 
-import shutil
-
 import sys; sys.path.append("../")
 
-from common.utils import save_state, print_pigeon
+from common.utils import print_pigeon
 from datasets import build_dataset
 from models import build, SAM
 from engine import train_one_epoch, valid_one_epoch, evaluate
@@ -26,7 +23,31 @@ def adjust_learning_rate(optimizer, epoch, args):
             lr *= 0.1 if epoch >= milestone else 1.
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
-        
+
+def save_state(model, optimizer, epoch, is_best):
+    # os.makedirs(save_path, exist_ok=True)
+    state_dict = {
+        "model": model.state_dict(),
+        "optimizer": optimizer.state_dict(),
+        "epoch": epoch,
+    }
+    # save_name = os.path.join(save_path, "epoch_" + str(epoch)+".pth")
+    # torch.save(state_dict, save_name)
+    # print("[i] checkpoint saved in ", save_name)
+    
+    # if is_best:
+    #     torch.save(state_dict, os.path.join(save_path, "model_best.pth"))
+    #     print("[i] best checkpoint saved in ", os.path.join(save_path, "model_best.pth"))
+    # if epoch > 3:
+    #     prev_checkpoint_filename = os.path.join(
+    #         save_path, "epoch_" + str(epoch - 3) + ".pth")
+    #     if os.path.exists(prev_checkpoint_filename):
+    #         os.remove(prev_checkpoint_filename)
+    
+    save_name = os.path.join(wandb.run.dir, "epoch_" + str(epoch)+".pth")
+    torch.save(state_dict, save_name)
+    wandb.save(save_name)
+                    
 def main():
     
     global args
@@ -116,10 +137,10 @@ def main():
                                             num_workers=args["num_workers"]) 
                 data_loader_valid["val2"] = data_loader_val2
         
-        out_dir = os.path.join(args["ckpt_dir"], 
-                            args["data_name"] + "-" + datetime.datetime.today().strftime("%d-%m-%y-%H:%M:%S"))
-        os.makedirs(out_dir)
-        shutil.copyfile(sys.argv[1], os.path.join(out_dir, "config.yaml"))  
+        # out_dir = os.path.join(args["ckpt_dir"], 
+        #                     args["data_name"] + "-" + datetime.datetime.today().strftime("%d-%m-%y-%H:%M:%S"))
+        # os.makedirs(out_dir)
+        # shutil.copyfile(sys.argv[1], os.path.join(out_dir, "config.yaml"))  
             
     else:
         dataset_val_q = build_dataset(mode="valid_qry", args=args)
@@ -174,19 +195,19 @@ def main():
         
         adjust_learning_rate(optimizer, epoch, args)
 
-        # train_infos["epoch"] = epoch
-        # train_infos = train_one_epoch(
-        #         model, criterion, postprocessors, data_loader_train, optimizer, train_infos)
+        train_infos["epoch"] = epoch
+        train_infos = train_one_epoch(
+                model, criterion, postprocessors, data_loader_train, optimizer, train_infos)
             
         valid_infos["epoch"] = epoch
         valid_infos = valid_one_epoch(model, criterion, postprocessors, data_loader_valid, valid_infos)   
         
         is_best = False
-        if valid_infos["metric"] > valid_infos["best_metric"]:
-            valid_infos["best_metric"] = valid_infos["metric"]
-            is_best = True       
+        # if valid_infos["metric"] > valid_infos["best_metric"]:
+        #     valid_infos["best_metric"] = valid_infos["metric"]
+        #     is_best = True       
             
-        save_state(out_dir, model, optimizer, epoch, is_best)
+        save_state(model, optimizer, epoch, is_best)
 
     wandb.finish()
         

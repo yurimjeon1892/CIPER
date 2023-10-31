@@ -8,11 +8,11 @@ num_workers: 8
 
 batch_size: 1 # 12
 
-retr_only: False
+retr_only: True
 device: cuda # device to use for training / testing 
 
-ckpt_dir: ../tmp
-epochs: 1
+# ckpt_dir: ../tmp
+epochs: 10
 start_epoch: 1
 
 # ----- data config
