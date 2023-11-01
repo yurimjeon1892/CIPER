@@ -38,7 +38,8 @@ class CIPER(nn.Module):
             "arl": emb_arl,
         }
         if not self.retr_only: 
-            range_score = self.rot_net(mem_grd, mem_arl)
+            bev_ray_attn = self.rot_net(mem_grd, mem_arl)
+            mem_arl = torch.mul(bev_ray_attn.to(mem_arl.device), mem_arl)
             out_pos = self.pose_net(qry_emb_grd, mem_arl)
             outputs.update(out_pos)
         

@@ -12,7 +12,7 @@ retr_only: False
 device: cuda # device to use for training / testing 
 
 ckpt_dir: ../tmp
-epochs: 1
+epochs: 2
 start_epoch: 1
 
 # ----- data config
@@ -61,3 +61,6 @@ label_loss_coef: 5
 bbox_loss_coef: 1
 
 eos_coef: 0.01 # Relative classification weight of the no-object class
+
+repeat_grd_factor: 3
+grd_to_arl_factor: 4 # 360 / cam_fov

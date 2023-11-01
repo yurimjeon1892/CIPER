@@ -43,12 +43,12 @@ class KITTI(torch.utils.data.Dataset):
     def make_sample_list(self):
 
         ignore_drive_list = [
-            "2011_10_03/2011_10_03_drive_0034_sync/",
-            "2011_09_30/2011_09_30_drive_0028_sync/"
+            # "2011_10_03/2011_10_03_drive_0034_sync/",
+            # "2011_09_30/2011_09_30_drive_0028_sync/"
         ] # due to download error. broken zip file 
         ignore_file_list = [
-            "2011_09_26/2011_09_26_drive_0022_sync/0000000340.png",
-            "2011_10_03/2011_10_03_drive_0047_sync/0000000678.png",
+            # "2011_09_26/2011_09_26_drive_0022_sync/0000000340.png",
+            # "2011_10_03/2011_10_03_drive_0047_sync/0000000678.png",
         ]
         
         with open(self.pt_list, 'r') as f:

@@ -143,7 +143,7 @@ def valid_retr(model: torch.nn.Module,
             idx_grd = idx_grd.to(valid_infos["device"])
             labels = labels.to(valid_infos["device"])
             
-            out_emb_grd, _ = model_query(img_grd)
+            out_emb_grd, _, _ = model_query(img_grd)
             qry_feat[idx_grd.cpu().numpy(), :] = out_emb_grd.detach().cpu().numpy()
             qry_label[idx_grd.cpu().numpy()] = labels.detach().cpu().numpy()
                         
