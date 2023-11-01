@@ -89,6 +89,6 @@ class Encoder(VisionTransformer):
         # follow the evaluation of deit, simple average and no distillation during training, could remove the x_dist
         if self.mode == "query": 
             x_q = self.head_qry(x_pose)
-            return (x_1 + x_2) / 2, x_q
+            return (x_1 + x_2) / 2, mem, x_q
         else:
             return (x_1 + x_2) / 2, mem
