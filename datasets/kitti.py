@@ -33,9 +33,24 @@ class KITTI(torch.utils.data.Dataset):
 
         self.rotation_range = rotation_range  # in terms of degree
         
+<<<<<<< HEAD
+        ## paths
+        train_pt_list = "./datasets/splits/kitti/train_files.txt"
+        val_pt_list = "./datasets/splits/kitti/test1_files.txt"
+        val2_pt_list = "./datasets/splits/kitti/test2_files.txt"
+        
+        train_pt_list = "./datasets/splits/kitti/test1_mini.txt"
+        val_pt_list = "./datasets/splits/kitti/test1_mini.txt"
+        val2_pt_list = "./datasets/splits/kitti/test1_mini.txt"
+                
+        if "train" in self.mode: self.pt_list = train_pt_list
+        elif "valid2" in self.mode: self.pt_list = val2_pt_list
+        elif "valid" in self.mode: self.pt_list = val_pt_list
+=======
         if "train" in self.mode: self.pt_list = args["train_pt_list"]
         elif "valid_cross" in self.mode: self.pt_list = args["val_cross_pt_list"]
         elif "valid_same" in self.mode: self.pt_list = args["val_same_pt_list"]
+>>>>>>> d2ff4b67b4c069d987e2ca06b4a11e1e83d5d808
         elif "test" in self.mode: self.pt_list = args["test_pt_list"]
         
         self.make_sample_list()
