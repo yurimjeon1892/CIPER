@@ -92,4 +92,4 @@ class Encoder(VisionTransformer):
             x_q = self.head_qry(x_pose)
             return (x_1 + x_2) / 2, mem, x_q
         else:
-            return (x_1 + x_2) / 2, mem
+            return (x_1 + x_2) / 2, mem, None
