@@ -56,10 +56,11 @@ def save_state(model, optimizer, epoch, is_best):
     #         save_path, "epoch_" + str(epoch - 3) + ".pth")
     #     if os.path.exists(prev_checkpoint_filename):
     #         os.remove(prev_checkpoint_filename)
-    
-    save_name = os.path.join(wandb.run.dir, "epoch_" + str(epoch)+".pth")
+    if wandb.run is not None:
+        save_name = os.path.join(wandb.run.dir, "epoch_" + str(epoch)+".pth")
     torch.save(state_dict, save_name)
-    wandb.save(save_name)
+    if wandb.run is not None:
+        wandb.save(save_name)
                     
 def main():
     cmd_args = parse_args()
@@ -180,7 +181,7 @@ def main():
     }
 
     # print(len(data_loader_valid["qry"].dataset), len(data_loader_valid["ref"].dataset)); exit()
-    if not args["infer"] and not cmd_args.debug:
+    if not cmd_args.debug:
         wandb.init(
             # set the wandb project where this run will be logged
             project="CIPER",
@@ -207,7 +208,7 @@ def main():
             
         save_state(out_dir, model, optimizer, epoch, is_best)
 
-    if not args["infer"] and not cmd_args.debug:
+    if wandb.run is not None:
         wandb.finish()
         
 if __name__ == "__main__":

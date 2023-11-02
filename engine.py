@@ -73,8 +73,10 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module, postproc
     for k in plot_imgs.keys(): 
         if plot_imgs[k].shape[0] == 3:
             plot_imgs[k] = np.transpose(plot_imgs[k], (1, 2, 0))
-        imgs["train_image/" + k] = wandb.Image(plot_imgs[k])
-    wandb.log(imgs)
+        if wandb.run is not None:
+            imgs["train_image/" + k] = wandb.Image(plot_imgs[k])
+    if wandb.run is not None:
+        wandb.log(imgs)
     
     stats = {}
     loss_total = 0
@@ -82,7 +84,8 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module, postproc
         stats["train_loss/" + k] =  losses_meter[k].avg
         loss_total += losses_meter[k].avg
     stats["train_loss/total"] = loss_total
-    wandb.log(stats)
+    if wandb.run is not None:
+        wandb.log(stats)
     
     # update_summary(summary, imgs, stats, train_infos["epoch"], "train")
         
@@ -110,18 +113,15 @@ def valid_one_epoch(model: torch.nn.Module,
             valid_infos["metric"] = stats1["valid_cross_acc/retr_top1"]
         imgs.update(imgs1); stats.update(stats1)
         # wandb.log(img1)
-        try:
+        if wandb.run is not None:
             wandb.log(stats)
-        except ValueError:
-            pass
     
     if not valid_infos["retr_only"]:  
         imgs2, stats2 = valid_pose(model, criterion, postprocessors, loader_dict["val"], valid_infos)        
         imgs.update(imgs2); stats.update(stats2)
-        try:
+        if wandb.run is not None:
             wandb.log(imgs2); wandb.log(stats2)
-        except ValueError:
-            pass
+
     
     # update_summary(summary, imgs, stats, valid_infos["epoch"], "valid")
     
@@ -239,7 +239,8 @@ def valid_pose(model: torch.nn.Module,
         for k in plot_imgs.keys(): 
             if plot_imgs[k].shape[0] == 3:
                 plot_imgs[k] = np.transpose(plot_imgs[k], (1, 2, 0))
-            imgs["valid_same_image/" + k] = wandb.Image(plot_imgs[k])
+            if wandb.run is not None:
+                imgs["valid_same_image/" + k] = wandb.Image(plot_imgs[k])
 
         for k in losses_meter.keys():
             if "retr" in k : continue
@@ -262,7 +263,8 @@ def valid_pose(model: torch.nn.Module,
         for k in plot_imgs.keys(): 
             if plot_imgs[k].shape[0] == 3:
                 plot_imgs[k] = np.transpose(plot_imgs[k], (1, 2, 0))
-            imgs["valid_cross_image/" + k] = wandb.Image(plot_imgs[k])
+            if wandb.run is not None:
+                imgs["valid_cross_image/" + k] = wandb.Image(plot_imgs[k])
 
         for k in losses_meter.keys():
             if "retr" in k : continue
