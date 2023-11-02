@@ -5,7 +5,7 @@ import torch.nn.functional as F
 import torchvision
 import numpy as np
 
-from common.utils import print_recoder
+from .common import MLP
 
 class Recoder(nn.Module):
     
@@ -19,6 +19,12 @@ class Recoder(nn.Module):
         self.repeat_grd_factor = args["repeat_grd_factor"]
         self.grd_to_arl_factor = args["grd_to_arl_factor"]
         
+        self.rng_grd_w = self.grd_patch_size[1] * self.repeat_grd_factor
+        self.rng_arl_w = self.rng_grd_w * self.grd_to_arl_factor
+        
+        self.mlp_attn_grd = MLP(args["dim_embed"], int(args["dim_embed"] / 4), output_dim=args["dim_embed"], num_layers=3) 
+        self.mlp_attn_arl = MLP(args["dim_embed"], int(args["dim_embed"] / 4), output_dim=args["dim_embed"], num_layers=3) 
+        
     def repeat_elements(self, x, factor):
         # x = b x 1 x w x d
         b, _, w, d = x.size()
@@ -26,17 +32,14 @@ class Recoder(nn.Module):
         x_repeated = x.unsqueeze(3).expand(b, 1, w, factor, d).reshape(b, 1, w_new, d)
         return x_repeated
     
-    def extract_ray_feature(self, mem_arl, rng_grd_w):
+    def arl_to_ray_feat(self, mem_arl):
         
         n = mem_arl.size(1)
         cx, cy, rad = n // 2, n // 2, n // 2 
         
-        rng_arl_w = rng_grd_w * self.grd_to_arl_factor
-        rng_grd_w_2 = rng_grd_w // 2
-        
-        mem_arl_max = torch.empty(mem_arl.size(0), 1, rng_arl_w, mem_arl.size(-1))
-        for i in range(rng_arl_w):
-            theta = (np.pi * 2 / rng_arl_w) * float(i)
+        mem_arl_max = torch.empty(mem_arl.size(0), 1, self.rng_arl_w, mem_arl.size(-1))
+        for i in range(self.rng_arl_w):
+            theta = (i / self.rng_arl_w) * np.pi * 2
                         
             dx = np.cos(theta) * n / 2 
             dy = np.sin(theta) * n / 2 
@@ -54,31 +57,32 @@ class Recoder(nn.Module):
             
             mem_arl_max[:, :, i, :] = ext_max.to(mem_arl_max.device)
         
+        rng_grd_w_2 = self.rng_grd_w // 2
         mem_arl_f = mem_arl_max[:, :, -rng_grd_w_2:, :].flip(2)
         mem_arl_e = mem_arl_max[:, :, :rng_grd_w_2, :].flip(2)
         mem_arl_max = torch.concat([mem_arl_f, mem_arl_max, mem_arl_e], 2)
         
         return mem_arl_max
     
-    def compute_ray_attention(self, mem_grd_max, mem_arl_max):
-        ray_attn = []
-        for b in range(mem_arl_max.size(0)):
-            inputs = mem_arl_max[b].unsqueeze(0).permute((0, 3, 1, 2)).to(mem_arl_max.device) # 1 x embed_dim x 1 x w
-            filters = mem_grd_max[b].unsqueeze(0).permute((0, 3, 1, 2)).to(mem_arl_max.device) # 1 x embed_dim x 1 x w'
-            score_b = F.conv2d(inputs, filters, padding=0)
-            ray_attn.append(score_b)
-        ray_attn = torch.concat(ray_attn, 0)
+    def get_ray_attn(self, mem_grd_max, mem_arl_max):
+        
+        inputs = mem_arl_max.permute((0, 3, 1, 2)).to(mem_arl_max.device) # bs x embed_dim x 1 x w
+        filters = mem_grd_max.permute((0, 3, 1, 2)).to(mem_arl_max.device) # bs x embed_dim x 1 x w'
+        
+        ray_attn = F.conv2d(inputs, filters, padding=0)
+        ray_attn = torch.sum(ray_attn, dim=1, keepdim=True)
+        ray_attn = ray_attn[:, :, :, :self.rng_arl_w]
         return ray_attn
     
-    def generate_ray_attention(self, ray_attn):
+    def get_bev_attn(self, ray_attn):
         # ray_attn : b x 1 x 1 x len
-        bev_ray_attn = torch.zeros((ray_attn.size(0), ray_attn.size(1), self.arl_patch_size[0], self.arl_patch_size[1]))
+        bev_attn = torch.zeros((ray_attn.size(0), ray_attn.size(1), self.arl_patch_size[0], self.arl_patch_size[1]))
         
         n = self.arl_patch_size[0]
         cx, cy, rad = n // 2, n // 2, n // 2 
         
-        for i in range(ray_attn.size(-1)):
-            theta = (np.pi * 2 / ray_attn.size(-1)) * float(i)
+        for i in range(self.rng_arl_w):
+            theta = (i / self.rng_arl_w) * np.pi * 2
             
             dx = np.cos(theta) * n / 2 
             dy = np.sin(theta) * n / 2 
@@ -91,9 +95,9 @@ class Recoder(nn.Module):
             line_points = torch.stack((x_values[:rad], y_values[:rad]), dim=-1)
             rounded_tensor = torch.clamp(line_points.round(), 0, n - 1).long()
             
-            bev_ray_attn[:, :, rounded_tensor[:, 0], rounded_tensor[:, 1]] = ray_attn[:, :, :, i]
+            bev_attn[:, :, rounded_tensor[:, 0], rounded_tensor[:, 1]] = ray_attn[:, :, :, i]
             
-        return bev_ray_attn
+        return bev_attn
     
     def forward(self, mem_grd, mem_arl):
         """_summary_
@@ -105,25 +109,23 @@ class Recoder(nn.Module):
         Returns:
             _type_: _description_
         """
+        mem_grd = self.mlp_attn_grd(mem_grd) # bs x num_patches_grd x dim_embed
+        mem_arl = self.mlp_attn_arl(mem_arl) # bs x num_patches_arl x dim_embed
+        
         mem_grd = mem_grd.view(mem_grd.size(0), self.grd_patch_size[0], self.grd_patch_size[1], mem_grd.size(-1))
         mem_arl = mem_arl.view(mem_arl.size(0), self.arl_patch_size[0], self.arl_patch_size[1], mem_arl.size(-1))
                 
         mem_grd_max, _ = torch.max(mem_grd, dim=1, keepdim=True) # bs x 1 x w x dim_embed
-        mem_grd_max = self.repeat_elements(mem_grd_max, self.repeat_grd_factor) # bs x 1 x w' x dim_embed
-        # print(mem_grd_max.size()); exit()
+        mem_grd_max = self.repeat_elements(mem_grd_max, self.repeat_grd_factor) # bs x 1 x rng_grd_w x dim_embed
         
-        rng_grd_w = mem_grd_max.size(2)
-        mem_arl_max = self.extract_ray_feature(mem_arl, rng_grd_w)
-        # print("mem_arl_max: ", mem_arl_max.size())        
+        mem_arl_max = self.arl_to_ray_feat(mem_arl) # bs x 1 x self.rng_arl_w x dim_embed 
         
-        ray_attn = self.compute_ray_attention(mem_grd_max, mem_arl_max)
-        # print("ray_attn: ", ray_attn.size())
+        ray_attn = self.get_ray_attn(mem_grd_max, mem_arl_max) # bs x 1 x 1 x rng_arl_w         
+        bev_attn = self.get_bev_attn(ray_attn) # bs x 1 x arl_patch_size[0] x arl_patch_size[1] 
         
-        bev_ray_attn = self.generate_ray_attention(ray_attn)
-        # print("bev_ray_attn: ", bev_ray_attn.size())
-        
-        bev_ray_attn = bev_ray_attn.flatten(2).permute((0, 2, 1)).to(mem_arl.device)
-        # print("bev_ray_attn: ", bev_ray_attn.size())
-        bev_ray_attn = F.normalize(bev_ray_attn)
-        
-        return bev_ray_attn
+        bev_attn = bev_attn.flatten(2).permute((0, 2, 1)).to(mem_arl.device) # bs x num_patches_arl x 1
+        # bev_attn = bev_attn + 0.5
+        bev_attn_sum, _ = torch.max(bev_attn, dim=1, keepdim=True)
+        bev_attn = torch.div(bev_attn, bev_attn_sum) + 0.1
+                
+        return bev_attn, ray_attn

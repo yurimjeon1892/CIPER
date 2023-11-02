@@ -9,7 +9,7 @@ import numpy as np
 
 import random 
 from common.utils import AverageMeter, retr_accuracy, pose_accuracy
-from common.utils_plot import plot_result
+from common.utils_plot import plot_result, plot_criterion_save
 import wandb
 
 def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module, postprocessors: torch.nn.Module,
@@ -26,7 +26,7 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module, postproc
     
     iters = train_infos["iter"]
     
-    sample_ind = random.choice(range(len(data_loader)))    
+    sample_ind = random.choice(range(len(data_loader)))   
     description = "[i] Train {:>2}".format(train_infos["epoch"])
     for i, (img_grd, img_arl, targets) in \
         enumerate(tqdm(data_loader, desc=description, unit="batches")):
@@ -39,7 +39,7 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module, postproc
         
         if not train_infos["retr_only"]:
             targets = [{k: targets[k][b].to(train_infos["device"]) for k in targets.keys()} for b in range(bs) ]
-            results = postprocessors["bbox"](outputs, targets)
+            results = postprocessors(outputs, targets)
             if i == sample_ind: 
                 p_imgs = plot_result(results, targets, img_grd, img_arl)
                 plot_imgs.update(p_imgs)
@@ -47,6 +47,11 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module, postproc
         loss_dict = criterion(outputs, targets)
         losses = sum(loss_dict[k] for k in loss_dict.keys())        
         for k in loss_dict.keys(): losses_meter[k].update(loss_dict[k].item(), bs)
+        
+        if not train_infos["retr_only"]:
+            if i == sample_ind: 
+                p_imgs = plot_criterion_save(criterion.criterion_save)
+                plot_imgs.update(p_imgs)
         
         # compute gradient and do SGD step        
         optimizer.zero_grad()
@@ -219,13 +224,15 @@ def valid_pose(model: torch.nn.Module,
             targets = [ {k: targets[k][b].to(valid_infos["device"]) for k in targets.keys()} for b in range(img_grd.size(0)) ]
             
             outputs = model(im_grd=img_grd, im_arl=img_arl)
-            results = postprocessors["bbox"](outputs, targets)
+            results = postprocessors(outputs, targets)
 
             loss_dict = criterion(outputs, targets)      
             for k in loss_dict.keys(): losses_meter[k].update(loss_dict[k].item(), img_grd.size(0))
             
             if i == sample_ind: 
                 plot_imgs = plot_result(results, targets, img_grd, img_arl)
+                p_imgs = plot_criterion_save(criterion.criterion_save)
+                plot_imgs.update(p_imgs)
                 
             trs_err, rot_err = pose_accuracy(results, targets)
             trs_errs.extend(trs_err)
@@ -316,7 +323,7 @@ def evaluate(model: torch.nn.Module,
             targets = [ {k: targets[k][b].to(eval_infos["device"]) for k in targets.keys()} for b in range(img_grd.size(0))]
             
             outputs = model(im_grd=img_grd, im_arl=img_arl)
-            results = postprocessors["bbox"](outputs, targets)
+            results = postprocessors(outputs, targets)
                 
             trs_err, rot_err = pose_accuracy(results, targets)
             trs_errs.extend(trs_err)

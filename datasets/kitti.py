@@ -38,9 +38,9 @@ class KITTI(torch.utils.data.Dataset):
         val_pt_list = "./datasets/splits/kitti/test1_files.txt"
         val2_pt_list = "./datasets/splits/kitti/test2_files.txt"
         
-        # train_pt_list = "./datasets/splits/kitti/test1_mini.txt"
-        # val_pt_list = "./datasets/splits/kitti/test1_mini.txt"
-        # val2_pt_list = "./datasets/splits/kitti/test1_mini.txt"
+        train_pt_list = "./datasets/splits/kitti/test1_mini.txt"
+        val_pt_list = "./datasets/splits/kitti/test1_mini.txt"
+        val2_pt_list = "./datasets/splits/kitti/test1_mini.txt"
                 
         if "train" in self.mode: self.pt_list = train_pt_list
         elif "valid2" in self.mode: self.pt_list = val2_pt_list
