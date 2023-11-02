@@ -1,4 +1,5 @@
 # From https://github.com/Jeff-Zilence/TransGeo2022/blob/main/model/Deit.py
+
 import torch
 from torch import nn
 
@@ -23,11 +24,11 @@ class Encoder(VisionTransformer):
         self.pos_embed = nn.Parameter(torch.zeros(1, num_patches + 3, self.embed_dim))        
         self.cls_token = nn.Parameter(torch.zeros(1, 1, self.embed_dim))          
         self.dist_token = nn.Parameter(torch.zeros(1, 1, self.embed_dim)) 
-        self.pose_token = nn.Parameter(torch.zeros(1, 1, self.embed_dim)) 
+        self.dec_token = nn.Parameter(torch.zeros(1, 1, self.embed_dim)) 
         
         nn.init.trunc_normal_(self.cls_token)        
         nn.init.trunc_normal_(self.dist_token)
-        nn.init.trunc_normal_(self.pose_token)
+        nn.init.trunc_normal_(self.dec_token)
         
         self.head = nn.Linear(self.embed_dim, self.num_classes)
         self.head_dist = nn.Linear(self.embed_dim, self.num_classes) 
@@ -50,7 +51,7 @@ class Encoder(VisionTransformer):
         resize = torchvision.transforms.Resize(new_size)
         new_matrix = resize(matrix).permute(0, 2, 3, 1).reshape([1, -1, weight.shape[-1]])
         checkpoint["model"]['pos_embed'] = torch.cat([weight[:, :2, :], weight[:, :1, :], new_matrix], dim=1)
-        checkpoint["model"]['pose_token'] = weight[:, :1, :]
+        checkpoint["model"]['dec_token'] = weight[:, :1, :]
         # change the prediction head if not 1000
         if num_classes != 1000:
             checkpoint["model"]['head.weight'] = checkpoint["model"]['head.weight'].repeat(5,1)[:num_classes, :]
@@ -70,8 +71,8 @@ class Encoder(VisionTransformer):
 
         cls_tokens = self.cls_token.expand(B, -1, -1)  # stole cls_tokens impl from Phil Wang, thanks
         dist_token = self.dist_token.expand(B, -1, -1)
-        pose_token = self.pose_token.expand(B, -1, -1)
-        x = torch.cat((cls_tokens, dist_token, pose_token, x), dim=1)
+        dec_token = self.dec_token.expand(B, -1, -1)
+        x = torch.cat((cls_tokens, dist_token, dec_token, x), dim=1)
 
         x = x + self.pos_embed
         x = self.pos_drop(x)

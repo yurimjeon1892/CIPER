@@ -1,4 +1,3 @@
-# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
 """
 Train and eval functions used in main.py
 """
@@ -7,16 +6,14 @@ from tqdm import tqdm
 
 import torch
 import numpy as np
-import tensorboardX
 
 import random 
 from common.utils import AverageMeter, retr_accuracy, pose_accuracy
-from common.utils_summary import update_summary, plot_result
+from common.utils_plot import plot_result
 import wandb
 
 def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module, postprocessors: torch.nn.Module,
-                    data_loader: Iterable, optimizer: torch.optim.Optimizer,
-                    train_infos: dict, summary: tensorboardX.SummaryWriter
+                    data_loader: Iterable, optimizer: torch.optim.Optimizer, train_infos: dict, 
                     ):
     
     model.train()
@@ -71,20 +68,22 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module, postproc
         iters += bs
         # del loss_dict
         del outputs
-        
+                
     imgs = {}
-    for k in plot_imgs.keys(): imgs["image/" + k] = plot_imgs[k]
+    for k in plot_imgs.keys(): 
+        if plot_imgs[k].shape[0] == 3:
+            plot_imgs[k] = np.transpose(plot_imgs[k], (1, 2, 0))
+        imgs["train_image/" + k] = wandb.Image(plot_imgs[k])
+    wandb.log(imgs, step=train_infos["epoch"])
     
     stats = {}
     loss_total = 0
     for k in losses_meter.keys():
-        stats["loss/" + k] =  losses_meter[k].avg
+        stats["train_loss/" + k] =  losses_meter[k].avg
         loss_total += losses_meter[k].avg
-    stats["loss/total"] = loss_total
-    wandb.log(stats)
-    
-    update_summary(summary, imgs, stats, train_infos["epoch"], "train")
-        
+    stats["train_loss/total"] = loss_total
+    wandb.log(stats, step=train_infos["epoch"])
+            
     for k in stats.keys():
         print("   ", k + ": {:.8f}".format(stats[k]), end = "\n")
     
@@ -96,22 +95,44 @@ def valid_one_epoch(model: torch.nn.Module,
                     postprocessors: torch.nn.Module,
                     loader_dict: dict, 
                     valid_infos: dict, 
-                    summary: tensorboardX.SummaryWriter
                     ):    
     
     # retrieval validation
     imgs, stats = valid_retr(model, loader_dict["qry"], loader_dict["ref"], valid_infos)
-    valid_infos["metric"] = stats["acc/retr_top1"]    
-    wandb.log(stats)
+    valid_infos["metric"] = stats["valid_acc/retr_top1"] 
+    wandb.log(stats, step=valid_infos["epoch"])
+    
+    if valid_infos["data_name"] == "kitti":
+        imgs_val2_retr, stats_val2_retr = valid_retr(model, loader_dict["qry2"], loader_dict["ref2"], valid_infos)
+        stats_val2_retrn = {}
+        for k in stats_val2_retr.keys():
+            nk = k.replace("valid", "valid2")
+            stats_val2_retrn[nk] = stats_val2_retr[k]
+        wandb.log(stats_val2_retrn, step=valid_infos["epoch"]); stats.update(stats_val2_retrn)
     
     if not valid_infos["retr_only"]:  
-        imgs2, stats2 = valid_pose(model, criterion, postprocessors, loader_dict["val"], valid_infos)        
-        imgs.update(imgs2)
-        stats.update(stats2)
-        wandb.log(stats2)
-    
-    update_summary(summary, imgs, stats, valid_infos["epoch"], "valid")
-    
+        imgs_val_pose, stats_val_pose = valid_pose(model, criterion, postprocessors, loader_dict["val"], valid_infos)        
+        valid_infos["metric"] = stats_val_pose["valid_acc/pose_trs_d1"] 
+        wandb.log(imgs_val_pose, step=valid_infos["epoch"]) 
+        wandb.log(stats_val_pose, step=valid_infos["epoch"]) 
+        stats.update(stats_val_pose)
+        
+        if valid_infos["data_name"] == "kitti":
+            imgs_val2_pose, stats_val2_pose = valid_pose(model, criterion, postprocessors, loader_dict["val2"], valid_infos)  
+            
+            imgs_val2_posen, stats_val2_posen = {}, {}
+            for k in imgs_val2_pose.keys():
+                nk = k.replace("valid", "valid2")
+                imgs_val2_posen[nk] = imgs_val2_pose[k]
+
+            for k in stats_val2_pose.keys():
+                nk = k.replace("valid", "valid2")
+                stats_val2_posen[nk] = stats_val2_pose[k]
+            
+            wandb.log(imgs_val2_posen, step=valid_infos["epoch"]) 
+            wandb.log(stats_val2_posen, step=valid_infos["epoch"]) 
+            stats.update(stats_val2_posen)
+        
     print("[i] Valid {:>2}:".format(valid_infos["epoch"]), end = "\n")
     for k in stats.keys():
         print("   ", k + ": {:.8f}".format(stats[k]), end = "\n")
@@ -166,10 +187,10 @@ def valid_retr(model: torch.nn.Module,
         # "image/ir/arl": img_arl_,
     }
     stats = {
-        "acc/retr_top1": retr_acc[0],
-        "acc/retr_top5": retr_acc[1],
-        "acc/retr_top10": retr_acc[2],
-        "acc/retr_top1pc": retr_acc[3],
+        "valid_acc/retr_top1": retr_acc[0],
+        "valid_acc/retr_top5": retr_acc[1],
+        "valid_acc/retr_top10": retr_acc[2],
+        "valid_acc/retr_top1pc": retr_acc[3],
     }
              
     return imgs, stats
@@ -211,26 +232,29 @@ def valid_pose(model: torch.nn.Module,
             rot_errs.extend(rot_err)
                 
     imgs = {}
-    for k in plot_imgs.keys(): imgs["image/" + k] = plot_imgs[k]
+    for k in plot_imgs.keys(): 
+        if plot_imgs[k].shape[0] == 3:
+            plot_imgs[k] = np.transpose(plot_imgs[k], (1, 2, 0))
+        imgs["valid_image/" + k] = wandb.Image(plot_imgs[k])
     
     stats = {}
     loss_total = 0
     for k in losses_meter.keys():
         if "retr" in k : continue
-        stats["loss/" + k] =  losses_meter[k].avg
+        stats["valid_loss/" + k] =  losses_meter[k].avg
         loss_total += losses_meter[k].avg
-    stats["loss/total"] = loss_total
+    stats["valid_loss/total"] = loss_total
     
-    stats["acc/pose_trs_d1"] = np.sum((trs_err < 1)) / trs_err.shape[0] * 100
-    stats["acc/pose_trs_d5"] = np.sum((trs_err < 5)) / trs_err.shape[0] * 100
+    stats["valid_acc/pose_trs_d1"] = np.sum((trs_err < 1)) / trs_err.shape[0] * 100
+    stats["valid_acc/pose_trs_d5"] = np.sum((trs_err < 5)) / trs_err.shape[0] * 100
     
-    stats["acc/pose_rot_d1"] = np.sum((rot_err < 1)) / rot_err.shape[0] * 100
-    stats["acc/pose_rot_d5"] = np.sum((rot_err < 5)) / rot_err.shape[0] * 100
+    stats["valid_acc/pose_rot_d1"] = np.sum((rot_err < 1)) / rot_err.shape[0] * 100
+    stats["valid_acc/pose_rot_d5"] = np.sum((rot_err < 5)) / rot_err.shape[0] * 100
     
-    stats["err/pose_trs_mean(m)"] = np.mean(trs_errs)
-    stats["err/pose_trs_median(m)"] = np.median(trs_errs)
-    stats["err/pose_rot_mean(deg)"] = np.mean(rot_errs)
-    stats["err/pose_rot_median(deg)"] = np.median(rot_errs)
+    stats["valid_err/pose_trs_mean(m)"] = np.mean(trs_errs)
+    stats["valid_err/pose_trs_median(m)"] = np.median(trs_errs)
+    stats["valid_err/pose_rot_mean(deg)"] = np.mean(rot_errs)
+    stats["valid_err/pose_rot_median(deg)"] = np.median(rot_errs)
              
     return imgs, stats
 

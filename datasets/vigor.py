@@ -1,10 +1,8 @@
 import torch
-import torchvision.transforms.functional as TF
 from PIL import Image
 import numpy as np
 import os
 import random
-from tqdm import tqdm
 
 from common.utils_loader import input_transform, input_transform_fov
 
@@ -32,8 +30,6 @@ class VIGOR(torch.utils.data.Dataset):
                 self.city_list = ["NewYork", "Seattle"]
             else:
                 self.city_list = ["SanFrancisco", "Chicago"]
-                
-        # self.city_list = ["Seattle"]
         
         self.arl_img_size = args["arl_img_size"]
         self.raw_arl_img_size = (640, 640)

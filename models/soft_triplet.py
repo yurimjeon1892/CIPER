@@ -1,3 +1,5 @@
+# From https://github.com/Jeff-Zilence/TransGeo2022/blob/main/criterion/soft_triplet.py
+
 import torch
 from torch import nn
 

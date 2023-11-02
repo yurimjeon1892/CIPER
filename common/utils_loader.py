@@ -1,6 +1,7 @@
 import torchvision.transforms as transforms
 import torch
 import random
+import numpy as np
 
 class LimitedFoV(object):
     def __init__(self, fov=360.):
@@ -36,3 +37,14 @@ def input_transform(size):
         transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                std=[0.229, 0.224, 0.225]),
     ])
+
+def gps2utm(lat, lon, lat0=49.015):
+    # from paper "Vision meets Robotics: The KITTI Dataset"
+
+    r = 6378137.
+    s = np.cos(lat0 * np.pi / 180)
+
+    x = s * r * np.pi * lon / 180
+    y = s * r * np.log(np.tan(np.pi * (90 + lat) / 360))
+
+    return x, y

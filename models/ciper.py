@@ -1,4 +1,5 @@
 # From https://github.com/facebookresearch/detr/blob/HEAD/models/detr.py
+
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
 import torch
 import torch.nn.functional as F
@@ -194,8 +195,7 @@ class PostProcess(nn.Module):
         boxes = torch.stack([xs, ys, yaw], dim=-1)
 
         # results = [{"scores": s, "labels": l, "boxes": b} for s, l, b in zip(scores, labels, boxes)]
-        results = [{"scores": s, "boxes": b} for s, b in zip(scores, boxes)]
-        
+        results = [{"scores": s, "boxes": b} for s, b in zip(scores, boxes)]        
         return results
     
 def build(args):

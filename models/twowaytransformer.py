@@ -1,10 +1,10 @@
+# From https://github.com/facebookresearch/segment-anything/blob/HEAD/segment_anything/modeling/transformer.py
+
 # Copyright (c) Meta Platforms, Inc. and affiliates.
 # All rights reserved.
 
 # This source code is licensed under the license found in the
 # LICENSE file in the root directory of this source tree.
-
-# From https://github.com/facebookresearch/segment-anything/blob/HEAD/segment_anything/modeling/transformer.py
 
 import torch
 from torch import Tensor, nn

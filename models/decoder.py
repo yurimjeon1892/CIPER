@@ -46,41 +46,15 @@ class Decoder(nn.Module):
         outputs_coord = self.bbox_embed(dst) # 1 x bs x num_queries x 4   
         # print("out: ", outputs_class.size(), outputs_coord.size())     
         
-        out = {'pred_logits': outputs_class[-1], 'pred_boxes': outputs_coord[-1]} # [-1]: 가장 마지막 decoder layer결과만 사용
-        
+        out = {'pred_logits': outputs_class[-1], 'pred_boxes': outputs_coord[-1]} # [-1]: last decoder layer output
         return out
 
+# From https://github.com/facebookresearch/segment-anything/blob/HEAD/segment_anything/modeling/mask_decoder.py
 from .prompt_encoder import PositionEmbeddingRandom
 from .twowaytransformer import TwoWayTransformer
 
-# From https://github.com/facebookresearch/segment-anything/blob/HEAD/segment_anything/modeling/mask_decoder.py
 class TwoWayDecoder(nn.Module):
-    def __init__(
-        self, 
-        args,
-        # transformer_dim: int,
-        # transformer: nn.Module,
-        # num_multimask_outputs: int = 3,
-        # activation: Type[nn.Module] = nn.GELU,
-        # iou_head_depth: int = 3,
-        # iou_head_hidden_dim: int = 256,
-		) -> None:
-        """
-        Predicts masks given an image and prompt embeddings, using a
-        transformer architecture.
-
-        Arguments:
-          transformer_dim (int): the channel dimension of the transformer
-          transformer (nn.Module): the transformer used to predict masks
-          num_multimask_outputs (int): the number of masks to predict
-            when disambiguating masks
-          activation (nn.Module): the type of activation to use when
-            upscaling masks
-          iou_head_depth (int): the depth of the MLP used to predict
-            mask quality
-          iou_head_hidden_dim (int): the hidden dimension of the MLP
-            used to predict mask quality
-        """
+    def __init__(self, args):
         super().__init__()
         
         self.pe_layer = PositionEmbeddingRandom(args["dim_embed"] // 2)
@@ -106,17 +80,13 @@ class TwoWayDecoder(nn.Module):
         Predict masks given image and prompt embeddings.
 
         Arguments:
-          query_img_embedding (torch.Tensor): the embeddings of the points and boxes
-          key_img_embedding (torch.Tensor): the embeddings from the image encoder
+          query_img_embedding (torch.Tensor): the embeddings of the points and boxes [bs x dim_embed]
+          key_img_embedding (torch.Tensor): the embeddings from the image encoder [bs x num_patches x dim_embed]
 
         Returns:
           torch.Tensor: batched predicted masks
           torch.Tensor: batched predictions of mask quality
         """
-        """
-            query_img_embedding: bs x dim_embed
-            key_img_embedding: bs x num_patches x dim_embed
-        """     
         src = key_img_embedding
         
         key_img_pe = self.pe_layer(self.image_embedding_size).unsqueeze(0) # 1 x dim_embed x h x w
@@ -134,5 +104,5 @@ class TwoWayDecoder(nn.Module):
         outputs_coord = self.bbox_embed(dst) # 1 x bs x num_queries x 4   
         # print("out: ", outputs_class.size(), outputs_coord.size())     
         
-        out = {'pred_logits': outputs_class[-1], 'pred_boxes': outputs_coord[-1]} # [-1]: 가장 마지막 decoder layer결과만 사용
+        out = {'pred_logits': outputs_class[-1], 'pred_boxes': outputs_coord[-1]} # [-1]: last decoder layer output
         return out
