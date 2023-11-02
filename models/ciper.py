@@ -9,6 +9,7 @@ from .matcher import build_matcher
 from .soft_triplet import SoftTripletBiLoss
 
 from .encoder import Encoder
+from .recoder import Recoder
 from .decoder import Decoder, TwoWayDecoder
 
 class CIPER(nn.Module):
@@ -26,18 +27,21 @@ class CIPER(nn.Module):
         self.reference_net = Encoder(args, args["arl_img_size"])
         self.retr_only = args["retr_only"]
         if not self.retr_only: 
+            self.rot_net = Recoder(args)
             self.pose_net = TwoWayDecoder(args)
         
     def forward(self, im_grd, im_arl):
         
-        emb_grd, x_grd = self.query_net(im_grd)
-        emb_arl, x_arl = self.reference_net(im_arl)
+        emb_grd, mem_grd, qry_emb_grd = self.query_net(im_grd)
+        emb_arl, mem_arl = self.reference_net(im_arl)
         outputs = {
             "grd": emb_grd,
             "arl": emb_arl,
         }
         if not self.retr_only: 
-            out_pos = self.pose_net(x_grd, x_arl)
+            bev_ray_attn = self.rot_net(mem_grd, mem_arl)
+            mem_arl = torch.mul(bev_ray_attn.to(mem_arl.device), mem_arl)
+            out_pos = self.pose_net(qry_emb_grd, mem_arl)
             outputs.update(out_pos)
         
         return outputs
