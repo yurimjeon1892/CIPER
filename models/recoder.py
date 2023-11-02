@@ -76,7 +76,11 @@ class Recoder(nn.Module):
     
     def get_bev_attn(self, ray_attn):
         # ray_attn : b x 1 x 1 x len
-        bev_attn = torch.zeros((ray_attn.size(0), ray_attn.size(1), self.arl_patch_size[0], self.arl_patch_size[1]))
+        
+        ray_attn_sum, _ = torch.max(ray_attn, dim=-1, keepdim=True)
+        ray_attn = torch.div(ray_attn, ray_attn_sum)
+        
+        bev_attn = torch.zeros((ray_attn.size(0), ray_attn.size(1), self.arl_patch_size[0], self.arl_patch_size[1])) + 0.5
         
         n = self.arl_patch_size[0]
         cx, cy, rad = n // 2, n // 2, n // 2 
@@ -124,8 +128,5 @@ class Recoder(nn.Module):
         bev_attn = self.get_bev_attn(ray_attn) # bs x 1 x arl_patch_size[0] x arl_patch_size[1] 
         
         bev_attn = bev_attn.flatten(2).permute((0, 2, 1)).to(mem_arl.device) # bs x num_patches_arl x 1
-        # bev_attn = bev_attn + 0.5
-        bev_attn_sum, _ = torch.max(bev_attn, dim=1, keepdim=True)
-        bev_attn = torch.div(bev_attn, bev_attn_sum) + 0.1
                 
         return bev_attn, ray_attn

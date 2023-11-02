@@ -126,8 +126,7 @@ def valid_one_epoch(model: torch.nn.Module,
         imgs.update(imgs2); stats.update(stats2)
         if wandb.run is not None:
             wandb.log(imgs2); wandb.log(stats2)
-
-    
+            
     # update_summary(summary, imgs, stats, valid_infos["epoch"], "valid")
     
     print("[i] Valid {:>2}:".format(valid_infos["epoch"]), end = "\n")
@@ -161,7 +160,7 @@ def valid_retr(model: torch.nn.Module,
             idx_grd = idx_grd.to(valid_infos["device"])
             labels = labels.to(valid_infos["device"])
             
-            out_emb_grd, _ = model_query(img_grd)
+            out_emb_grd, _, _ = model_query(img_grd)
             qry_feat[idx_grd.cpu().numpy(), :] = out_emb_grd.detach().cpu().numpy()
             qry_label[idx_grd.cpu().numpy()] = labels.detach().cpu().numpy()
                         
@@ -319,7 +318,7 @@ def evaluate(model: torch.nn.Module,
             idx_grd = idx_grd.to(eval_infos["device"])
             labels = labels.to(eval_infos["device"])
             
-            out_emb_grd, _ = model_query(img_grd)
+            out_emb_grd, _, _ = model_query(img_grd)
             qry_feat[idx_grd.cpu().numpy(), :] = out_emb_grd.cpu().numpy()
             qry_label[idx_grd.cpu().numpy()] = labels.cpu().numpy()
         

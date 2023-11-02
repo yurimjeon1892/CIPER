@@ -51,12 +51,10 @@ def plot_result(results, targets, img_grd, img_arl):
         bev_attn = results[rand_ind]["attn2"].detach().cpu().numpy()
         
         ray_attn = np.tile(ray_attn[0], (32, 1))
-        print("ray_attn", np.min(ray_attn), np.max(ray_attn))
         img_ray_attn = draw_minmax_color_img(ray_attn, cmap=plt.cm.plasma)
         
         n = int(bev_attn.shape[0] ** 0.5)
         bev_attn = np.reshape(bev_attn[:, 0], (n, n))
-        print("bev_attn", np.min(bev_attn), np.max(bev_attn))
         img_bev_attn = draw_minmax_color_img(bev_attn, cmap=plt.cm.plasma)
         
         imgs["3_ray_attn"] = img_ray_attn

@@ -4,8 +4,6 @@ import argparse
 import torch
 from torch.utils.data import DataLoader
 
-import shutil
-
 import sys; sys.path.append("../")
 
 from common.utils import print_pigeon
@@ -58,8 +56,7 @@ def save_state(model, optimizer, epoch, is_best):
     #         os.remove(prev_checkpoint_filename)
     if wandb.run is not None:
         save_name = os.path.join(wandb.run.dir, "epoch_" + str(epoch)+".pth")
-    torch.save(state_dict, save_name)
-    if wandb.run is not None:
+        torch.save(state_dict, save_name)
         wandb.save(save_name)
                     
 def main():
@@ -107,18 +104,10 @@ def main():
         ## data_loader  
         dataset_train = build_dataset(mode="train", args=args)
         
-        sampler_train = None
-  
+        sampler_train = None  
         data_loader_train = DataLoader(dataset_train, batch_size=args["batch_size"], 
                                     shuffle=(sampler_train is None), 
                                     num_workers=args["num_workers"], pin_memory=True, sampler=sampler_train, drop_last=True)
-  
-        out_dir = os.path.join(args["ckpt_dir"], 
-                            args["data_name"] + "-" + datetime.datetime.today().strftime("%d-%m-%y-%H:%M:%S"))
-        os.makedirs(out_dir)
-        shutil.copyfile(cmd_args.config, os.path.join(out_dir, "config.yaml"))
-            
-        
   
     dataset_val_s_q = build_dataset(mode="valid_same_qry", args=args)
     dataset_val_s_r = build_dataset(mode="valid_same_ref", args=args)
@@ -206,7 +195,7 @@ def main():
             valid_infos["best_metric"] = valid_infos["metric"]
             is_best = True       
             
-        save_state(out_dir, model, optimizer, epoch, is_best)
+        save_state(model, optimizer, epoch, is_best)
 
     if wandb.run is not None:
         wandb.finish()
