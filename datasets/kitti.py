@@ -33,18 +33,9 @@ class KITTI(torch.utils.data.Dataset):
 
         self.rotation_range = rotation_range  # in terms of degree
         
-        ## paths
-        train_pt_list = "./datasets/splits/kitti/train_files.txt"
-        val_pt_list = "./datasets/splits/kitti/test1_files.txt"
-        val2_pt_list = "./datasets/splits/kitti/test2_files.txt"
-        
-        # train_pt_list = "./datasets/splits/kitti/test1_mini.txt"
-        # val_pt_list = "./datasets/splits/kitti/test1_mini.txt"
-        # val2_pt_list = "./datasets/splits/kitti/test1_mini.txt"
-                
-        if "train" in self.mode: self.pt_list = train_pt_list
-        elif "valid2" in self.mode: self.pt_list = val2_pt_list
-        elif "valid" in self.mode: self.pt_list = val_pt_list
+        if "train" in self.mode: self.pt_list = args["train_pt_list"]
+        elif "valid_cross" in self.mode: self.pt_list = args["val_cross_pt_list"]
+        elif "valid_same" in self.mode: self.pt_list = args["val_same_pt_list"]
         elif "test" in self.mode: self.pt_list = args["test_pt_list"]
         
         self.make_sample_list()
@@ -70,12 +61,10 @@ class KITTI(torch.utils.data.Dataset):
             if file_[:37] in ignore_drive_list: continue
             if file_[:52] in ignore_file_list: continue
             self.sample_list.append(file_)
-        print("[i] {} data loaded, size:{}".format(self.mode, len(self.sample_list)))
+        FileNotFoundError("[i] {} data loaded, size:{}".format(self.mode, len(self.sample_list)))
     
     def __getitem__(self, index):
-
-        if self.mode == "train" or self.mode == "valid" or self.mode == "valid2":            
-            
+        if self.mode == "train" or self.mode == "valid_same" or self.mode == "valid_cross":            
             idx = index % len(self.sample_list)    
             
             if "train" in self.pt_list: 
@@ -98,19 +87,13 @@ class KITTI(torch.utils.data.Dataset):
                 
             # =================== read ground image ===================================      
             left_img_name = os.path.join(self.root, "raw", drive_dir, "image_02/data", image_no.lower())   
-            # with Image.open(left_img_name, 'r') as grd_img:
-            #     try: grd_img = grd_img.convert('RGB')
-            #     except: print(left_img_name)
             try: grd_img = Image.open(left_img_name, 'r'); grd_img = grd_img.convert('RGB')   
-            except: print(left_img_name)
+            except: FileNotFoundError(f'{left_img_name} not exists')
 
             # =================== read satellite map ===================================
             arl_img_name = os.path.join(self.root, "satellite", file_name)
-            # with Image.open(arl_img_name, 'r') as arl_img:
-            #     try: arl_img = arl_img.convert('RGB')
-            #     except: print(arl_img_name)
             try: arl_img = Image.open(arl_img_name, 'r'); arl_img = arl_img.convert('RGB')   
-            except: print(arl_img_name)
+            except: FileNotFoundError(f'{arl_img_name} not exists')
 
             # =================== initialize some required variables ============================
             # oxt: such as 0000000000.txt
@@ -165,8 +148,7 @@ class KITTI(torch.utils.data.Dataset):
                     
             return grd_img, arl_img, target
 
-        elif self.mode == "valid_ref" or self.mode == "valid2_ref":            
-            
+        elif self.mode == "valid_ref" or self.mode == "valid_cross_ref":            
             line = self.sample_list[index]
             file_name, gt_shift_x, gt_shift_y, theta = line.split(' ')
             gt_shift_x, gt_shift_y, theta = float(gt_shift_x), float(gt_shift_y), float(theta)
@@ -176,11 +158,8 @@ class KITTI(torch.utils.data.Dataset):
 
             # =================== read satellite map ===================================
             arl_img_name = os.path.join(self.root, "satellite", file_name)
-            # with Image.open(arl_img_name, 'r') as arl_img:
-            #     try: arl_img = arl_img.convert('RGB')
-            #     except: print(arl_img_name)
             try: arl_img = Image.open(arl_img_name, 'r'); arl_img = arl_img.convert('RGB')   
-            except: print(arl_img_name)
+            except: FileNotFoundError(f'{arl_img_name} not exists')
 
             # =================== initialize some required variables ============================
             # oxt: such as 0000000000.txt
@@ -200,7 +179,6 @@ class KITTI(torch.utils.data.Dataset):
             arl_img = arl_align_cam
             # the homography is defined on: from target pixel to source pixel
             # now north direction is the real vehicle heading direction 
-                 
             arl_rand_shift = \
                 arl_img.transform(
                     arl_img.size, Image.AFFINE,
@@ -216,7 +194,7 @@ class KITTI(torch.utils.data.Dataset):
             
             return arl_img, torch.tensor(index), 0
 
-        elif self.mode == "valid_qry" or self.mode == "valid2_qry":   
+        elif self.mode == "valid_same_qry" or self.mode == "valid_cross_qry":   
             
             line = self.sample_list[index]
             file_name, gt_shift_x, gt_shift_y, theta = line.split(' ')
@@ -227,19 +205,14 @@ class KITTI(torch.utils.data.Dataset):
             
             # =================== read ground image ===================================      
             left_img_name = os.path.join(self.root, "raw", drive_dir, "image_02/data", image_no.lower())   
-            # with Image.open(left_img_name, 'r') as grd_img:
-            #     try: grd_img = grd_img.convert('RGB')
-            #     except: print(left_img_name)
             try: grd_img = Image.open(left_img_name, 'r'); grd_img = grd_img.convert('RGB')   
-            except: print(left_img_name)        
+            except: FileNotFoundError(f'{left_img_name} not exists')        
                     
             grd_img = self.transform_query(grd_img)
             
             return grd_img, torch.tensor(index), torch.tensor(index)
-        
         else:
-            print('not implemented!!')
-            raise Exception
+            NotImplementedError()
 
     def __len__(self):
         return len(self.sample_list)
