@@ -78,8 +78,10 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module, postproc
     for k in plot_imgs.keys(): 
         if plot_imgs[k].shape[0] == 3:
             plot_imgs[k] = np.transpose(plot_imgs[k], (1, 2, 0))
-        imgs["train_image/" + k] = wandb.Image(plot_imgs[k])
-    wandb.log(imgs, step=train_infos["epoch"])
+        if wandb.run is not None:
+            imgs["train_image/" + k] = wandb.Image(plot_imgs[k])
+    if wandb.run is not None:
+        wandb.log(imgs)
     
     stats = {}
     loss_total = 0
@@ -87,8 +89,11 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module, postproc
         stats["train_loss/" + k] =  losses_meter[k].avg
         loss_total += losses_meter[k].avg
     stats["train_loss/total"] = loss_total
-    wandb.log(stats, step=train_infos["epoch"])
-            
+    if wandb.run is not None:
+        wandb.log(stats)
+    
+    # update_summary(summary, imgs, stats, train_infos["epoch"], "train")
+        
     for k in stats.keys():
         print("   ", k + ": {:.8f}".format(stats[k]), end = "\n")
     
@@ -101,47 +106,34 @@ def valid_one_epoch(model: torch.nn.Module,
                     loader_dict: dict, 
                     valid_infos: dict, 
                     ):    
+    imgs = dict()
+    stats = dict()
     
-    # retrieval validation
-    imgs, stats = valid_retr(model, loader_dict["qry"], loader_dict["ref"], valid_infos)
-    valid_infos["metric"] = stats["valid_acc/retr_top1"] 
-    wandb.log(stats, step=valid_infos["epoch"])
-    
-    if valid_infos["data_name"] == "kitti":
-        imgs_val2_retr, stats_val2_retr = valid_retr(model, loader_dict["qry2"], loader_dict["ref2"], valid_infos)
-        stats_val2_retrn = {}
-        for k in stats_val2_retr.keys():
-            nk = k.replace("valid", "valid2")
-            stats_val2_retrn[nk] = stats_val2_retr[k]
-        wandb.log(stats_val2_retrn, step=valid_infos["epoch"]); stats.update(stats_val2_retrn)
+    if True:
+        # retrieval validation
+        imgs1, stats1 = valid_retr(model, loader_dict["qry"], loader_dict["ref"], valid_infos)
+        if valid_infos["valid"] == "same":
+            valid_infos["metric"] = stats1["valid_same_acc/retr_top1"]
+        if valid_infos["valid"] == "cross":
+            valid_infos["metric"] = stats1["valid_cross_acc/retr_top1"]
+        imgs.update(imgs1); stats.update(stats1)
+        # wandb.log(img1)
+        if wandb.run is not None:
+            wandb.log(stats)
     
     if not valid_infos["retr_only"]:  
-        imgs_val_pose, stats_val_pose = valid_pose(model, criterion, postprocessors, loader_dict["val"], valid_infos)        
-        valid_infos["metric"] = stats_val_pose["valid_acc/pose_trs_d1"] 
-        wandb.log(imgs_val_pose, step=valid_infos["epoch"]) 
-        wandb.log(stats_val_pose, step=valid_infos["epoch"]) 
-        stats.update(stats_val_pose)
-        
-        if valid_infos["data_name"] == "kitti":
-            imgs_val2_pose, stats_val2_pose = valid_pose(model, criterion, postprocessors, loader_dict["val2"], valid_infos)  
-            
-            imgs_val2_posen, stats_val2_posen = {}, {}
-            for k in imgs_val2_pose.keys():
-                nk = k.replace("valid", "valid2")
-                imgs_val2_posen[nk] = imgs_val2_pose[k]
+        imgs2, stats2 = valid_pose(model, criterion, postprocessors, loader_dict["val"], valid_infos)        
+        imgs.update(imgs2); stats.update(stats2)
+        if wandb.run is not None:
+            wandb.log(imgs2); wandb.log(stats2)
 
-            for k in stats_val2_pose.keys():
-                nk = k.replace("valid", "valid2")
-                stats_val2_posen[nk] = stats_val2_pose[k]
-            
-            wandb.log(imgs_val2_posen, step=valid_infos["epoch"]) 
-            wandb.log(stats_val2_posen, step=valid_infos["epoch"]) 
-            stats.update(stats_val2_posen)
-        
+    
+    # update_summary(summary, imgs, stats, valid_infos["epoch"], "valid")
+    
     print("[i] Valid {:>2}:".format(valid_infos["epoch"]), end = "\n")
     for k in stats.keys():
         print("   ", k + ": {:.8f}".format(stats[k]), end = "\n")
-
+    del valid_infos['valid']
     return valid_infos
 
 def valid_retr(model: torch.nn.Module, 
@@ -169,7 +161,7 @@ def valid_retr(model: torch.nn.Module,
             idx_grd = idx_grd.to(valid_infos["device"])
             labels = labels.to(valid_infos["device"])
             
-            out_emb_grd, _, _ = model_query(img_grd)
+            out_emb_grd, _ = model_query(img_grd)
             qry_feat[idx_grd.cpu().numpy(), :] = out_emb_grd.detach().cpu().numpy()
             qry_label[idx_grd.cpu().numpy()] = labels.detach().cpu().numpy()
                         
@@ -191,13 +183,22 @@ def valid_retr(model: torch.nn.Module,
         # "image/ir/grd": img_grd_,
         # "image/ir/arl": img_arl_,
     }
-    stats = {
-        "valid_acc/retr_top1": retr_acc[0],
-        "valid_acc/retr_top5": retr_acc[1],
-        "valid_acc/retr_top10": retr_acc[2],
-        "valid_acc/retr_top1pc": retr_acc[3],
-    }
-             
+    if valid_infos["valid"] == "same":
+        stats = {
+            "valid_same_acc/retr_top1": retr_acc[0],
+            "valid_same_acc/retr_top5": retr_acc[1],
+            "valid_same_acc/retr_top10": retr_acc[2],
+            "valid_same_acc/retr_top1pc": retr_acc[3],
+        }
+    elif valid_infos["valid"] == "cross":
+        stats = {
+            "valid_cross_acc/retr_top1": retr_acc[0],
+            "valid_cross_acc/retr_top5": retr_acc[1],
+            "valid_cross_acc/retr_top10": retr_acc[2],
+            "valid_cross_acc/retr_top1pc": retr_acc[3],
+        }
+    else:
+        raise(NotImplementedError())
     return imgs, stats
 
 def valid_pose(model: torch.nn.Module, 
@@ -238,30 +239,59 @@ def valid_pose(model: torch.nn.Module,
             trs_errs.extend(trs_err)
             rot_errs.extend(rot_err)
                 
-    imgs = {}
-    for k in plot_imgs.keys(): 
-        if plot_imgs[k].shape[0] == 3:
-            plot_imgs[k] = np.transpose(plot_imgs[k], (1, 2, 0))
-        imgs["valid_image/" + k] = wandb.Image(plot_imgs[k])
-    
+    imgs = {}	
     stats = {}
     loss_total = 0
-    for k in losses_meter.keys():
-        if "retr" in k : continue
-        stats["valid_loss/" + k] =  losses_meter[k].avg
-        loss_total += losses_meter[k].avg
-    stats["valid_loss/total"] = loss_total
-    
-    stats["valid_acc/pose_trs_d1"] = np.sum((trs_err < 1)) / trs_err.shape[0] * 100
-    stats["valid_acc/pose_trs_d5"] = np.sum((trs_err < 5)) / trs_err.shape[0] * 100
-    
-    stats["valid_acc/pose_rot_d1"] = np.sum((rot_err < 1)) / rot_err.shape[0] * 100
-    stats["valid_acc/pose_rot_d5"] = np.sum((rot_err < 5)) / rot_err.shape[0] * 100
-    
-    stats["valid_err/pose_trs_mean(m)"] = np.mean(trs_errs)
-    stats["valid_err/pose_trs_median(m)"] = np.median(trs_errs)
-    stats["valid_err/pose_rot_mean(deg)"] = np.mean(rot_errs)
-    stats["valid_err/pose_rot_median(deg)"] = np.median(rot_errs)
+    if valid_infos["valid"] == "same":
+        for k in plot_imgs.keys(): 
+            if plot_imgs[k].shape[0] == 3:
+                plot_imgs[k] = np.transpose(plot_imgs[k], (1, 2, 0))
+            if wandb.run is not None:
+                imgs["valid_same_image/" + k] = wandb.Image(plot_imgs[k])
+
+        for k in losses_meter.keys():
+            if "retr" in k : continue
+            stats["valid_same_loss/" + k] =  losses_meter[k].avg
+            loss_total += losses_meter[k].avg
+
+        stats["valid_same_loss/total"] = loss_total
+        
+        stats["valid_same_acc/pose_trs_d1"] = np.sum((trs_err < 1)) / trs_err.shape[0] * 100
+        stats["valid_same_acc/pose_trs_d5"] = np.sum((trs_err < 5)) / trs_err.shape[0] * 100
+        
+        stats["valid_same_acc/pose_rot_d1"] = np.sum((rot_err < 1)) / rot_err.shape[0] * 100
+        stats["valid_same_acc/pose_rot_d5"] = np.sum((rot_err < 5)) / rot_err.shape[0] * 100
+        
+        stats["valid_same_err/pose_trs_mean(m)"] = np.mean(trs_errs)
+        stats["valid_same_err/pose_trs_median(m)"] = np.median(trs_errs)
+        stats["valid_same_err/pose_rot_mean(deg)"] = np.mean(rot_errs)
+        stats["valid_same_err/pose_rot_median(deg)"] = np.median(rot_errs)
+    elif valid_infos["valid"] == "cross":
+        for k in plot_imgs.keys(): 
+            if plot_imgs[k].shape[0] == 3:
+                plot_imgs[k] = np.transpose(plot_imgs[k], (1, 2, 0))
+            if wandb.run is not None:
+                imgs["valid_cross_image/" + k] = wandb.Image(plot_imgs[k])
+
+        for k in losses_meter.keys():
+            if "retr" in k : continue
+            stats["valid_cross_loss/" + k] =  losses_meter[k].avg
+            loss_total += losses_meter[k].avg
+
+        stats["valid_cross_loss/total"] = loss_total
+        
+        stats["valid_cross_acc/pose_trs_d1"] = np.sum((trs_err < 1)) / trs_err.shape[0] * 100
+        stats["valid_cross_acc/pose_trs_d5"] = np.sum((trs_err < 5)) / trs_err.shape[0] * 100
+        
+        stats["valid_cross_acc/pose_rot_d1"] = np.sum((rot_err < 1)) / rot_err.shape[0] * 100
+        stats["valid_cross_acc/pose_rot_d5"] = np.sum((rot_err < 5)) / rot_err.shape[0] * 100
+        
+        stats["valid_cross_err/pose_trs_mean(m)"] = np.mean(trs_errs)
+        stats["valid_cross_err/pose_trs_median(m)"] = np.median(trs_errs)
+        stats["valid_cross_err/pose_rot_mean(deg)"] = np.mean(rot_errs)
+        stats["valid_cross_err/pose_rot_median(deg)"] = np.median(rot_errs)
+    else:
+        raise(NotImplementedError())
              
     return imgs, stats
 
@@ -271,44 +301,43 @@ def evaluate(model: torch.nn.Module,
              loader_dict: dict, 
              eval_infos: dict, 
             ):    
-    
-    # retrieval validation
-    model_query = model.query_net
-    model_reference = model.reference_net
-    
-    model_query.eval()
-    model_reference.eval()
-    
-    qry_label = np.zeros([len(loader_dict["qry"].dataset)])
-    qry_feat = np.zeros([len(loader_dict["qry"].dataset), eval_infos["dim_feature"]])    
-    ref_feat = np.zeros([len(loader_dict["ref"].dataset), eval_infos["dim_feature"]])
-    
-    description = "[i] Eval qry"
-    for i, (img_grd, idx_grd, labels) in enumerate(tqdm(loader_dict["qry"], desc=description, unit="batches")):
+    if True:
+        # retrieval validation
+        model_query = model.query_net
+        model_reference = model.reference_net
         
-        img_grd = img_grd.to(eval_infos["device"])
-        idx_grd = idx_grd.to(eval_infos["device"])
-        labels = labels.to(eval_infos["device"])
+        model_query.eval()
+        model_reference.eval()
         
-        out_emb_grd, _ = model_query(img_grd)
-        qry_feat[idx_grd.cpu().numpy(), :] = out_emb_grd.cpu().numpy()
-        qry_label[idx_grd.cpu().numpy()] = labels.cpu().numpy()
-    
-    description = "[i] Eval ref"
-    for i, (img_arl, idx_arl, _) in enumerate(tqdm(loader_dict["ref"], desc=description, unit="batches")):
-        img_arl = img_arl.to(eval_infos["device"])            
-        out_emb_arl, _ = model_reference(img_arl)  # delta           
+        qry_label = np.zeros([len(loader_dict["qry"].dataset)])
+        qry_feat = np.zeros([len(loader_dict["qry"].dataset), eval_infos["dim_feature"]])    
+        ref_feat = np.zeros([len(loader_dict["ref"].dataset), eval_infos["dim_feature"]])
         
-        ref_feat[idx_arl.cpu().numpy(), :] = out_emb_arl.detach().cpu().numpy()
-    
-    retr_acc = retr_accuracy(qry_feat, ref_feat, qry_label.astype(int))
+        description = "[i] Eval qry"
+        for i, (img_grd, idx_grd, labels) in enumerate(tqdm(loader_dict["qry"], desc=description, unit="batches")):
+            img_grd = img_grd.to(eval_infos["device"])
+            idx_grd = idx_grd.to(eval_infos["device"])
+            labels = labels.to(eval_infos["device"])
+            
+            out_emb_grd, _ = model_query(img_grd)
+            qry_feat[idx_grd.cpu().numpy(), :] = out_emb_grd.cpu().numpy()
+            qry_label[idx_grd.cpu().numpy()] = labels.cpu().numpy()
         
-    stats = {
-        "acc/retr_top1": retr_acc[0],
-        "acc/retr_top5": retr_acc[1],
-        "acc/retr_top10": retr_acc[2],
-        "acc/retr_top1pc": retr_acc[3],
-    }   
+        description = "[i] Eval ref"
+        for i, (img_arl, idx_arl, _) in enumerate(tqdm(loader_dict["ref"], desc=description, unit="batches")):
+            img_arl = img_arl.to(eval_infos["device"])            
+            out_emb_arl, _ = model_reference(img_arl)  # delta           
+            
+            ref_feat[idx_arl.cpu().numpy(), :] = out_emb_arl.detach().cpu().numpy()
+        
+        retr_acc = retr_accuracy(qry_feat, ref_feat, qry_label.astype(int))
+        
+        stats = {
+            "acc/retr_top1": retr_acc[0],
+            "acc/retr_top5": retr_acc[1],
+            "acc/retr_top10": retr_acc[2],
+            "acc/retr_top1pc": retr_acc[3],
+        }
     
     if eval_infos["retr_only"] == False:   
     

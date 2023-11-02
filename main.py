@@ -1,7 +1,10 @@
 import os, sys, yaml
-
+import datetime
+import argparse
 import torch
 from torch.utils.data import DataLoader
+
+import shutil
 
 import sys; sys.path.append("../")
 
@@ -11,6 +14,16 @@ from models import build, SAM
 from engine import train_one_epoch, valid_one_epoch, evaluate
 
 import wandb
+
+def parse_args():
+    parser = argparse.ArgumentParser(description='Train a CIPER')
+    parser.add_argument('config', help='config file path')
+    parser.add_argument(
+        '--debug',
+        action='store_true',
+        help='debug flag for disble logger')
+    args = parser.parse_args()
+    return args
 
 def adjust_learning_rate(optimizer, epoch, args):
     import math
@@ -43,23 +56,18 @@ def save_state(model, optimizer, epoch, is_best):
     #         save_path, "epoch_" + str(epoch - 3) + ".pth")
     #     if os.path.exists(prev_checkpoint_filename):
     #         os.remove(prev_checkpoint_filename)
-    
-    save_name = os.path.join(wandb.run.dir, "epoch_" + str(epoch)+".pth")
+    if wandb.run is not None:
+        save_name = os.path.join(wandb.run.dir, "epoch_" + str(epoch)+".pth")
     torch.save(state_dict, save_name)
-    wandb.save(save_name)
+    if wandb.run is not None:
+        wandb.save(save_name)
                     
 def main():
-    
+    cmd_args = parse_args()
+
     global args
-    with open(sys.argv[1], "r") as stream:        
-        args = yaml.safe_load(stream)      
-    
-    wandb.init(
-        # set the wandb project where this run will be logged
-        project="CIPER",
-        config=args,
-        name=sys.argv[1].split('/')[-1].split('.')[0]
-    )
+    with open(cmd_args.config, "r") as stream:
+        args = yaml.safe_load(stream)  
 
     print_pigeon()
 
@@ -98,77 +106,61 @@ def main():
         
         ## data_loader  
         dataset_train = build_dataset(mode="train", args=args)
-        dataset_val_q = build_dataset(mode="valid_qry", args=args)
-        dataset_val_r = build_dataset(mode="valid_ref", args=args)
-
+        
         sampler_train = None
-            
+  
         data_loader_train = DataLoader(dataset_train, batch_size=args["batch_size"], 
                                     shuffle=(sampler_train is None), 
                                     num_workers=args["num_workers"], pin_memory=True, sampler=sampler_train, drop_last=True)
-        data_loader_val_q = DataLoader(dataset_val_q, batch_size=32, shuffle=False,
-                                        num_workers=args["num_workers"], pin_memory=True) 
-        data_loader_val_r = DataLoader(dataset_val_r, batch_size=64, shuffle=False,
-                                        num_workers=args["num_workers"], pin_memory=True)
+  
+        out_dir = os.path.join(args["ckpt_dir"], 
+                            args["data_name"] + "-" + datetime.datetime.today().strftime("%d-%m-%y-%H:%M:%S"))
+        os.makedirs(out_dir)
+        shutil.copyfile(cmd_args.config, os.path.join(out_dir, "config.yaml"))
+            
         
-        data_loader_valid = {
-            "qry": data_loader_val_q,
-            "ref": data_loader_val_r
-        }
-            
-        if not args["retr_only"]:            
-            dataset_val = build_dataset(mode="valid", args=args)
-            data_loader_val = DataLoader(dataset_val, batch_size=args["batch_size"], shuffle=False, drop_last=False,
-                                        num_workers=args["num_workers"]) 
-            data_loader_valid["val"] = data_loader_val
-            
-        if args["data_name"] == "kitti":
-            dataset_val_q2 = build_dataset(mode="valid2_qry", args=args)
-            dataset_val_r2 = build_dataset(mode="valid2_ref", args=args)
-            data_loader_val_q2 = DataLoader(dataset_val_q2, batch_size=32, shuffle=False,
-                                        num_workers=args["num_workers"], pin_memory=True) 
-            data_loader_val_r2 = DataLoader(dataset_val_r2, batch_size=64, shuffle=False,
-                                        num_workers=args["num_workers"], pin_memory=True)
-            data_loader_valid["qry2"] = data_loader_val_q2
-            data_loader_valid["ref2"] = data_loader_val_r2
-            if not args["retr_only"]:       
-                dataset_val2 = build_dataset(mode="valid2", args=args)
-                data_loader_val2 = DataLoader(dataset_val2, batch_size=args["batch_size"], shuffle=False, drop_last=False,
-                                            num_workers=args["num_workers"]) 
-                data_loader_valid["val2"] = data_loader_val2
-        
-        # out_dir = os.path.join(args["ckpt_dir"], 
-        #                     args["data_name"] + "-" + datetime.datetime.today().strftime("%d-%m-%y-%H:%M:%S"))
-        # os.makedirs(out_dir)
-        # shutil.copyfile(sys.argv[1], os.path.join(out_dir, "config.yaml"))  
-            
-    else:
-        dataset_val_q = build_dataset(mode="valid_qry", args=args)
-        dataset_val_r = build_dataset(mode="valid_ref", args=args)
+  
+    dataset_val_s_q = build_dataset(mode="valid_same_qry", args=args)
+    dataset_val_s_r = build_dataset(mode="valid_same_ref", args=args)
+    dataset_val_c_q = build_dataset(mode="valid_cross_qry", args=args)
+    dataset_val_c_r = build_dataset(mode="valid_cross_ref", args=args)
 
-        data_loader_val_q = DataLoader(dataset_val_q, batch_size=32, shuffle=False,
-                                        num_workers=args["num_workers"], pin_memory=True) 
-        data_loader_val_r = DataLoader(dataset_val_r, batch_size=64, shuffle=False,
-                                        num_workers=args["num_workers"], pin_memory=True)
+    data_loader_val_s_q = DataLoader(dataset_val_s_q, batch_size=32, shuffle=False,
+                                    num_workers=args["num_workers"], pin_memory=True) 
+    data_loader_val_s_r = DataLoader(dataset_val_s_r, batch_size=64, shuffle=False,
+                                    num_workers=args["num_workers"], pin_memory=True)
+    data_loader_val_c_q = DataLoader(dataset_val_c_q, batch_size=32, shuffle=False,
+                                    num_workers=args["num_workers"], pin_memory=True) 
+    data_loader_val_c_r = DataLoader(dataset_val_c_r, batch_size=64, shuffle=False,
+                                    num_workers=args["num_workers"], pin_memory=True)
+    
+    data_loader_valid_same = {
+        "qry": data_loader_val_s_q,
+        "ref": data_loader_val_s_r
+    }
+    data_loader_valid_cross = {
+        "qry": data_loader_val_c_q,
+        "ref": data_loader_val_c_r
+    }
         
-        data_loader_valid = {
-            "qry": data_loader_val_q,
-            "ref": data_loader_val_r
-        }
-        
-        if not args["retr_only"]:         
-            dataset_val = build_dataset(mode="valid", args=args)
-            data_loader_val = DataLoader(dataset_val, batch_size=args["batch_size"], shuffle=False, drop_last=False,
-                                        num_workers=args["num_workers"]) 
-            data_loader_valid["val"] = data_loader_val
-
+    if not args["retr_only"]:            
+        dataset_val_same = build_dataset(mode="valid_same", args=args)
+        data_loader_val_same = DataLoader(dataset_val_same, batch_size=args["batch_size"], shuffle=False, drop_last=False,
+                                    num_workers=args["num_workers"]) 
+        data_loader_valid_same["val"] = data_loader_val_same
+        dataset_val_cross = build_dataset(mode="valid_cross", args=args)
+        data_loader_val_cross = DataLoader(dataset_val_cross, batch_size=args["batch_size"], shuffle=False, drop_last=False,
+                                    num_workers=args["num_workers"]) 
+        data_loader_valid_cross["val"] = data_loader_val_cross
+    
     if args["infer"]:
         eval_infos = {
         "device": args["device"],
         "retr_only": args["retr_only"],
         "dim_feature": args["dim_feature"],        
         }        
-        evaluate(model, postprocessors, data_loader_valid, eval_infos)
+        evaluate(model, postprocessors, data_loader_valid_same, (eval_infos|dict(valid='same')))
+        evaluate(model, postprocessors, data_loader_valid_cross, (eval_infos|dict(valid='cross')))
         return
 
     print("[i] start training ~")
@@ -185,12 +177,18 @@ def main():
         "device": args["device"],
         "retr_only": args["retr_only"],
         "best_metric": -1,
-        "dim_feature": args["dim_feature"],     
-        "data_name": args["data_name"],        
+        "dim_feature": args["dim_feature"],        
     }
 
     # print(len(data_loader_valid["qry"].dataset), len(data_loader_valid["ref"].dataset)); exit()
-        
+    if not cmd_args.debug:
+        wandb.init(
+            # set the wandb project where this run will be logged
+            project="CIPER",
+            config=args,
+            name=sys.argv[1].split('/')[-1].split('.')[0]
+        )
+    
     for epoch in range(args["start_epoch"], args["epochs"] + 1):
         
         adjust_learning_rate(optimizer, epoch, args)
@@ -200,16 +198,18 @@ def main():
                 model, criterion, postprocessors, data_loader_train, optimizer, train_infos)
             
         valid_infos["epoch"] = epoch
-        valid_infos = valid_one_epoch(model, criterion, postprocessors, data_loader_valid, valid_infos)   
+        valid_infos = valid_one_epoch(model, criterion, postprocessors, data_loader_valid_same, ({**valid_infos, **dict(valid='same')}))
+        valid_infos = valid_one_epoch(model, criterion, postprocessors, data_loader_valid_cross, ({**valid_infos, **dict(valid='cross')}))
         
         is_best = False
-        # if valid_infos["metric"] > valid_infos["best_metric"]:
-        #     valid_infos["best_metric"] = valid_infos["metric"]
-        #     is_best = True       
+        if valid_infos["metric"] > valid_infos["best_metric"]:
+            valid_infos["best_metric"] = valid_infos["metric"]
+            is_best = True       
             
-        save_state(model, optimizer, epoch, is_best)
+        save_state(out_dir, model, optimizer, epoch, is_best)
 
-    wandb.finish()
+    if wandb.run is not None:
+        wandb.finish()
         
 if __name__ == "__main__":
     main()
