@@ -6,7 +6,6 @@ from PIL import Image, ImageDraw
 
 def plot_result(results, targets, img_grd, img_arl):
     
-    # rand_ind = random.choice(range(img_grd.size(0)))   
     rand_ind = 0    
     img_grd_ = img_grd[rand_ind, :, :, :].detach().cpu().numpy()
     img_arl_ = img_arl[rand_ind, :, :, :].detach().cpu().numpy()
@@ -36,42 +35,41 @@ def plot_result(results, targets, img_grd, img_arl):
         img_bbox = np.concatenate([target_img, pred_img], 1)
         
         imgs = {
-            "1_gnd": img_grd_,
+            "1_grd": img_grd_,
             "2_bbox": img_bbox,
         }
     else:        
         imgs = {
-            "1_gnd": img_grd_,
+            "1_grd": img_grd_,
             "1_arl": img_arl_,
         }
         
-    if "attn1" in results[rand_ind].keys():
+    if "rng_mask" in results[rand_ind].keys():
         
-        ray_attn = results[rand_ind]["attn1"].detach().cpu().numpy()
-        bev_attn = results[rand_ind]["attn2"].detach().cpu().numpy()
+        rng_mask = results[rand_ind]["rng_mask"].detach().cpu().numpy()
+        bev_mask = results[rand_ind]["bev_mask"].detach().cpu().numpy()
         
-        ray_attn = np.tile(ray_attn[0], (32, 1))
-        img_ray_attn = draw_minmax_color_img(ray_attn, cmap=plt.cm.plasma)
+        rng_mask = np.tile(rng_mask[0], (32, 1))
+        img_rng_mask = draw_minmax_color_img(rng_mask, cmap=plt.cm.plasma)
         
-        n = int(bev_attn.shape[0] ** 0.5)
-        bev_attn = np.reshape(bev_attn[:, 0], (n, n))
-        img_bev_attn = draw_minmax_color_img(bev_attn, cmap=plt.cm.plasma)
+        n = int(bev_mask.shape[0] ** 0.5)
+        bev_mask = np.reshape(bev_mask[:, 0], (n, n))
+        img_bev_mask = draw_minmax_color_img(bev_mask, cmap=plt.cm.plasma)
         
-        imgs["3_ray_attn"] = img_ray_attn
-        imgs["3_bev_attn"] = img_bev_attn
+        imgs["3_rng_mask"] = img_rng_mask
+        imgs["3_bev_mask"] = img_bev_mask
         
     return imgs 
 
-def plot_criterion_save(criterion_save):
+def plot_intermediate(intermediate):
+    rand_ind = 0    
     
-    rand_ind = 0 
-    target_attn = criterion_save["target_attn"][rand_ind].detach().cpu().numpy() 
-    
-    target_attn = np.tile(target_attn[0], (32, 1))
-    img_target_attn = draw_minmax_color_img(target_attn, cmap=plt.cm.plasma)
+    target_mask = intermediate["target_mask"][rand_ind].detach().cpu().numpy()    
+    target_mask = np.tile(target_mask[0], (32, 1))
+    img_target_mask = draw_minmax_color_img(target_mask, cmap=plt.cm.plasma)
         
     img = {
-        "target_attn": img_target_attn
+        "target_mask": img_target_mask
     }
     return img
 

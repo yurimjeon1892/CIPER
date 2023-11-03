@@ -27,7 +27,7 @@ class CIPER(nn.Module):
         self.query_net = Encoder(args, args["grd_img_size"], mode="query")
         self.reference_net = Encoder(args, args["arl_img_size"])
         self.retr_only = args["retr_only"]
-        self.ray_attn = args["ray_attn"]
+        self.rng_mask = args["rng_mask"]
         if not self.retr_only: 
             self.rot_net = Recoder(args)
             self.pose_net = TwoWayDecoder(args)
@@ -41,11 +41,11 @@ class CIPER(nn.Module):
             "arl": emb_arl,
         }
         if not self.retr_only: 
-            if self.ray_attn:
-                bev_attn, ray_attn = self.rot_net(mem_grd, mem_arl)
-                mem_arl = torch.mul(bev_attn.to(mem_arl.device), mem_arl)
-                outputs["ray_attn"] = ray_attn
-                outputs["bev_attn"] = bev_attn
+            if self.rng_mask:
+                bev_mask, rng_mask = self.rot_net(mem_grd, mem_arl)
+                mem_arl = torch.mul(bev_mask.to(mem_arl.device), mem_arl)
+                outputs["rng_mask"] = rng_mask
+                outputs["bev_mask"] = bev_mask
             out_pos = self.pose_net(qry_emb_grd, mem_arl)
             outputs.update(out_pos)
         
@@ -68,7 +68,7 @@ class SetCriterion(nn.Module):
         empty_weight[-1] = self.eos_coef
         self.register_buffer("empty_weight", empty_weight)
         
-        self.criterion_save = {}
+        self.intermediate = {}
                 
         if "retrieval" in losses:          
             self.soft_triplet_loss = SoftTripletBiLoss().cuda()
@@ -127,9 +127,9 @@ class SetCriterion(nn.Module):
 
         return losses
     
-    def loss_attn(self, outputs, targets, indices):
-        src_attn = outputs["ray_attn"]
-        bs, w = src_attn.size(0), src_attn.size(-1)
+    def loss_mask(self, outputs, targets, indices):
+        src_mask = outputs["rng_mask"]
+        bs, w = src_mask.size(0), src_mask.size(-1)
         marg_w = int(w / 8)
         
         target_boxes = torch.cat([t["boxes"][i] for t, (_, i) in zip(targets, indices)], dim=0)
@@ -140,23 +140,24 @@ class SetCriterion(nn.Module):
         rounded_tensor = (yaw / (2 * math.pi)) * w
         rounded_tensor = torch.clamp(rounded_tensor.round(), 0, w - 1).long()
                 
-        target_attn = torch.zeros((bs, 1, 1, w))
+        target_mask = torch.zeros(src_mask.size(), requires_grad=False)
         for i in range(bs):
             y_id = rounded_tensor[i]            
             if y_id < marg_w:
-                target_attn[i, :,:, :y_id+marg_w] = 1.
-                target_attn[i, :,:, y_id-marg_w:] = 1.
+                target_mask[i, :, :y_id+marg_w] = 1.
+                target_mask[i, :, y_id-marg_w:] = 1.
             elif y_id > w - marg_w:
-                target_attn[i, :,:, :w-y_id] = 1.
-                target_attn[i, :,:, y_id-marg_w:] = 1.
+                target_mask[i, :, :w-y_id] = 1.
+                target_mask[i, :, y_id-marg_w:] = 1.
             else:
-                target_attn[i, :, :, y_id-marg_w:y_id+marg_w] = 1.
-        loss_attn = F.binary_cross_entropy(torch.sigmoid(src_attn), target_attn)
+                target_mask[i, :, y_id-marg_w:y_id+marg_w] = 1.
+        
+        loss_mask = F.binary_cross_entropy(src_mask, target_mask)
         
         losses = {}
-        losses["attn"] = loss_attn
+        losses["mask"] = loss_mask
         
-        self.criterion_save["target_attn"] = target_attn
+        self.intermediate["target_mask"] = target_mask
         return losses
         
     def _get_src_permutation_idx(self, indices):
@@ -170,7 +171,7 @@ class SetCriterion(nn.Module):
             "retrieval": self.loss_retrieval,
             "labels": self.loss_labels,
             "boxes": self.loss_boxes,
-            "attn": self.loss_attn,
+            "mask": self.loss_mask,
         }
         assert loss in loss_map, f"do you really want to compute {loss} loss?"
         return loss_map[loss](outputs, targets, indices)
@@ -234,11 +235,11 @@ class PostProcess(nn.Module):
          
         boxes = torch.stack([xs, ys, yaw], dim=-1)
         
-        ray_attn, bev_attn = outputs["ray_attn"], outputs["bev_attn"]
+        rng_mask, bev_mask = outputs["rng_mask"], outputs["bev_mask"]
 
         # results = [{"scores": s, "labels": l, "boxes": b} for s, l, b in zip(scores, labels, boxes)]
         # results = [{"scores": s, "boxes": b} for s, b in zip(scores, boxes)]  
-        results = [{"scores": s, "boxes": b, "attn1": ra, "attn2": ba} for s, b, ra, ba in zip(scores, boxes, ray_attn, bev_attn)]
+        results = [{"scores": s, "boxes": b, "rng_mask": rm, "bev_mask": bm} for s, b, rm, bm in zip(scores, boxes, rng_mask, bev_mask)]
         return results
     
 def build(args):
@@ -253,9 +254,9 @@ def build(args):
         losses = ["retrieval"]
     else:
         matcher = build_matcher(args)
-        weight_dict = {"retrieval": 1, "labels": args["label_loss_coef"], "boxes": args["bbox_loss_coef"], "attn": 0.001}
+        weight_dict = {"retrieval": 1, "labels": args["label_loss_coef"], "boxes": args["bbox_loss_coef"], "mask": 1.}
         eos_coef = args["eos_coef"]
-        losses = ["retrieval", "labels", "boxes", "attn"]   
+        losses = ["retrieval", "labels", "boxes", "mask"]   
     criterion = SetCriterion(matcher=matcher, weight_dict=weight_dict, eos_coef=eos_coef, losses=losses)
     
     # build post processor           

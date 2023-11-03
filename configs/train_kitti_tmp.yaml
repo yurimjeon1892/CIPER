@@ -10,7 +10,7 @@ batch_size: 2 # 12
 
 device: cuda # device to use for training / testing 
 
-epochs: 10
+epochs: 100
 start_epoch: 1
 
 # ----- data config
@@ -41,7 +41,7 @@ cos: True
 
 # ----- model config
 retr_only: False
-ray_attn: True
+rng_mask: True
 
 num_queries: 100
 
