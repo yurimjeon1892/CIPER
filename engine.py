@@ -263,6 +263,7 @@ def valid_pose(model: torch.nn.Module,
         stats["valid_same_err/pose_trs_median(m)"] = np.median(trs_errs)
         stats["valid_same_err/pose_rot_mean(deg)"] = np.mean(rot_errs)
         stats["valid_same_err/pose_rot_median(deg)"] = np.median(rot_errs)
+        
     elif valid_infos["valid"] == "cross":
         for k in plot_imgs.keys(): 
             if plot_imgs[k].shape[0] == 3:
