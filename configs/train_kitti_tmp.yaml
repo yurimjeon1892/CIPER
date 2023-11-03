@@ -10,8 +10,7 @@ batch_size: 2 # 12
 
 device: cuda # device to use for training / testing 
 
-# ckpt_dir: ../tmp
-epochs: 10
+epochs: 100
 start_epoch: 1
 
 # ----- data config
@@ -25,8 +24,16 @@ shift_range_lat: 20
 shift_range_lon: 20 
 rotation_range: 180 
 
+# train_pt_list: ./datasets/splits/kitti/train_files.txt
+# val_same_pt_list: ./datasets/splits/kitti/test1_files.txt
+# val_cross_pt_list: ./datasets/splits/kitti/test1_files.txt
+
+train_pt_list: ./datasets/splits/kitti/test1_mini.txt
+val_same_pt_list: ./datasets/splits/kitti/test1_mini.txt
+val_cross_pt_list: ./datasets/splits/kitti/test1_mini.txt
+
 # ----- optimizer config
-lr: 0.00001
+lr: 0.0001
 weight_decay: 0.03
 
 optimizer: adamw
@@ -34,7 +41,7 @@ cos: True
 
 # ----- model config
 retr_only: False
-ray_attn: True
+rng_mask: True
 
 num_queries: 100
 

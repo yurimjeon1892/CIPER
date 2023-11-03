@@ -9,7 +9,7 @@ import numpy as np
 
 import random 
 from common.utils import AverageMeter, retr_accuracy, pose_accuracy
-from common.utils_plot import plot_result, plot_criterion_save
+from common.utils_plot import plot_result, plot_intermediate
 import wandb
 
 def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module, postprocessors: torch.nn.Module,
@@ -50,7 +50,7 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module, postproc
         
         if not train_infos["retr_only"]:
             if i == sample_ind: 
-                p_imgs = plot_criterion_save(criterion.criterion_save)
+                p_imgs = plot_intermediate(criterion.intermediate)
                 plot_imgs.update(p_imgs)
         
         # compute gradient and do SGD step        
@@ -81,7 +81,7 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module, postproc
         if wandb.run is not None:
             imgs["train_image/" + k] = wandb.Image(plot_imgs[k])
     if wandb.run is not None:
-        wandb.log(imgs)
+        wandb.log(imgs, step=train_infos["epoch"])
     
     stats = {}
     loss_total = 0
@@ -90,9 +90,7 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module, postproc
         loss_total += losses_meter[k].avg
     stats["train_loss/total"] = loss_total
     if wandb.run is not None:
-        wandb.log(stats)
-    
-    # update_summary(summary, imgs, stats, train_infos["epoch"], "train")
+        wandb.log(stats, step=train_infos["epoch"])
         
     for k in stats.keys():
         print("   ", k + ": {:.8f}".format(stats[k]), end = "\n")
@@ -119,15 +117,14 @@ def valid_one_epoch(model: torch.nn.Module,
         imgs.update(imgs1); stats.update(stats1)
         # wandb.log(img1)
         if wandb.run is not None:
-            wandb.log(stats)
+            wandb.log(stats, step=valid_infos["epoch"])
     
     if not valid_infos["retr_only"]:  
         imgs2, stats2 = valid_pose(model, criterion, postprocessors, loader_dict["val"], valid_infos)        
         imgs.update(imgs2); stats.update(stats2)
         if wandb.run is not None:
-            wandb.log(imgs2); wandb.log(stats2)
-
-    
+            wandb.log(imgs2, step=valid_infos["epoch"]); wandb.log(stats2, step=valid_infos["epoch"])
+            
     # update_summary(summary, imgs, stats, valid_infos["epoch"], "valid")
     
     print("[i] Valid {:>2}:".format(valid_infos["epoch"]), end = "\n")
@@ -214,8 +211,8 @@ def valid_pose(model: torch.nn.Module,
     for k in criterion.losses: losses_meter[k] = AverageMeter()
     
     trs_errs, rot_errs = [], []    
-    # sample_ind = random.choice(range(len(data_loader)))  
-    sample_ind = 0  
+    sample_ind = random.choice(range(len(data_loader)))  
+    # sample_ind = 0  
     with torch.no_grad():
         description = "[i] Valid pose"
         for i, (img_grd, img_arl, targets) in enumerate(tqdm(data_loader, desc=description, unit="batches")):
@@ -232,7 +229,7 @@ def valid_pose(model: torch.nn.Module,
             
             if i == sample_ind: 
                 plot_imgs = plot_result(results, targets, img_grd, img_arl)
-                p_imgs = plot_criterion_save(criterion.criterion_save)
+                p_imgs = plot_intermediate(criterion.intermediate)
                 plot_imgs.update(p_imgs)
                 
             trs_err, rot_err = pose_accuracy(results, targets)
@@ -319,7 +316,7 @@ def evaluate(model: torch.nn.Module,
             idx_grd = idx_grd.to(eval_infos["device"])
             labels = labels.to(eval_infos["device"])
             
-            out_emb_grd, _ = model_query(img_grd)
+            out_emb_grd, _, _ = model_query(img_grd)
             qry_feat[idx_grd.cpu().numpy(), :] = out_emb_grd.cpu().numpy()
             qry_label[idx_grd.cpu().numpy()] = labels.cpu().numpy()
         
