@@ -73,7 +73,7 @@ class Ford(torch.utils.data.Dataset):
                         sat_file = os.path.join(self.root, log, satmap_dir, s_lat + "_" + s_lon + ".png")
                         file_name.append([grd_file_FL, float(q0), float(q1), float(q2), float(q3), float(g_lat), float(g_lon),
                                     float(s_lat), float(s_lon), sat_file])
-            elif self.mode == "valid":
+            elif "valid" in self.mode:
                 with open(os.path.join(self.root, log, data_file), "r") as f:
                     lines = f.readlines()
                     # if whole == 0:
@@ -133,7 +133,7 @@ class Ford(torch.utils.data.Dataset):
     
     def __getitem__(self, index):
 
-        if self.mode == "train" or self.mode == "valid":     
+        if self.mode == "train" or self.mode == "valid_same":     
             
             if self.mode == "train":   
                 grd_name, q0, q1, q2, q3, g_lat, g_lon, s_lat, s_lon, sat_name = self.file_name[index]
@@ -184,30 +184,30 @@ class Ford(torch.utils.data.Dataset):
 
             sat_img = TF.center_crop(sat_rand_shift_rot, self.sidelength)
             sat_img = self.satmap_transform(sat_img)
-            
+                        
             # target
-            tgt_y = (gt_shift_v * self.shift_range_pixels_lon) / self.arl_img_size[1]
-            tgt_x = (gt_shift_u * self.shift_range_pixels_lat) / self.arl_img_size[0]
+            tgt_x = -(gt_shift_v * self.shift_range_pixels_lon) / self.arl_img_size[1]
+            tgt_y = -(gt_shift_u * self.shift_range_pixels_lat) / self.arl_img_size[0]
             
-            tgt_rad = np.deg2rad(theta * self.rotation_range)
+            tgt_rad = np.deg2rad(theta * self.rotation_range + 180.)
             tgt_cos = np.cos(tgt_rad)
             tgt_sin = np.sin(tgt_rad)
             
             target = {
                 "boxes": torch.tensor(
-                    [[tgt_x, tgt_y, tgt_cos, tgt_sin]]
+                    np.array([[tgt_x, tgt_y, tgt_cos, tgt_sin]])
                 ),
                 "labels": torch.tensor([0]),
-                "orig_size": torch.as_tensor([int(self.arl_img_size[0]), int(self.arl_img_size[1])]),      
-                "meter_per_pixel": torch.tensor([self.meters_per_pixel]),  
-                "R_FL": self.R_FL,
-                "T_FL": self.T_FL,
-                "grd_name": grd_name
+                "orig_size": torch.as_tensor(np.array([int(self.arl_img_size[0]), int(self.arl_img_size[1])])),      
+                "meter_per_pixel": torch.as_tensor(np.array([self.meters_per_pixel])),  
+                "R_FL": torch.as_tensor(np.array([self.R_FL])),
+                "T_FL": torch.as_tensor(np.array([self.T_FL])),
+                # "grd_name": torch.tensor([grd_name])
             }
 
             return grd_img, sat_img, target 
         
-        elif self.mode == "valid_ref":                 
+        elif self.mode == "valid_same_ref":                 
             
             grd_name, q0, q1, q2, q3, g_lat, g_lon, s_lat, s_lon, sat_name, gt_shift_u, gt_shift_v, theta = self.file_name[index]
                  
@@ -248,7 +248,7 @@ class Ford(torch.utils.data.Dataset):
             
             return sat_img, torch.tensor(index), 0
 
-        elif self.mode == "valid_qry":           
+        elif self.mode == "valid_same_qry":           
             
             grd_name, q0, q1, q2, q3, g_lat, g_lon, s_lat, s_lon, sat_name, gt_shift_u, gt_shift_v, theta = self.file_name[index]
             

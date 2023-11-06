@@ -111,36 +111,41 @@ def main():
   
     dataset_val_s_q = build_dataset(mode="valid_same_qry", args=args)
     dataset_val_s_r = build_dataset(mode="valid_same_ref", args=args)
-    dataset_val_c_q = build_dataset(mode="valid_cross_qry", args=args)
-    dataset_val_c_r = build_dataset(mode="valid_cross_ref", args=args)
 
     data_loader_val_s_q = DataLoader(dataset_val_s_q, batch_size=32, shuffle=False,
                                     num_workers=args["num_workers"], pin_memory=True) 
     data_loader_val_s_r = DataLoader(dataset_val_s_r, batch_size=64, shuffle=False,
-                                    num_workers=args["num_workers"], pin_memory=True)
-    data_loader_val_c_q = DataLoader(dataset_val_c_q, batch_size=32, shuffle=False,
-                                    num_workers=args["num_workers"], pin_memory=True) 
-    data_loader_val_c_r = DataLoader(dataset_val_c_r, batch_size=64, shuffle=False,
                                     num_workers=args["num_workers"], pin_memory=True)
     
     data_loader_valid_same = {
         "qry": data_loader_val_s_q,
         "ref": data_loader_val_s_r
     }
-    data_loader_valid_cross = {
-        "qry": data_loader_val_c_q,
-        "ref": data_loader_val_c_r
-    }
+    
+    if args["data_name"] == "kitti":
+        dataset_val_c_q = build_dataset(mode="valid_cross_qry", args=args)
+        dataset_val_c_r = build_dataset(mode="valid_cross_ref", args=args)
+        data_loader_val_c_q = DataLoader(dataset_val_c_q, batch_size=32, shuffle=False,
+                                        num_workers=args["num_workers"], pin_memory=True) 
+        data_loader_val_c_r = DataLoader(dataset_val_c_r, batch_size=64, shuffle=False,
+                                        num_workers=args["num_workers"], pin_memory=True)
+        
+        data_loader_valid_cross = {
+            "qry": data_loader_val_c_q,
+            "ref": data_loader_val_c_r
+        }
         
     if not args["retr_only"]:            
         dataset_val_same = build_dataset(mode="valid_same", args=args)
         data_loader_val_same = DataLoader(dataset_val_same, batch_size=args["batch_size"], shuffle=False, drop_last=False,
                                     num_workers=args["num_workers"]) 
         data_loader_valid_same["val"] = data_loader_val_same
-        dataset_val_cross = build_dataset(mode="valid_cross", args=args)
-        data_loader_val_cross = DataLoader(dataset_val_cross, batch_size=args["batch_size"], shuffle=False, drop_last=False,
-                                    num_workers=args["num_workers"]) 
-        data_loader_valid_cross["val"] = data_loader_val_cross
+        
+        if args["data_name"] == "kitti":
+            dataset_val_cross = build_dataset(mode="valid_cross", args=args)
+            data_loader_val_cross = DataLoader(dataset_val_cross, batch_size=args["batch_size"], shuffle=False, drop_last=False,
+                                        num_workers=args["num_workers"]) 
+            data_loader_valid_cross["val"] = data_loader_val_cross
     
     if args["infer"]:
         eval_infos = {
@@ -187,8 +192,12 @@ def main():
                 model, criterion, postprocessors, data_loader_train, optimizer, train_infos)
             
         valid_infos["epoch"] = epoch
-        valid_infos = valid_one_epoch(model, criterion, postprocessors, data_loader_valid_same, ({**valid_infos, **dict(valid='same')}))
-        valid_infos = valid_one_epoch(model, criterion, postprocessors, data_loader_valid_cross, ({**valid_infos, **dict(valid='cross')}))
+        
+        if args["data_name"] == "kitti":
+            valid_infos = valid_one_epoch(model, criterion, postprocessors, data_loader_valid_same, ({**valid_infos, **dict(valid='same')}))
+            valid_infos = valid_one_epoch(model, criterion, postprocessors, data_loader_valid_cross, ({**valid_infos, **dict(valid='cross')}))
+        elif args["data_name"] == "ford":
+            valid_infos = valid_one_epoch(model, criterion, postprocessors, data_loader_valid_same, ({**valid_infos, **dict(valid='same')}))
         
         is_best = False
         if valid_infos["metric"] > valid_infos["best_metric"]:
