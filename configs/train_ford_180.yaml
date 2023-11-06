@@ -24,7 +24,7 @@ arl_img_size: [512, 512]
 
 shift_range_lat: 20 
 shift_range_lon: 20 
-rotation_range: 10 
+rotation_range: 180 
 
 whole: 0
 
