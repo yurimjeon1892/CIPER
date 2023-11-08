@@ -125,10 +125,14 @@ class Ford(torch.utils.data.Dataset):
         self.satmap_sidelength_meters = self.sidelength * self.meters_per_pixel
         self.satmap_transform = transforms.Compose([
             transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                 std=[0.229, 0.224, 0.225]),
         ])
         self.grdimage_transform = transforms.Compose([
             transforms.Resize(size=self.grd_img_size),
             transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                 std=[0.229, 0.224, 0.225]),
         ])
     
     def __getitem__(self, index):
@@ -140,9 +144,14 @@ class Ford(torch.utils.data.Dataset):
             else:
                 grd_name, q0, q1, q2, q3, g_lat, g_lon, s_lat, s_lon, sat_name, gt_shift_u, gt_shift_v, theta = self.file_name[index]
 
+            # =================== read ground image ===================================
             grd_img = Image.open(grd_name).convert("RGB")
-            grd_img = self.grdimage_transform(grd_img)
-
+            
+            
+            # =================== read satellite map ==================================
+            sat_map = Image.open(sat_name).convert("RGB")
+            
+            # =================== initialize some required variables ==================
             # Xc = np.array([0, 0, 0]).reshape(3)
             # Rw = qvec2rotmat([float(q0), float(q1), float(q2), float(q3)])
             # # body frame to world frame: Xw = Rw @ Xb + Tw  (Tw are all zeros)
@@ -156,8 +165,7 @@ class Ford(torch.utils.data.Dataset):
 
             b_delta_u = (g_x - s_x) / self.meters_per_pixel # relative u shift of body frame with respect to satellite image center
             b_delta_v = - (g_y - s_y) / self.meters_per_pixel # relative v shift of body frame with respect to satellite image center
-
-            sat_map = Image.open(sat_name).convert("RGB")
+            
             sat_align_body_loc = sat_map.transform(sat_map.size, Image.AFFINE,
                                             (1, 0, b_delta_u,
                                             0, 1, b_delta_v),
@@ -166,26 +174,29 @@ class Ford(torch.utils.data.Dataset):
             roll, pitch, yaw = qvec2angle(q0, q1, q2, q3)  # in terms of degree
             sat_align_body_loc_orien = sat_align_body_loc.rotate(yaw)
             
+            # =================== add random translation & rotation ===================
+            grd_img = self.grdimage_transform(grd_img)
+            
+            if self.mode == "train":
+                theta = np.random.uniform(-1, 1)
+            sat_rand_rot = sat_align_body_loc_orien.rotate(theta * self.rotation_range)
+            
             if self.mode == "train":
                 # random shift
                 gt_shift_u = np.random.uniform(-1, 1)  # --> right (east) as positive, vertical to the heading, lateral
                 gt_shift_v = np.random.uniform(-1, 1)  # --> down (south) as positive, parallel to the heading, longitudinal
 
-            sat_rand_shift = \
-                sat_align_body_loc_orien.transform(
+            sat_rand_rot_rand_shift = \
+                sat_rand_rot.transform(
                     sat_align_body_loc_orien.size, Image.AFFINE,
                     (1, 0, gt_shift_u * self.shift_range_pixels_lat,
                     0, 1, gt_shift_v * self.shift_range_pixels_lon),
                     resample=Image.BILINEAR)
 
-            if self.mode == "train":
-                theta = np.random.uniform(-1, 1)
-            sat_rand_shift_rot = sat_rand_shift.rotate(theta * self.rotation_range)
-
-            sat_img = TF.center_crop(sat_rand_shift_rot, self.sidelength)
+            sat_img = TF.center_crop(sat_rand_rot_rand_shift, self.sidelength)
             sat_img = self.satmap_transform(sat_img)
                         
-            # target
+            # =================== make target dict ====================================
             tgt_x = -(gt_shift_v * self.shift_range_pixels_lon) / self.arl_img_size[1]
             tgt_y = -(gt_shift_u * self.shift_range_pixels_lat) / self.arl_img_size[0]
             
@@ -219,8 +230,11 @@ class Ford(torch.utils.data.Dataset):
                                     g_x - s_x) / self.meters_per_pixel  # relative u shift of body frame with respect to satellite image center
             b_delta_v = - (
                         g_y - s_y) / self.meters_per_pixel  # relative v shift of body frame with respect to satellite image center
-
+            
+            # =================== read satellite map ===================================
             sat_map = Image.open(sat_name).convert("RGB")
+            
+            # =================== initialize some required variables ============================
             sat_align_body_loc = sat_map.transform(sat_map.size, Image.AFFINE,
                                                 (1, 0, b_delta_u,
                                                     0, 1, b_delta_v),
@@ -232,18 +246,20 @@ class Ford(torch.utils.data.Dataset):
             # random shift
             # gt_shift_u = np.random.uniform(-1, 1)  # --> right (east) as positive, vertical to the heading, lateral
             # gt_shift_v = np.random.uniform(-1, 1)  # --> down (south) as positive, parallel to the heading, longitudinal
-
-            sat_rand_shift = \
-                sat_align_body_loc_orien.transform(
+            
+            # =================== add random translation & rotation ===================  
+            sat_rand_rot = sat_align_body_loc_orien.rotate(theta * self.rotation_range)
+            
+            sat_rand_rot_rand_shift = \
+                sat_rand_rot.transform(
                     sat_align_body_loc_orien.size, Image.AFFINE,
                     (1, 0, gt_shift_u * self.shift_range_pixels_lat,
                     0, 1, gt_shift_v * self.shift_range_pixels_lon),
                     resample=Image.BILINEAR)
 
             # theta = np.random.uniform(-1, 1)
-            sat_rand_shift_rot = sat_rand_shift.rotate(theta * self.rotation_range)
 
-            sat_img = TF.center_crop(sat_rand_shift_rot, self.sidelength)
+            sat_img = TF.center_crop(sat_rand_rot_rand_shift, self.sidelength)
             sat_img = self.satmap_transform(sat_img)
             
             return sat_img, torch.tensor(index), 0

@@ -21,11 +21,10 @@ def retr_accuracy(qry_feat, ref_feat, qry_label, topk=[1, 5, 10]):
     """Computes the accuracy over the k top predictions for the specified values of k"""
     N = qry_feat.shape[0]
     M = ref_feat.shape[0]
-    # print("N: ", N, "M: ", M)
     topk.append(M//100)
     results = np.zeros([len(topk)])
     # for CVUSA, CVACT
-    if N < 10000:
+    if N < 20000:
         qry_feat_norm = np.sqrt(np.sum(qry_feat**2, axis=1, keepdims=True))
         ref_feat_norm = np.sqrt(np.sum(ref_feat ** 2, axis=1, keepdims=True))
         similarity = np.matmul(qry_feat/qry_feat_norm, (ref_feat/ref_feat_norm).transpose())
