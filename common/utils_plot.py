@@ -1,5 +1,5 @@
 import numpy as np
-import random
+import random, os
 
 import matplotlib.pyplot as plt
 from PIL import Image, ImageDraw
@@ -72,6 +72,32 @@ def plot_intermediate(intermediate):
         "target_mask": img_target_mask
     }
     return img
+
+def plot_data(img_grd, img_arl, targets, save_root, idx):
+    
+    img_grd = img_grd.detach().cpu().numpy()
+    img_arl = img_arl.detach().cpu().numpy()
+    
+    for i in range(img_grd.shape[0]):
+        arl_img_size = targets[i]["orig_size"].detach().cpu().numpy()
+        meter_per_pixel = targets[i]["meter_per_pixel"][0].detach().cpu().numpy()
+        tgt = targets[i]["boxes"][0].detach().cpu().numpy()   
+        yaw = np.arctan2(tgt[3], tgt[2])
+        tgt = np.array([[tgt[0] * arl_img_size[0] * meter_per_pixel,
+                         tgt[1] * arl_img_size[1] * meter_per_pixel,
+                         yaw]])         
+        target_img = draw_3dof_pin(img_arl[i], tgt, arl_img_size, meter_per_pixel, "orange")
+        
+        im = Image.fromarray(target_img)        
+        im = im.save(os.path.join(save_root, str(idx).zfill(4) + "_" + str(i).zfill(2) + "_arl.png")) 
+        
+        img_grd_ = img_grd[i]
+        
+        if img_grd_.shape[0] == 3: img_grd_ = np.transpose(img_grd_, (1, 2, 0)).copy() 
+        im2 = Image.fromarray(np.uint8(np.array(img_grd_).copy() * 255)) 
+        im2 = im2.save(os.path.join(save_root, str(idx).zfill(4) + "_" + str(i).zfill(2) + "_grd.png")) 
+        
+    return  
 
 def draw_3dof_pin(img_np, boxes, img_size, meter_per_pixel, color, radius=5):    
     

@@ -91,12 +91,12 @@ class KITTI(torch.utils.data.Dataset):
             try: grd_img = Image.open(left_img_name, 'r'); grd_img = grd_img.convert('RGB')   
             except: FileNotFoundError(f'{left_img_name} not exists')
 
-            # =================== read satellite map ===================================
+            # =================== read satellite map ==================================
             arl_img_name = os.path.join(self.root, "satellite", file_name)
             try: arl_img = Image.open(arl_img_name, 'r'); arl_img = arl_img.convert('RGB')   
             except: FileNotFoundError(f'{arl_img_name} not exists')
 
-            # =================== initialize some required variables ============================
+            # =================== initialize some required variables ==================
             # oxt: such as 0000000000.txt
             oxts_file_name = os.path.join(self.root, "raw", drive_dir, "oxts/data",
                                         image_no.lower().replace('.png', '.txt'))
@@ -114,23 +114,24 @@ class KITTI(torch.utils.data.Dataset):
             arl_img = arl_align_cam
             # the homography is defined on: from target pixel to source pixel
             # now north direction is the real vehicle heading direction
-                        
-            grd_img = self.transform_query(grd_img)
             
-            arl_rand_shift = \
-                arl_img.transform(
+            # =================== add random translation & rotation ===================            
+            grd_img = self.transform_query(grd_img)    
+            
+            arl_rand_rot = \
+                arl_img.rotate(theta * self.rotation_range)  
+            
+            arl_rand_rot_rand_shift = \
+                arl_rand_rot.transform(
                     arl_img.size, Image.AFFINE,
                     (1, 0, -gt_shift_x * self.shift_range_pixels_lon,
                     0, 1, -gt_shift_y * self.shift_range_pixels_lat),
                     resample=Image.BILINEAR)
-                            
-            arl_rand_shift_rand_rot = \
-                arl_rand_shift.rotate(theta * self.rotation_range)
          
-            arl_img = TF.center_crop(arl_rand_shift_rand_rot, self.arl_img_size[0])            
-            arl_img = self.transform_reference(arl_img)            
-                    
-            # target 
+            arl_img = TF.center_crop(arl_rand_rot_rand_shift, self.arl_img_size[0])            
+            arl_img = self.transform_reference(arl_img)  
+            
+            # =================== make target dict ====================================
             tgt_y = (gt_shift_x * self.shift_range_pixels_lon) / self.arl_img_size[1]
             tgt_x = (gt_shift_y * self.shift_range_pixels_lat) / self.arl_img_size[0]
             
@@ -180,17 +181,19 @@ class KITTI(torch.utils.data.Dataset):
             arl_img = arl_align_cam
             # the homography is defined on: from target pixel to source pixel
             # now north direction is the real vehicle heading direction 
-            arl_rand_shift = \
-                arl_img.transform(
+            
+            # =================== add random translation & rotation ===================  
+            arl_rand_rot = \
+                arl_img.rotate(theta * self.rotation_range)  
+            
+            arl_rand_rot_rand_shift = \
+                arl_rand_rot.transform(
                     arl_img.size, Image.AFFINE,
                     (1, 0, -gt_shift_x * self.shift_range_pixels_lon,
                     0, 1, -gt_shift_y * self.shift_range_pixels_lat),
                     resample=Image.BILINEAR)
-                            
-            arl_rand_shift_rand_rot = \
-                arl_rand_shift.rotate(theta * self.rotation_range)
          
-            arl_img = TF.center_crop(arl_rand_shift_rand_rot, self.arl_img_size[0])            
+            arl_img = TF.center_crop(arl_rand_rot_rand_shift, self.arl_img_size[0])            
             arl_img = self.transform_reference(arl_img)   
             
             return arl_img, torch.tensor(index), 0

@@ -125,10 +125,14 @@ class Ford(torch.utils.data.Dataset):
         self.satmap_sidelength_meters = self.sidelength * self.meters_per_pixel
         self.satmap_transform = transforms.Compose([
             transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                 std=[0.229, 0.224, 0.225]),
         ])
         self.grdimage_transform = transforms.Compose([
             transforms.Resize(size=self.grd_img_size),
             transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                 std=[0.229, 0.224, 0.225]),
         ])
     
     def __getitem__(self, index):
@@ -166,23 +170,40 @@ class Ford(torch.utils.data.Dataset):
             roll, pitch, yaw = qvec2angle(q0, q1, q2, q3)  # in terms of degree
             sat_align_body_loc_orien = sat_align_body_loc.rotate(yaw)
             
+            # if self.mode == "train":
+            #     # random shift
+            #     gt_shift_u = np.random.uniform(-1, 1)  # --> right (east) as positive, vertical to the heading, lateral
+            #     gt_shift_v = np.random.uniform(-1, 1)  # --> down (south) as positive, parallel to the heading, longitudinal
+
+            # sat_rand_shift = \
+            #     sat_align_body_loc_orien.transform(
+            #         sat_align_body_loc_orien.size, Image.AFFINE,
+            #         (1, 0, gt_shift_u * self.shift_range_pixels_lat,
+            #         0, 1, gt_shift_v * self.shift_range_pixels_lon),
+            #         resample=Image.BILINEAR)
+
+            # if self.mode == "train":
+            #     theta = np.random.uniform(-1, 1)
+            # sat_rand_shift_rot = sat_rand_shift.rotate(theta * self.rotation_range)
+            
+            if self.mode == "train":
+                theta = np.random.uniform(-1, 1)
+            sat_rand_shift_rot = sat_align_body_loc_orien.rotate(theta * self.rotation_range)
+            
             if self.mode == "train":
                 # random shift
                 gt_shift_u = np.random.uniform(-1, 1)  # --> right (east) as positive, vertical to the heading, lateral
                 gt_shift_v = np.random.uniform(-1, 1)  # --> down (south) as positive, parallel to the heading, longitudinal
 
             sat_rand_shift = \
-                sat_align_body_loc_orien.transform(
+                sat_rand_shift_rot.transform(
                     sat_align_body_loc_orien.size, Image.AFFINE,
                     (1, 0, gt_shift_u * self.shift_range_pixels_lat,
                     0, 1, gt_shift_v * self.shift_range_pixels_lon),
                     resample=Image.BILINEAR)
+            ###
 
-            if self.mode == "train":
-                theta = np.random.uniform(-1, 1)
-            sat_rand_shift_rot = sat_rand_shift.rotate(theta * self.rotation_range)
-
-            sat_img = TF.center_crop(sat_rand_shift_rot, self.sidelength)
+            sat_img = TF.center_crop(sat_rand_shift, self.sidelength)
             sat_img = self.satmap_transform(sat_img)
                         
             # target
