@@ -73,7 +73,7 @@ class Recoder(nn.Module):
         return rng_masks
     
     def convert_rng_to_bev_mask(self, rng_mask):              
-        bev_mask = torch.zeros((rng_mask.size(0), rng_mask.size(1), self.arl_patch_size[0], self.arl_patch_size[1])) 
+        bev_mask = torch.zeros((rng_mask.size(0), rng_mask.size(1), self.arl_patch_size[0], self.arl_patch_size[1])) + 0.5
         
         n = self.arl_patch_size[0]
         cx, cy, rad = (n // 2) - 1, (n // 2) - 1, n // 2 
