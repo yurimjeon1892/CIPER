@@ -158,12 +158,12 @@ class KITTI(torch.utils.data.Dataset):
             drive_dir = file_name[:38]
             image_no = file_name[38:]
 
-            # =================== read satellite map ===================================
+            # =================== read satellite map ==================================
             arl_img_name = os.path.join(self.root, "satellite", file_name)
             try: arl_img = Image.open(arl_img_name, 'r'); arl_img = arl_img.convert('RGB')   
             except: FileNotFoundError(f'{arl_img_name} not exists')
 
-            # =================== initialize some required variables ============================
+            # =================== initialize some required variables ==================
             # oxt: such as 0000000000.txt
             oxts_file_name = os.path.join(self.root, "raw", drive_dir, "oxts/data",
                                         image_no.lower().replace('.png', '.txt'))

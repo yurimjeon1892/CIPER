@@ -35,7 +35,7 @@ class CIPER(nn.Module):
     def forward(self, im_grd, im_arl):
         
         emb_grd, mem_grd, qry_emb_grd = self.query_net(im_grd)
-        emb_arl, mem_arl = self.reference_net(im_arl)
+        emb_arl, mem_arl, _ = self.reference_net(im_arl)
         outputs = {
             "grd": emb_grd,
             "arl": emb_arl,

@@ -231,10 +231,10 @@ class Ford(torch.utils.data.Dataset):
             b_delta_v = - (
                         g_y - s_y) / self.meters_per_pixel  # relative v shift of body frame with respect to satellite image center
             
-            # =================== read satellite map ===================================
+            # =================== read satellite map ==================================
             sat_map = Image.open(sat_name).convert("RGB")
             
-            # =================== initialize some required variables ============================
+            # =================== initialize some required variables ==================
             sat_align_body_loc = sat_map.transform(sat_map.size, Image.AFFINE,
                                                 (1, 0, b_delta_u,
                                                     0, 1, b_delta_v),

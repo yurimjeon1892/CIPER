@@ -73,12 +73,22 @@ def main():
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print("[i] number of params:", n_parameters // 10 ** 6, "M")
     
+    if not cmd_args.debug:
+        wandb.init(
+            # set the wandb project where this run will be logged
+            project="CIPER",
+            config=args,
+            name=sys.argv[1].split('/')[-1].split('.')[0],
+            resume=(args["resume"] != False)
+        )
+    
     if args["resume"] != False:
         checkpoint = torch.load(args["resume"], map_location="cpu")
+        print(checkpoint.keys())
         model.load_state_dict(checkpoint["model"])
         if args["infer"]:
             print("[i] load checkpoint from:", args["resume"], "for inference")
-        elif "optimizer" in checkpoint and "lr_scheduler" in checkpoint and "epoch" in checkpoint:
+        elif "optimizer" in checkpoint and "epoch" in checkpoint:
             args["start_epoch"] = checkpoint["epoch"] + 1        
             print("[i] load checkpoint from:", args["resume"], "for train")
         else:
@@ -175,13 +185,7 @@ def main():
     }
 
     # print(len(data_loader_valid["qry"].dataset), len(data_loader_valid["ref"].dataset)); exit()
-    if not cmd_args.debug:
-        wandb.init(
-            # set the wandb project where this run will be logged
-            project="CIPER",
-            config=args,
-            name=sys.argv[1].split('/')[-1].split('.')[0]
-        )
+    
     
     for epoch in range(args["start_epoch"], args["epochs"] + 1):
         
