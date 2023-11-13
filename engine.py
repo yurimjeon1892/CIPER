@@ -169,7 +169,7 @@ def valid_retr(model: torch.nn.Module,
         for i, (img_arl, idx_arl, _) in enumerate(tqdm(ref_loader, desc=description, unit="batches")):
             
             img_arl = img_arl.to(valid_infos["device"])            
-            out_emb_arl, _ = model_reference(img_arl)  # delta           
+            out_emb_arl, _, _ = model_reference(img_arl)  # delta           
              
             ref_feat[idx_arl.cpu().numpy(), :] = out_emb_arl.detach().cpu().numpy()
             if i == 0: img_arl_ = img_arl[0, :, :, :]
