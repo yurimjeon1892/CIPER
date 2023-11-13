@@ -22,6 +22,8 @@ class Recoder(nn.Module):
         self.mlp_mask_grd = MLP(args["dim_embed"], int(args["dim_embed"] / 4), output_dim=args["dim_embed"], num_layers=3) 
         self.mlp_mask_arl = MLP(args["dim_embed"], int(args["dim_embed"] / 4), output_dim=args["dim_embed"], num_layers=3) 
         
+        self.center_offset = 2 # fixed
+        
     def repeat_elements(self, x, factor):
         b, _, w, d = x.size()
         w_new = w * factor
@@ -30,19 +32,24 @@ class Recoder(nn.Module):
     
     def convert_arl_to_rng_feat(self, mem_arl):        
         n = mem_arl.size(1)
-        cx, cy, rad = (n // 2) - 1, (n // 2) - 1, n // 2 
+        cx, cy, rad = (n // 2), (n // 2), n 
         
         rng_feat = torch.empty(mem_arl.size(0), 1, self.arl_feat_width, mem_arl.size(-1))
         for i in range(self.arl_feat_width):
             theta = (i / self.arl_feat_width) * np.pi * 2
                         
-            dx = np.cos(theta) * n / 2 
-            dy = np.sin(theta) * n / 2 
+            dx = np.cos(theta) * rad
+            dy = np.sin(theta) * rad
             
-            if np.abs(dx) >= float(1 / rad): x_values = torch.arange(cx, dx + cx, step=dx / rad)
-            else: x_values = torch.full((rad, ), cx)
-            if np.abs(dy) >= float(1 / rad): y_values = torch.arange(cy, dy + cy, step=dy / rad)
-            else: y_values = torch.full((rad, ), cy)
+            if self.center_offset < dx: x_values = torch.arange(cx + self.center_offset - 1, cx + dx, step=(dx - self.center_offset + 1) / rad)            
+            elif 0 < dx and dx <= self.center_offset : x_values = torch.full((rad, ), cx)
+            elif -self.center_offset < dx and dx <= 0: x_values = torch.full((rad, ), cx - 1)
+            elif dx <= -self.center_offset: x_values = torch.arange(cx - self.center_offset, cx + dx, step=(dx + self.center_offset) / rad)
+            
+            if self.center_offset < dy: y_values = torch.arange(cy + self.center_offset - 1, cy + dy, step=(dy - self.center_offset + 1) / rad)            
+            elif 0 < dy and dy <= self.center_offset : y_values = torch.full((rad, ), cy)
+            elif -self.center_offset < dy and dy <= 0: y_values = torch.full((rad, ), cy - 1)
+            elif dy <= -self.center_offset: y_values = torch.arange(cy - self.center_offset, cy + dy, step=(dy + self.center_offset) / rad)   
             
             line_points = torch.stack((x_values[:rad], y_values[:rad]), dim=-1)
             rounded_tensor = torch.clamp(line_points.round(), 0, n - 1).long()
@@ -70,29 +77,41 @@ class Recoder(nn.Module):
         rng_masks = torch.cat(rng_masks, 0)
         rng_masks = rng_masks[:, :, :self.arl_feat_width]
         rng_masks = torch.sigmoid(rng_masks)
+        
         return rng_masks
     
-    def convert_rng_to_bev_mask(self, rng_mask):              
-        bev_mask = torch.zeros((rng_mask.size(0), rng_mask.size(1), self.arl_patch_size[0], self.arl_patch_size[1])) + 0.5
+    def convert_rng_to_bev_mask(self, rng_mask):       
+        
+        rng_mask = rng_mask.clone()
+        rng_mask = (rng_mask - torch.min(rng_mask)) / (torch.max(rng_mask) - torch.min(rng_mask))
+               
+        bev_mask = torch.zeros((rng_mask.size(0), rng_mask.size(1), self.arl_patch_size[0], self.arl_patch_size[1]))
         
         n = self.arl_patch_size[0]
-        cx, cy, rad = (n // 2) - 1, (n // 2) - 1, n // 2 
+        cx, cy, rad = (n // 2), (n // 2), n 
         
         for i in range(self.arl_feat_width):
             theta = (i / self.arl_feat_width) * np.pi * 2
             
-            dx = np.cos(theta) * n / 2 
-            dy = np.sin(theta) * n / 2 
+            dx = np.cos(theta) * rad
+            dy = np.sin(theta) * rad
             
-            if np.abs(dx) >= float(1 / rad): x_values = torch.arange(cx, dx + cx, step=dx / rad)
-            else: x_values = torch.full((rad, ), cx)
-            if np.abs(dy) >= float(1 / rad): y_values = torch.arange(cy, dy + cy, step=dy / rad)
-            else: y_values = torch.full((rad, ), cy)
+            if self.center_offset < dx: x_values = torch.arange(cx + self.center_offset - 1, cx + dx, step=(dx - self.center_offset + 1) / rad)            
+            elif 0 < dx and dx <= self.center_offset : x_values = torch.full((rad, ), cx)
+            elif -self.center_offset < dx and dx <= 0: x_values = torch.full((rad, ), cx - 1)
+            elif dx <= -self.center_offset: x_values = torch.arange(cx - self.center_offset, cx + dx, step=(dx + self.center_offset) / rad)
+            
+            if self.center_offset < dy: y_values = torch.arange(cy + self.center_offset - 1, cy + dy, step=(dy - self.center_offset + 1) / rad)            
+            elif 0 < dy and dy <= self.center_offset : y_values = torch.full((rad, ), cy)
+            elif -self.center_offset < dy and dy <= 0: y_values = torch.full((rad, ), cy - 1)
+            elif dy <= -self.center_offset: y_values = torch.arange(cy - self.center_offset, cy + dy, step=(dy + self.center_offset) / rad)            
             
             line_points = torch.stack((x_values[:rad], y_values[:rad]), dim=-1)
             rounded_tensor = torch.clamp(line_points.round(), 0, n - 1).long()
             
             bev_mask[:, :, rounded_tensor[:, 0], rounded_tensor[:, 1]] = rng_mask[:, :, i].unsqueeze(-1)
+        
+        bev_mask[:, :, cx - self.center_offset : cx + self.center_offset, cy - self.center_offset: cy + self.center_offset] = 1
         return bev_mask
     
     def forward(self, mem_grd, mem_arl):
