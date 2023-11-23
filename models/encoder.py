@@ -125,15 +125,11 @@ class Encoder(VisionTransformer):
             x = blk(x)
 
         x = self.norm(x)
-        return x[:, 0], x[:, 1], x[:, 2], x[:, 3:]
+        return (x[:, 0], x[:, 1]), x[:, 2], x[:, 3:]
 
     def forward(self, x):
-        x, x_dist, x_pose, mem = self.forward_features(x)
-        x_1 = self.head(x)
-        x_2 = self.head_dist(x_dist)
+        x1, x2, x3 = self.forward_features(x)
+        x1_1 = self.head(x1[0])
+        x1_2 = self.head_dist(x1[1])
         # follow the evaluation of deit, simple average and no distillation during training, could remove the x_dist
-        if self.mode == "query":
-            x_q = self.head_qry(x_pose)
-            return (x_1 + x_2) / 2, mem, x_q
-        else:
-            return (x_1 + x_2) / 2, mem, None
+        return (x1_1 + x1_2) / 2, x2, x3

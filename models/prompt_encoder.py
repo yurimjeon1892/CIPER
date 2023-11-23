@@ -13,7 +13,8 @@ from torch import nn
 from typing import Any, Optional, Tuple, Type
 
 from .common import LayerNorm2d
-    
+
+
 class PositionEmbeddingRandom(nn.Module):
     """
     Positional encoding using random spatial frequencies.

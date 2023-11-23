@@ -35,19 +35,18 @@ class CIPER(nn.Module):
             self.pose_net = TwoWayDecoder(args)
 
     def forward(self, im_grd, im_arl):
-        emb_grd, mem_grd, qry_emb_grd = self.query_net(im_grd)
-        emb_arl, mem_arl, _ = self.reference_net(im_arl)
+        y1_grd, y2_grd, y3_grd = self.query_net(im_grd)
+        y1_arl, _, y3_arl = self.reference_net(im_arl)
         outputs = {
-            "grd": emb_grd,
-            "arl": emb_arl,
+            "grd": y1_grd,
+            "arl": y1_arl,
         }
         if not self.retr_only:
             if self.rng_mask:
-                bev_mask, rng_mask = self.rot_net(mem_grd, mem_arl)
-                mem_arl = torch.mul(bev_mask.to(mem_arl.device), mem_arl)
-                outputs["rng_mask"] = rng_mask
-                outputs["bev_mask"] = bev_mask
-            out_pos = self.pose_net(qry_emb_grd, mem_arl)
+                masks = self.rot_net(y3_grd, y3_arl)
+                y3_arl = torch.mul(masks["bev_mask"].to(y3_arl.device), y3_arl)
+                outputs.update(masks)
+            out_pos = self.pose_net(y2_grd, y3_arl)
             outputs.update(out_pos)
 
         return outputs
@@ -274,7 +273,7 @@ def build(args):
             "retrieval": 1,
             "labels": args["label_loss_coef"],
             "boxes": args["bbox_loss_coef"],
-            "mask": 1.0,
+            "mask": 5.0,
         }
         eos_coef = args["eos_coef"]
         losses = ["retrieval", "labels", "boxes", "mask"]
