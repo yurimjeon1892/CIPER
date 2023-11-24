@@ -10,9 +10,7 @@ import numpy as np
 import torch
 from torch import nn
 
-from typing import Any, Optional, Tuple, Type
-
-from .common import LayerNorm2d
+from typing import Any, Optional, Tuple
 
 
 class PositionEmbeddingRandom(nn.Module):

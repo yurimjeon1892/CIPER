@@ -165,8 +165,7 @@ class CfgNode(dict):
         return "{}({})".format(self.__class__.__name__, super(CfgNode, self).__repr__())
 
     def dump(self, **kwargs):
-        r"""Dump CfgNode to a string.
-        """
+        r"""Dump CfgNode to a string."""
 
         def _convert_to_dict(cfg_node, key_list):
             if not isinstance(cfg_node, CfgNode):
@@ -236,15 +235,15 @@ class CfgNode(dict):
             d[subkey] = value
 
     def freeze(self):
-        r"""Make this `CfgNode` and all of its children immutable. """
+        r"""Make this `CfgNode` and all of its children immutable."""
         self._immutable(True)
 
     def defrost(self):
-        r"""Make this `CfgNode` and all of its children mutable. """
+        r"""Make this `CfgNode` and all of its children mutable."""
         self._immutable(False)
 
     def is_frozen(self):
-        r"""Return mutability. """
+        r"""Return mutability."""
         return self.__dict__[CfgNode.IMMUTABLE]
 
     def _immutable(self, is_immutable: bool):
@@ -264,7 +263,7 @@ class CfgNode(dict):
                 v._immutable(is_immutable)
 
     def clone(self):
-        r"""Recursively copy this `CfgNode`. """
+        r"""Recursively copy this `CfgNode`."""
         return copy.deepcopy(self)
 
     def register_deprecated_key(self, key: str):
@@ -295,14 +294,14 @@ class CfgNode(dict):
         self.__dict__[CfgNode.RENAMED_KEYS][old_name] = value
 
     def key_is_deprecated(self, full_key: str):
-        r"""Test if a key is deprecated. """
+        r"""Test if a key is deprecated."""
         if full_key in self.__dict__[CfgNode.DEPRECATED_KEYS]:
             logger.warning("deprecated config key (ignoring): {}".format(full_key))
             return True
         return False
 
     def key_is_renamed(self, full_key: str):
-        r"""Test if a key is renamed. """
+        r"""Test if a key is renamed."""
         return full_key in self.__dict__[CfgNode.RENAMED_KEYS]
 
     def raise_key_rename_error(self, full_key: str):
@@ -347,7 +346,7 @@ class CfgNode(dict):
 
     @classmethod
     def _load_cfg_from_file(cls, file_obj):
-        r"""Load a config from a YAML file or a Python source file. """
+        r"""Load a config from a YAML file or a Python source file."""
         _, file_ext = os.path.splitext(file_obj.name)
         if file_ext in _YAML_EXTS:
             return cls._load_cfg_from_yaml_str(file_obj.read())
@@ -362,13 +361,13 @@ class CfgNode(dict):
 
     @classmethod
     def _load_cfg_from_yaml_str(cls, str_obj):
-        r"""Load a config from a YAML string encoding. """
+        r"""Load a config from a YAML string encoding."""
         cfg_as_dict = yaml.safe_load(str_obj)
         return cls(cfg_as_dict)
 
     @classmethod
     def _load_cfg_py_source(cls, filename):
-        r"""Load a config from a Python source file. """
+        r"""Load a config from a Python source file."""
         module = _load_module_from_file("yacs.config.override", filename)
         _assert_with_logging(
             hasattr(module, "cfg"),
@@ -425,8 +424,7 @@ def _valid_type(value, allow_cfg_node: Optional[bool] = False):
 
 
 def _merge_a_into_b(a: CfgNode, b: CfgNode, root: CfgNode, key_list: list):
-    r"""Merge `CfgNode` `a` into `CfgNode` `b`, clobbering the options in `b` wherever they are also specified in `a`.
-    """
+    r"""Merge `CfgNode` `a` into `CfgNode` `b`, clobbering the options in `b` wherever they are also specified in `a`."""
     _assert_with_logging(
         isinstance(a, CfgNode),
         "`a` (cur type {}) must be an instance of {}".format(type(a), CfgNode),
@@ -482,7 +480,7 @@ def _check_and_coerce_cfg_value_type(replacement, original, key, full_key):
     # Conditional casts.
     # list <-> tuple
     casts = [(tuple, list), (list, tuple)]
-    for (from_type, to_type) in casts:
+    for from_type, to_type in casts:
         converted, converted_value = _conditional_cast(from_type, to_type)
         if converted:
             return converted_value
