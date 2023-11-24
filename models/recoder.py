@@ -39,6 +39,14 @@ class Recoder(nn.Module):
         )
 
         self.center_offset = 2  # fixed
+        self.fov_feat_size = 9
+
+        self.mlp_ray = MLP(
+            self.arl_patch_size[0] * self.fov_feat_size,
+            self.arl_patch_size[0],
+            output_dim=1,
+            num_layers=3,
+        )
 
     def repeat_elements(self, x, factor):
         b, _, w, d = x.size()
@@ -47,59 +55,72 @@ class Recoder(nn.Module):
         return x_repeated
 
     def convert_arl_to_rng_feat(self, mem_arl):
-        n = mem_arl.size(1)
-        cx, cy, rad = (n // 2), (n // 2), n
+        n = self.arl_patch_size[0]
+        cx, cy, radian = (n // 2), (n // 2), (n // 2)
 
         rng_feat = torch.empty(
             mem_arl.size(0), 1, self.arl_feat_width, mem_arl.size(-1)
         )
         for i in range(self.arl_feat_width):
-            theta = (i / self.arl_feat_width) * np.pi * 2
+            rng_feat_tmp = []
 
-            dx = np.cos(theta) * rad
-            dy = np.sin(theta) * rad
+            t = (i / self.arl_feat_width) * np.pi * 2
 
-            if self.center_offset < dx:
-                x_values = torch.arange(
-                    cx + self.center_offset - 1,
-                    cx + dx,
-                    step=(dx - self.center_offset + 1) / rad,
+            for j in range(-self.fov_feat_size, self.fov_feat_size):
+                theta = t + (j * (5 / 180) * np.pi)
+
+                dx = np.cos(theta) * radian
+                dy = np.sin(theta) * radian
+
+                if self.center_offset < dx:
+                    x_values = torch.arange(
+                        cx + self.center_offset - 1,
+                        cx + dx,
+                        step=(dx - self.center_offset + 1) / radian,
+                    )
+                elif 0 < dx and dx <= self.center_offset:
+                    x_values = torch.full((radian,), cx)
+                elif -self.center_offset < dx and dx <= 0:
+                    x_values = torch.full((radian,), cx - 1)
+                elif dx <= -self.center_offset:
+                    x_values = torch.arange(
+                        cx - self.center_offset,
+                        cx + dx,
+                        step=(dx + self.center_offset) / radian,
+                    )
+
+                if self.center_offset < dy:
+                    y_values = torch.arange(
+                        cy + self.center_offset - 1,
+                        cy + dy,
+                        step=(dy - self.center_offset + 1) / radian,
+                    )
+                elif 0 < dy and dy <= self.center_offset:
+                    y_values = torch.full((radian,), cy)
+                elif -self.center_offset < dy and dy <= 0:
+                    y_values = torch.full((radian,), cy - 1)
+                elif dy <= -self.center_offset:
+                    y_values = torch.arange(
+                        cy - self.center_offset,
+                        cy + dy,
+                        step=(dy + self.center_offset) / radian,
+                    )
+
+                line_points = torch.stack(
+                    (x_values[:radian], y_values[:radian]), dim=-1
                 )
-            elif 0 < dx and dx <= self.center_offset:
-                x_values = torch.full((rad,), cx)
-            elif -self.center_offset < dx and dx <= 0:
-                x_values = torch.full((rad,), cx - 1)
-            elif dx <= -self.center_offset:
-                x_values = torch.arange(
-                    cx - self.center_offset,
-                    cx + dx,
-                    step=(dx + self.center_offset) / rad,
-                )
+                rounded_tensor = torch.clamp(line_points.round(), 0, n - 1).long()
 
-            if self.center_offset < dy:
-                y_values = torch.arange(
-                    cy + self.center_offset - 1,
-                    cy + dy,
-                    step=(dy - self.center_offset + 1) / rad,
-                )
-            elif 0 < dy and dy <= self.center_offset:
-                y_values = torch.full((rad,), cy)
-            elif -self.center_offset < dy and dy <= 0:
-                y_values = torch.full((rad,), cy - 1)
-            elif dy <= -self.center_offset:
-                y_values = torch.arange(
-                    cy - self.center_offset,
-                    cy + dy,
-                    step=(dy + self.center_offset) / rad,
-                )
+                extracted_values = mem_arl[
+                    :, rounded_tensor[:, 0], rounded_tensor[:, 1], :
+                ]
 
-            line_points = torch.stack((x_values[:rad], y_values[:rad]), dim=-1)
-            rounded_tensor = torch.clamp(line_points.round(), 0, n - 1).long()
+                rng_feat_tmp.append(extracted_values)
 
-            extracted_values = mem_arl[:, rounded_tensor[:, 0], rounded_tensor[:, 1], :]
-            ext_max, _ = torch.max(extracted_values, dim=1, keepdim=True)
-
-            rng_feat[:, :, i, :] = ext_max.to(rng_feat.device)
+            rng_feat_tmp = torch.permute(torch.cat(rng_feat_tmp, 1), (0, 2, 1))
+            rng_feat_mlp = self.mlp_ray(rng_feat_tmp)
+            rng_feat_mlp = torch.permute(rng_feat_mlp, (0, 2, 1))
+            rng_feat[:, :, i, :] = rng_feat_mlp
 
         grd_feat_width_2 = self.grd_feat_width // 2
         rng_feat_f = rng_feat[:, :, -grd_feat_width_2:, :].flip(2)
@@ -142,49 +163,49 @@ class Recoder(nn.Module):
         )
 
         n = self.arl_patch_size[0]
-        cx, cy, rad = (n // 2), (n // 2), n
+        cx, cy, radian = (n // 2), (n // 2), n
 
         for i in range(self.arl_feat_width):
             theta = (i / self.arl_feat_width) * np.pi * 2
 
-            dx = np.cos(theta) * rad
-            dy = np.sin(theta) * rad
+            dx = np.cos(theta) * radian
+            dy = np.sin(theta) * radian
 
             if self.center_offset < dx:
                 x_values = torch.arange(
                     cx + self.center_offset - 1,
                     cx + dx,
-                    step=(dx - self.center_offset + 1) / rad,
+                    step=(dx - self.center_offset + 1) / radian,
                 )
             elif 0 < dx and dx <= self.center_offset:
-                x_values = torch.full((rad,), cx)
+                x_values = torch.full((radian,), cx)
             elif -self.center_offset < dx and dx <= 0:
-                x_values = torch.full((rad,), cx - 1)
+                x_values = torch.full((radian,), cx - 1)
             elif dx <= -self.center_offset:
                 x_values = torch.arange(
                     cx - self.center_offset,
                     cx + dx,
-                    step=(dx + self.center_offset) / rad,
+                    step=(dx + self.center_offset) / radian,
                 )
 
             if self.center_offset < dy:
                 y_values = torch.arange(
                     cy + self.center_offset - 1,
                     cy + dy,
-                    step=(dy - self.center_offset + 1) / rad,
+                    step=(dy - self.center_offset + 1) / radian,
                 )
             elif 0 < dy and dy <= self.center_offset:
-                y_values = torch.full((rad,), cy)
+                y_values = torch.full((radian,), cy)
             elif -self.center_offset < dy and dy <= 0:
-                y_values = torch.full((rad,), cy - 1)
+                y_values = torch.full((radian,), cy - 1)
             elif dy <= -self.center_offset:
                 y_values = torch.arange(
                     cy - self.center_offset,
                     cy + dy,
-                    step=(dy + self.center_offset) / rad,
+                    step=(dy + self.center_offset) / radian,
                 )
 
-            line_points = torch.stack((x_values[:rad], y_values[:rad]), dim=-1)
+            line_points = torch.stack((x_values[:radian], y_values[:radian]), dim=-1)
             rounded_tensor = torch.clamp(line_points.round(), 0, n - 1).long()
 
             bev_mask[:, :, rounded_tensor[:, 0], rounded_tensor[:, 1]] = rng_mask[
