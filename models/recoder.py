@@ -1,8 +1,8 @@
 import torch
 from torch import nn
 import torch.nn.functional as F
-
 import numpy as np
+import math
 
 from .common import MLP
 
@@ -39,12 +39,19 @@ class Recoder(nn.Module):
         )
 
         self.center_offset = 2  # fixed
-        self.fov_feat_size = 9
+        self.fov_ray_num = 9
 
         self.mlp_ray = MLP(
-            self.arl_patch_size[0] * self.fov_feat_size,
+            (self.arl_patch_size[0] // 2) * (self.fov_ray_num * 2),
             self.arl_patch_size[0],
             output_dim=1,
+            num_layers=3,
+        )
+
+        self.mlp_rng_mask = MLP(
+            self.arl_feat_width,
+            int(self.arl_feat_width / 4),
+            output_dim=2,
             num_layers=3,
         )
 
@@ -66,8 +73,8 @@ class Recoder(nn.Module):
 
             t = (i / self.arl_feat_width) * np.pi * 2
 
-            for j in range(-self.fov_feat_size, self.fov_feat_size):
-                theta = t + (j * (5 / 180) * np.pi)
+            for j in range(-self.fov_ray_num, self.fov_ray_num):
+                theta = t + j * np.pi * (5 / 180)
 
                 dx = np.cos(theta) * radian
                 dy = np.sin(theta) * radian
@@ -143,15 +150,15 @@ class Recoder(nn.Module):
             rng_masks.append(rng_mask)
         rng_masks = torch.cat(rng_masks, 0)
         rng_masks = rng_masks[:, :, : self.arl_feat_width]
-        rng_masks = torch.sigmoid(rng_masks)
+        # rng_masks = torch.sigmoid(rng_masks)
 
         return rng_masks
 
     def convert_rng_to_bev_mask(self, rng_mask):
-        rng_mask = rng_mask.clone()
-        rng_mask = (rng_mask - torch.min(rng_mask)) / (
-            torch.max(rng_mask) - torch.min(rng_mask)
-        )
+        # rng_mask = rng_mask.clone()
+        # rng_mask = (rng_mask - torch.min(rng_mask)) / (
+        #     torch.max(rng_mask) - torch.min(rng_mask)
+        # )
 
         bev_mask = torch.zeros(
             (
@@ -260,13 +267,41 @@ class Recoder(nn.Module):
         rng_mask = self.get_rng_mask(
             mem_grd_max, mem_arl_max
         )  # bs x 1 x arl_feat_width
+
+        pred_cos_sin = self.mlp_rng_mask(
+            rng_mask.to(mem_arl.device)
+        )  # bs x 1 x 2(sin, cos) mlp: arl_feat_width->64->2
+        pred_cos_sin = pred_cos_sin.squeeze(1)
+
+        pred_yaw = torch.atan2(pred_cos_sin[:, 0], pred_cos_sin[:, 1])
+        pred_yaw[pred_yaw < 0] = pred_yaw[pred_yaw < 0] + 2 * math.pi
+        pred_yaw_idx = ((pred_yaw / (2 * math.pi)) * self.arl_feat_width).to(
+            torch.int32
+        )
+
+        fov_len_in_rng_mask = int(rng_mask.size(-1) // 4)
+
+        tmp_rng_mask = torch.ones_like(rng_mask) * 0.2  # bs x 1 x arl_feat_width
+        for b in range(tmp_rng_mask.size(0)):
+            tmp_rng_mask[
+                b,
+                :,
+                pred_yaw_idx[b]
+                - (fov_len_in_rng_mask // 2) : pred_yaw_idx[b]
+                + (fov_len_in_rng_mask // 2),
+            ] = 1  # init_rot의 pose를 중심으로 fov 60 영역을 1로
+
         bev_mask = self.convert_rng_to_bev_mask(
-            rng_mask
+            tmp_rng_mask
         )  # bs x 1 x arl_patch_size[0] x arl_patch_size[1]
 
         bev_mask = (
             bev_mask.flatten(2).permute((0, 2, 1)).to(mem_arl.device)
         )  # bs x num_patches_arl x 1
 
-        masks = {"bev_mask": bev_mask, "rng_mask": rng_mask}
+        masks = {
+            "bev_mask": bev_mask,
+            "rng_mask": tmp_rng_mask,
+            "pred_cos_sin": pred_cos_sin,
+        }
         return masks

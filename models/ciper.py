@@ -26,27 +26,26 @@ class CIPER(nn.Module):
         """
         super().__init__()
 
-        self.query_net = Encoder(args, args["grd_img_size"], mode="query")
+        self.query_net = Encoder(args, args["grd_img_size"])
         self.reference_net = Encoder(args, args["arl_img_size"])
         self.retr_only = args["retr_only"]
-        self.rng_mask = args["rng_mask"]
         if not self.retr_only:
             self.rot_net = Recoder(args)
             self.pose_net = TwoWayDecoder(args)
 
     def forward(self, im_grd, im_arl):
-        y1_grd, y2_grd, y3_grd = self.query_net(im_grd)
-        y1_arl, _, y3_arl = self.reference_net(im_arl)
+        x1_grd, x2_grd, x3_grd = self.query_net(im_grd)
+        x1_arl, _, x3_arl = self.reference_net(im_arl)
         outputs = {
-            "grd": y1_grd,
-            "arl": y1_arl,
+            "grd": x1_grd,
+            "arl": x1_arl,
         }
         if not self.retr_only:
-            if self.rng_mask:
-                masks = self.rot_net(y3_grd, y3_arl)
-                y3_arl = torch.mul(masks["bev_mask"].to(y3_arl.device), y3_arl)
-                outputs.update(masks)
-            out_pos = self.pose_net(y2_grd, y3_arl)
+            masks = self.rot_net(x3_grd, x3_arl)
+            x3_arl = torch.mul(masks["bev_mask"].to(x3_arl.device), x3_arl)
+            outputs.update(masks)
+
+            out_pos = self.pose_net(x2_grd, x3_arl)
             outputs.update(out_pos)
 
         return outputs
@@ -131,6 +130,7 @@ class SetCriterion(nn.Module):
         return losses
 
     def loss_mask(self, outputs, targets, indices):
+        # this is just for debug
         src_mask = outputs["rng_mask"]
         bs, w = src_mask.size(0), src_mask.size(-1)
         marg_w = int(w / 8)
@@ -157,12 +157,18 @@ class SetCriterion(nn.Module):
             else:
                 target_mask[i, :, y_id - marg_w : y_id + marg_w] = 1.0
 
-        loss_mask = F.binary_cross_entropy(src_mask, target_mask)
+        self.intermediate["target_mask"] = target_mask
+
+        ## real loss calc
+        src_cos_sin = outputs["pred_cos_sin"]
+        target_boxes = torch.cat(
+            [t["boxes"][i] for t, (_, i) in zip(targets, indices)], dim=0
+        )
+        loss_cos_sin = F.mse_loss(src_cos_sin.float(), target_boxes[:, 2:].float())
 
         losses = {}
-        losses["mask"] = loss_mask
+        losses["mask"] = loss_cos_sin
 
-        self.intermediate["target_mask"] = target_mask
         return losses
 
     def _get_src_permutation_idx(self, indices):

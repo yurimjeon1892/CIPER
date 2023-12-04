@@ -137,6 +137,7 @@ def draw_3dof_pin(img_np, boxes, img_size, meter_per_pixel, color, radius=5):
     if boxes.shape[0] == 0:
         return np.array(img)
 
+    # boxes = np.nan_to_num(boxes)
     draw = ImageDraw.Draw(img)
     for i in range(boxes.shape[0]):
         px, py, theta = (

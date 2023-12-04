@@ -164,7 +164,6 @@ class KITTI(torch.utils.data.Dataset):
             grd_img = self.transform_query(grd_img)
 
             arl_rand_rot = arl_img.rotate(theta * self.rotation_range)
-
             arl_rand_rot_rand_shift = arl_rand_rot.transform(
                 arl_img.size,
                 Image.AFFINE,
@@ -178,8 +177,8 @@ class KITTI(torch.utils.data.Dataset):
                 ),
                 resample=Image.BILINEAR,
             )
-
             arl_img = TF.center_crop(arl_rand_rot_rand_shift, self.arl_img_size[0])
+            arl_img = Image.fromarray(np.nan_to_num(np.asarray(arl_img)))
             arl_img = self.transform_reference(arl_img)
 
             # =================== make target dict ====================================

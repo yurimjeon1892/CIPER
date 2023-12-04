@@ -9,15 +9,12 @@ from timm.models.vision_transformer import VisionTransformer
 import torchvision
 import numpy as np
 
-from .common import MLP
-
 
 class Encoder(VisionTransformer):
     def __init__(
         self,
         args,
         img_size,
-        mode="reference",
         norm_layer=partial(nn.LayerNorm, eps=1e-6),
     ):
         super().__init__(
@@ -49,15 +46,6 @@ class Encoder(VisionTransformer):
         self.head_dist.apply(self._init_weights)
 
         self._load_pretrained(img_size, args["dim_feature"], args["patch_size"])
-
-        self.mode = mode
-        if self.mode == "query":
-            self.head_qry = MLP(
-                args["dim_embed"],
-                args["dim_embed"],
-                output_dim=args["dim_embed"],
-                num_layers=3,
-            )
 
     def _load_pretrained(self, img_size, num_classes, patch_size):
         checkpoint = torch.hub.load_state_dict_from_url(
@@ -131,5 +119,5 @@ class Encoder(VisionTransformer):
         x1, x2, x3 = self.forward_features(x)
         x1_1 = self.head(x1[0])
         x1_2 = self.head_dist(x1[1])
-        # follow the evaluation of deit, simple average and no distillation during training, could remove the x_dist
+        # head_qry..?
         return (x1_1 + x1_2) / 2, x2, x3
