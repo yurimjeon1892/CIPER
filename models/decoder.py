@@ -26,8 +26,8 @@ class Decoder(nn.Module):
             return_intermediate=False,
         )
 
-        self.class_embed = nn.Linear(args["dim_embed"], 2)
-        self.bbox_embed = MLP(
+        self.class_prediction_head = nn.Linear(args["dim_embed"], 2)
+        self.bbox_prediction_head = MLP(
             args["dim_embed"], args["dim_embed"], output_dim=4, num_layers=3
         )
 
@@ -53,13 +53,13 @@ class Decoder(nn.Module):
         dst = dst.transpose(1, 2)  # 1 x bs x num_queries x dim_embed
         # print("dst: ", dst.size())
 
-        outputs_class = self.class_embed(dst)  # 1 x bs x num_queries x 2
-        outputs_coord = self.bbox_embed(dst)  # 1 x bs x num_queries x 4
-        # print("out: ", outputs_class.size(), outputs_coord.size())
+        class_pred = self.class_prediction_head(dst)  # 1 x bs x num_queries x 2
+        bbox_pred = self.bbox_prediction_head(dst)  # 1 x bs x num_queries x 4
+        # print("out: ", class_pred.size(), bbox_pred.size())
 
         out = {
-            "pred_logits": outputs_class[-1],
-            "pred_boxes": outputs_coord[-1],
+            "pred_logits": class_pred[-1],
+            "pred_boxes": bbox_pred[-1],
         }  # [-1]: last decoder layer output
         return out
 
@@ -73,6 +73,8 @@ class TwoWayDecoder(nn.Module):
     def __init__(self, args):
         super().__init__()
 
+        self.iou_token = nn.Embedding(1, args["dim_embed"])
+
         self.pe_layer = PositionEmbeddingRandom(args["dim_embed"] // 2)
 
         self.transformer = TwoWayTransformer(
@@ -82,8 +84,8 @@ class TwoWayDecoder(nn.Module):
             num_heads=8,
         )
 
-        self.class_embed = nn.Linear(args["dim_embed"], 2)
-        self.bbox_embed = MLP(
+        self.class_prediction_head = nn.Linear(args["dim_embed"], 2)
+        self.bbox_prediction_head = MLP(
             args["dim_embed"], args["dim_embed"], output_dim=4, num_layers=3
         )
 
@@ -95,47 +97,51 @@ class TwoWayDecoder(nn.Module):
 
     def forward(
         self,
-        query_img_embedding: torch.Tensor,
-        key_img_embedding: torch.Tensor,
+        prompt_embeddings: torch.Tensor,
+        image_embeddings: torch.Tensor,
     ):
         """
         Predict masks given image and prompt embeddings.
 
         Arguments:
-          query_img_embedding (torch.Tensor): the embeddings of the points and boxes [bs x dim_embed]
-          key_img_embedding (torch.Tensor): the embeddings from the image encoder [bs x num_patches x dim_embed]
+          prompt_embeddings (torch.Tensor): the embeddings of the points and boxes [bs x dim_embed]
+          image_embeddings (torch.Tensor): the embeddings from the image encoder [bs x num_patches x dim_embed]
 
         Returns:
           torch.Tensor: batched predicted masks
           torch.Tensor: batched predictions of mask quality
         """
-        src = key_img_embedding
+        # Concatenate output tokens
+        output_tokens = self.iou_token.weight
+        output_tokens = output_tokens.unsqueeze(0).expand(
+            prompt_embeddings.size(0), -1, -1
+        )
+        tokens = torch.cat((output_tokens, prompt_embeddings.unsqueeze(1)), dim=1)
 
-        key_img_pe = self.pe_layer(self.image_embedding_size).unsqueeze(
+        src = image_embeddings
+
+        image_pe = self.pe_layer(self.image_embedding_size).unsqueeze(
             0
         )  # 1 x dim_embed x h x w
-        key_img_pe = key_img_pe.flatten(2).permute(
-            0, 2, 1
-        )  # 1 x num_patches x dim_embed
+        image_pe = image_pe.flatten(2).permute(0, 2, 1)  # 1 x num_patches x dim_embed
         pos_src = torch.repeat_interleave(
-            key_img_pe, query_img_embedding.shape[0], dim=0
+            image_pe, tokens.shape[0], dim=0
         )  # bs x num_patches x dim_embed
 
-        query_img_embedding = torch.repeat_interleave(
-            query_img_embedding.unsqueeze(1), self.num_queries, dim=1
-        )
-        tokens = query_img_embedding
+        tokens = torch.repeat_interleave(tokens, self.num_queries, dim=1)
 
         # Run the transformer
         hs, src = self.transformer(src, pos_src, tokens)
-        dst = hs.unsqueeze(0)
+        iou_token_out = hs.unsqueeze(0)
 
-        outputs_class = self.class_embed(dst)  # 1 x bs x num_queries x 2
-        outputs_coord = self.bbox_embed(dst)  # 1 x bs x num_queries x 4
-        # print("out: ", outputs_class.size(), outputs_coord.size())
+        class_pred = self.class_prediction_head(
+            iou_token_out
+        )  # 1 x bs x num_queries x 2
+        bbox_pred = self.bbox_prediction_head(iou_token_out)  # 1 x bs x num_queries x 4
+        # print("out: ", class_pred.size(), bbox_pred.size())
 
         out = {
-            "pred_logits": outputs_class[-1],
-            "pred_boxes": outputs_coord[-1],
+            "pred_logits": class_pred[-1],
+            "pred_boxes": bbox_pred[-1],
         }  # [-1]: last decoder layer output
         return out

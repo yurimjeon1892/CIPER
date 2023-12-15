@@ -34,11 +34,11 @@ class Encoder(VisionTransformer):
         self.pos_embed = nn.Parameter(torch.zeros(1, num_patches + 3, self.embed_dim))
         self.cls_token = nn.Parameter(torch.zeros(1, 1, self.embed_dim))
         self.dist_token = nn.Parameter(torch.zeros(1, 1, self.embed_dim))
-        self.dec_token = nn.Parameter(torch.zeros(1, 1, self.embed_dim))
+        self.third_token = nn.Parameter(torch.zeros(1, 1, self.embed_dim))
 
         nn.init.trunc_normal_(self.cls_token)
         nn.init.trunc_normal_(self.dist_token)
-        nn.init.trunc_normal_(self.dec_token)
+        nn.init.trunc_normal_(self.third_token)
 
         self.head = nn.Linear(self.embed_dim, self.num_classes)
         self.head_dist = nn.Linear(self.embed_dim, self.num_classes)
@@ -71,7 +71,7 @@ class Encoder(VisionTransformer):
         checkpoint["model"]["pos_embed"] = torch.cat(
             [weight[:, :2, :], weight[:, :1, :], new_matrix], dim=1
         )
-        checkpoint["model"]["dec_token"] = weight[:, :1, :]
+        checkpoint["model"]["third_token"] = weight[:, :1, :]
         # change the prediction head if not 1000
         if num_classes != 1000:
             checkpoint["model"]["head.weight"] = checkpoint["model"][
@@ -102,9 +102,9 @@ class Encoder(VisionTransformer):
         cls_tokens = self.cls_token.expand(
             B, -1, -1
         )  # stole cls_tokens impl from Phil Wang, thanks
-        dist_token = self.dist_token.expand(B, -1, -1)
-        dec_token = self.dec_token.expand(B, -1, -1)
-        x = torch.cat((cls_tokens, dist_token, dec_token, x), dim=1)
+        dist_tokens = self.dist_token.expand(B, -1, -1)
+        third_tokens = self.third_token.expand(B, -1, -1)
+        x = torch.cat((cls_tokens, dist_tokens, third_tokens, x), dim=1)
 
         x = x + self.pos_embed
         x = self.pos_drop(x)
