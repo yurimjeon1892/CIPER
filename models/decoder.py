@@ -74,6 +74,7 @@ class TwoWayDecoder(nn.Module):
         super().__init__()
 
         self.iou_token = nn.Embedding(1, args["dim_embed"])
+        self.mask_tokens = nn.Embedding(args["num_queries"], args["dim_embed"])
 
         self.pe_layer = PositionEmbeddingRandom(args["dim_embed"] // 2)
 
@@ -89,7 +90,7 @@ class TwoWayDecoder(nn.Module):
             args["dim_embed"], args["dim_embed"], output_dim=4, num_layers=3
         )
 
-        self.num_queries = args["num_queries"]
+        # self.num_queries = args["num_queries"]
         self.image_embedding_size = (
             int(args["arl_img_size"][0] / args["patch_size"]),
             int(args["arl_img_size"][1] / args["patch_size"]),
@@ -112,11 +113,17 @@ class TwoWayDecoder(nn.Module):
           torch.Tensor: batched predictions of mask quality
         """
         # Concatenate output tokens
-        output_tokens = self.iou_token.weight
-        output_tokens = output_tokens.unsqueeze(0).expand(
-            prompt_embeddings.size(0), -1, -1
-        )
+        output_tokens = torch.cat([self.iou_token.weight, self.mask_tokens.weight], dim=0)
+        output_tokens = output_tokens.unsqueeze(0).expand(prompt_embeddings.size(0), -1, -1)
         tokens = torch.cat((output_tokens, prompt_embeddings.unsqueeze(1)), dim=1)
+
+        # # Concatenate output tokens
+        # output_tokens = self.iou_token.weight
+        # output_tokens = output_tokens.unsqueeze(0).expand(
+        #     prompt_embeddings.size(0), -1, -1
+        # )
+        # tokens = torch.cat((output_tokens, prompt_embeddings.unsqueeze(1)), dim=1)
+        # tokens = prompt_embeddings.unsqueeze(1)
 
         src = image_embeddings
 
@@ -128,7 +135,7 @@ class TwoWayDecoder(nn.Module):
             image_pe, tokens.shape[0], dim=0
         )  # bs x num_patches x dim_embed
 
-        tokens = torch.repeat_interleave(tokens, self.num_queries, dim=1)
+        # tokens = torch.repeat_interleave(tokens, self.num_queries, dim=1)
 
         # Run the transformer
         hs, src = self.transformer(src, pos_src, tokens)
