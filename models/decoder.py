@@ -90,7 +90,7 @@ class TwoWayDecoder(nn.Module):
             args["dim_embed"], args["dim_embed"], output_dim=4, num_layers=3
         )
 
-        # self.num_queries = args["num_queries"]
+        self.num_queries = args["num_queries"] 
         self.image_embedding_size = (
             int(args["arl_img_size"][0] / args["patch_size"]),
             int(args["arl_img_size"][1] / args["patch_size"]),
