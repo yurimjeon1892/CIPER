@@ -113,20 +113,15 @@ class TwoWayDecoder(nn.Module):
           torch.Tensor: batched predictions of mask quality
         """
         # Concatenate output tokens
-        output_tokens = torch.cat([self.iou_token.weight, self.mask_tokens.weight], dim=0)
-        output_tokens = output_tokens.unsqueeze(0).expand(prompt_embeddings.size(0), -1, -1)
-        tokens = torch.cat((output_tokens, prompt_embeddings.unsqueeze(1)), dim=1)
-
-        # # Concatenate output tokens
-        # output_tokens = self.iou_token.weight
-        # output_tokens = output_tokens.unsqueeze(0).expand(
-        #     prompt_embeddings.size(0), -1, -1
-        # )
+        # output_tokens = torch.cat([self.iou_token.weight, self.mask_tokens.weight], dim=0)
+        # output_tokens = output_tokens.unsqueeze(0).expand(prompt_embeddings.size(0), -1, -1)
         # tokens = torch.cat((output_tokens, prompt_embeddings.unsqueeze(1)), dim=1)
-        # tokens = prompt_embeddings.unsqueeze(1)
 
         src = image_embeddings
 
+        tokens = prompt_embeddings.unsqueeze(1)
+        tokens = torch.repeat_interleave(tokens, self.num_queries, dim=1)
+        
         image_pe = self.pe_layer(self.image_embedding_size).unsqueeze(
             0
         )  # 1 x dim_embed x h x w
@@ -134,8 +129,6 @@ class TwoWayDecoder(nn.Module):
         pos_src = torch.repeat_interleave(
             image_pe, tokens.shape[0], dim=0
         )  # bs x num_patches x dim_embed
-
-        # tokens = torch.repeat_interleave(tokens, self.num_queries, dim=1)
 
         # Run the transformer
         hs, src = self.transformer(src, pos_src, tokens)

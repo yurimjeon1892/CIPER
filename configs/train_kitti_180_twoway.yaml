@@ -39,7 +39,7 @@ cos: True
 retr_only: False
 rng_mask: True
 
-num_queries: 8
+num_queries: 16
 
 patch_size: 32
 mlp_ratio: 4
