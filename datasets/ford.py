@@ -21,7 +21,7 @@ class Ford(torch.utils.data.Dataset):
 
         self.mode = mode
         self.root = args["data_root"]
-        self.whole = args["whole"]
+        self.log_idx = args["log_idx"]
 
         self.arl_img_size = args["arl_img_size"]
         self.grd_img_size = args["grd_img_size"]
@@ -60,93 +60,93 @@ class Ford(torch.utils.data.Dataset):
             data_file = "grd_sat_quaternion_latlon_test.txt"
 
         file_name = []
-        for idx in range(len(logs)):
-            log = logs[idx]
-            img_inds = logs_img_inds[idx]
-            FL_dir = os.path.join(self.root, log, log.replace("/", "-") + "-FL")
+        idx = self.log_idx
+        # for idx in range(len(logs)):
+        log = logs[idx]
+        img_inds = logs_img_inds[idx]
+        FL_dir = os.path.join(self.root, log, log.replace("/", "-") + "-FL")
 
-            if self.mode == "train":
-                with open(os.path.join(self.root, log, data_file), "r") as f:
-                    lines = f.readlines()
-                    if self.whole == 0:
-                        lines = [lines[ind] for ind in img_inds]
-                    # lines = f.readlines()[img_inds]
-                    for line in lines:
-                        (
-                            grd_name,
-                            q0,
-                            q1,
-                            q2,
-                            q3,
-                            g_lat,
-                            g_lon,
-                            s_lat,
-                            s_lon,
-                        ) = line.strip().split(" ")
-                        grd_file_FL = os.path.join(
-                            self.root, log, FL_dir, grd_name.replace(".txt", ".png")
-                        )
-                        sat_file = os.path.join(
-                            self.root, log, satmap_dir, s_lat + "_" + s_lon + ".png"
-                        )
-                        file_name.append(
-                            [
-                                grd_file_FL,
-                                float(q0),
-                                float(q1),
-                                float(q2),
-                                float(q3),
-                                float(g_lat),
-                                float(g_lon),
-                                float(s_lat),
-                                float(s_lon),
-                                sat_file,
-                            ]
-                        )
-            elif "valid" in self.mode:
-                with open(os.path.join(self.root, log, data_file), "r") as f:
-                    lines = f.readlines()
-                    # if whole == 0:
-                    #     lines = [lines[ind] for ind in img_inds]
-                    # lines = f.readlines()[img_inds]
-                    for line in lines:
-                        (
-                            grd_name,
-                            q0,
-                            q1,
-                            q2,
-                            q3,
-                            g_lat,
-                            g_lon,
-                            s_lat,
-                            s_lon,
-                            gt_shift_u,
-                            gt_shift_v,
-                            theta,
-                        ) = line.strip().split(" ")
-                        grd_file_FL = os.path.join(
-                            self.root, log, FL_dir, grd_name.replace(".txt", ".png")
-                        )
-                        sat_file = os.path.join(
-                            self.root, log, satmap_dir, s_lat + "_" + s_lon + ".png"
-                        )
-                        file_name.append(
-                            [
-                                grd_file_FL,
-                                float(q0),
-                                float(q1),
-                                float(q2),
-                                float(q3),
-                                float(g_lat),
-                                float(g_lon),
-                                float(s_lat),
-                                float(s_lon),
-                                sat_file,
-                                float(gt_shift_u),
-                                float(gt_shift_v),
-                                float(theta),
-                            ]
-                        )
+        if self.mode == "train":
+            with open(os.path.join(self.root, log, data_file), "r") as f:
+                lines = f.readlines()
+                lines = [lines[ind] for ind in img_inds]
+                # lines = f.readlines()[img_inds]
+                for line in lines:
+                    (
+                        grd_name,
+                        q0,
+                        q1,
+                        q2,
+                        q3,
+                        g_lat,
+                        g_lon,
+                        s_lat,
+                        s_lon,
+                    ) = line.strip().split(" ")
+                    grd_file_FL = os.path.join(
+                        self.root, log, FL_dir, grd_name.replace(".txt", ".png")
+                    )
+                    sat_file = os.path.join(
+                        self.root, log, satmap_dir, s_lat + "_" + s_lon + ".png"
+                    )
+                    file_name.append(
+                        [
+                            grd_file_FL,
+                            float(q0),
+                            float(q1),
+                            float(q2),
+                            float(q3),
+                            float(g_lat),
+                            float(g_lon),
+                            float(s_lat),
+                            float(s_lon),
+                            sat_file,
+                        ]
+                    )
+        elif "valid" in self.mode:
+            with open(os.path.join(self.root, log, data_file), "r") as f:
+                lines = f.readlines()
+                # if whole == 0:
+                #     lines = [lines[ind] for ind in img_inds]
+                # lines = f.readlines()[img_inds]
+                for line in lines:
+                    (
+                        grd_name,
+                        q0,
+                        q1,
+                        q2,
+                        q3,
+                        g_lat,
+                        g_lon,
+                        s_lat,
+                        s_lon,
+                        gt_shift_u,
+                        gt_shift_v,
+                        theta,
+                    ) = line.strip().split(" ")
+                    grd_file_FL = os.path.join(
+                        self.root, log, FL_dir, grd_name.replace(".txt", ".png")
+                    )
+                    sat_file = os.path.join(
+                        self.root, log, satmap_dir, s_lat + "_" + s_lon + ".png"
+                    )
+                    file_name.append(
+                        [
+                            grd_file_FL,
+                            float(q0),
+                            float(q1),
+                            float(q2),
+                            float(q3),
+                            float(g_lat),
+                            float(g_lon),
+                            float(s_lat),
+                            float(s_lon),
+                            sat_file,
+                            float(gt_shift_u),
+                            float(gt_shift_v),
+                            float(theta),
+                        ]
+                    )
 
         self.file_name = file_name
 

@@ -7,7 +7,7 @@ import math
 from .common import MLP
 
 
-class Recoder(nn.Module):
+class AeroConfidenceEstimator(nn.Module):
     def __init__(self, args):
         super().__init__()
         self.grd_patch_size = (
@@ -50,7 +50,7 @@ class Recoder(nn.Module):
 
         self.mlp_rng_mask = MLP(
             self.arl_feat_width,
-            int(self.arl_feat_width / 4),
+            int(self.arl_feat_width / self.grd_to_arl_factor),
             output_dim=2,
             num_layers=3,
         )

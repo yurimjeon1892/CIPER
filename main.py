@@ -61,7 +61,7 @@ def save_state(model, optimizer, epoch, is_best):
     if wandb.run is not None:
         save_name = os.path.join(wandb.run.dir, "epoch_" + str(epoch) + ".pth")
         torch.save(state_dict, save_name)
-        wandb.save(save_name)
+        # wandb.save(save_name)
 
 
 def main():

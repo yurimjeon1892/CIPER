@@ -10,7 +10,7 @@ from .matcher import build_matcher
 from .soft_triplet import SoftTripletBiLoss
 
 from .encoder import Encoder
-from .recoder import Recoder
+from .ace import AeroConfidenceEstimator
 from .decoder import Decoder, TwoWayDecoder
 
 
@@ -30,7 +30,7 @@ class CIPER(nn.Module):
         self.reference_net = Encoder(args, args["arl_img_size"])
         self.retr_only = args["retr_only"]
         if not self.retr_only:
-            self.rot_net = Recoder(args)
+            self.rot_net = AeroConfidenceEstimator(args)
             self.pose_net = TwoWayDecoder(args)
 
     def forward(self, im_grd, im_arl):

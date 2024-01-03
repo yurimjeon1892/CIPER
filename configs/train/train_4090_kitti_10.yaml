@@ -6,59 +6,58 @@ resume: False
 seed: 42
 num_workers: 8
 
-batch_size: 8 # 12
+batch_size: 16 
 
-retr_only: False
 device: cuda # device to use for training / testing 
 
-ckpt_dir: ../tmp
-epochs: 50
+epochs: 100
 start_epoch: 1
 
 # ----- data config
-data_name: vigor
-data_root: /storage2/public/vigor/    
+data_name: kitti
+data_root: /data2/public/kitti     
 
-grd_img_size: [320, 640] 
-arl_img_size: [320, 320]
+grd_img_size: [256, 1024]
+arl_img_size: [512, 512]
 
-shift_range_lat: 0 
-shift_range_lon: 0 
-rotation_range: 0 
-fov: 0
+shift_range_lat: 20 
+shift_range_lon: 20 
+rotation_range: 10 
 
-same_area: True
+train_pt_list: ./datasets/splits/kitti/train_files.txt
+val_same_pt_list: ./datasets/splits/kitti/test1_files.txt
+val_cross_pt_list: ./datasets/splits/kitti/test2_files.txt
 
 # ----- optimizer config
-lr: 0.00005
-weight_decay: 0.03
+lr: 0.0001
+weight_decay: 0.001
 
-optimizer: sam
+optimizer: adamw
 cos: True
 
 # ----- model config
-patch_size: 16
+retr_only: False
+rng_mask: True
+
+num_queries: 128
+
+patch_size: 32
 mlp_ratio: 4
 qkv_bias: True
 
 num_heads: 6 # Number of attention heads inside the transformer's attentions
 num_enc_layers: 12 # Number of encoding layers in the transformer
-num_dec_layers: 6
 
 dim_embed: 384 # Size of the embeddings (dimension of the transformer)
-dim_embed_2: 192
 dim_feature: 1000
-
-dim_feedforward: 2048 # Intermediate size of the feedforward layers in the transformer blocks  
-dropout: 0.1 # Dropout applied in the transformer
-pre_norm: False
-
-num_queries: 64 # Number of query slots
 
 set_cost_class: 1 # Class coefficient in the matching cost
 set_cost_bbox: 5 # L1 box coefficient in the matching cost
 
 label_loss_coef: 1
-bbox_loss_coef: 0.1
+bbox_loss_coef: 5
 
-eos_coef: 0.1 # Relative classification weight of the no-object class
+eos_coef: 0.01 # Relative classification weight of the no-object class
+
+repeat_grd_factor: 3
+grd_to_arl_factor: 4 # 360 / cam_fov

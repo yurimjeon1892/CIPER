@@ -6,18 +6,16 @@ resume: False
 seed: 42
 num_workers: 8
 
-batch_size: 8 # 12
+batch_size: 16
 
-retr_only: False
 device: cuda # device to use for training / testing 
 
-ckpt_dir: ../ckpts
-epochs: 10
+epochs: 100
 start_epoch: 1
 
 # ----- data config
 data_name: ford
-data_root: /storage2/public/ford    
+data_root: /data2/public/ford    
 
 grd_img_size: [256, 1024]
 arl_img_size: [512, 512]
@@ -26,7 +24,7 @@ shift_range_lat: 20
 shift_range_lon: 20 
 rotation_range: 180 
 
-whole: 0
+log_idx: 1
 
 # ----- optimizer config
 lr: 0.0001

@@ -1,12 +1,12 @@
 # configuration file for training
 # ----- base config
 infer: False
-resume: ./wandb/run-20231224_170318-xid39qhg/files/epoch_48.pth
+resume: False
 
 seed: 42
 num_workers: 8
 
-batch_size: 8 # 12
+batch_size: 16 
 
 device: cuda # device to use for training / testing 
 
@@ -14,22 +14,16 @@ epochs: 100
 start_epoch: 1
 
 # ----- data config
-data_name: kitti
-data_root: /storage2/public/kitti    
+data_name: vigor
+data_root: /data2/public/vigor    
 
-grd_img_size: [256, 1024]
-arl_img_size: [512, 512]
+grd_img_size: [320, 640] 
+arl_img_size: [320, 320]
 
-shift_range_lat: 20 
-shift_range_lon: 20 
-rotation_range: 180 
-
-train_pt_list: ./datasets/splits/kitti/train_files.txt
-val_same_pt_list: ./datasets/splits/kitti/test1_files.txt
-val_cross_pt_list: ./datasets/splits/kitti/test2_files.txt
+same_area: True
 
 # ----- optimizer config
-lr: 0.00001
+lr: 0.0001
 weight_decay: 0.001
 
 optimizer: adamw
@@ -39,7 +33,7 @@ cos: True
 retr_only: False
 rng_mask: True
 
-num_queries: 64
+num_queries: 128
 
 patch_size: 32
 mlp_ratio: 4
@@ -60,4 +54,4 @@ bbox_loss_coef: 5
 eos_coef: 0.01 # Relative classification weight of the no-object class
 
 repeat_grd_factor: 3
-grd_to_arl_factor: 4 # 360 / cam_fov
+grd_to_arl_factor: 1 # 360 / cam_fov
