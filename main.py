@@ -278,7 +278,7 @@ def main():
                 data_loader_valid_cross,
                 ({**valid_infos, **dict(valid="cross")}),
             )
-        elif args["data_name"] == "ford":
+        else:
             valid_infos = valid_one_epoch(
                 model,
                 criterion,

@@ -204,6 +204,7 @@ class Ford(torch.utils.data.Dataset):
                 ),
             ]
         )
+        # self.file_name = self.file_name[:10]
 
     def __getitem__(self, index):
         if self.mode == "train" or self.mode == "valid_same":
