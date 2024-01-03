@@ -121,6 +121,7 @@ class KITTI(torch.utils.data.Dataset):
 
             # =================== read satellite map ==================================
             arl_img_name = os.path.join(self.root, "satellite", file_name)
+            print(arl_img_name)
             try:
                 arl_img = Image.open(arl_img_name, "r")
                 arl_img = arl_img.convert("RGB")
