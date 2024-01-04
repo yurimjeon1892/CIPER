@@ -1,5 +1,5 @@
 # configuration file for training
-infer: False
+eval: False
 
 resume: False
 

@@ -1,6 +1,8 @@
 import torch
 import numpy as np
 
+import wandb
+
 
 class AverageMeter(object):
     def __init__(self):
@@ -244,3 +246,42 @@ def print_pigeon():
     """
     )
     return
+
+
+def adjust_learning_rate(optimizer, epoch, args):
+    import math
+
+    """Decay the learning rate based on schedule"""
+    lr = args["lr"]
+    if args["cos"]:  # cosine lr schedule
+        lr *= 0.5 * (1.0 + math.cos(math.pi * epoch / args["epochs"]))
+    else:  # stepwise lr schedule
+        for milestone in args.schedule:
+            lr *= 0.1 if epoch >= milestone else 1.0
+    for param_group in optimizer.param_groups:
+        param_group["lr"] = lr
+
+
+def save_state(model, optimizer, epoch, is_best):
+    # os.makedirs(save_path, exist_ok=True)
+    state_dict = {
+        "model": model.state_dict(),
+        "optimizer": optimizer.state_dict(),
+        "epoch": epoch,
+    }
+    # save_name = os.path.join(save_path, "epoch_" + str(epoch)+".pth")
+    # torch.save(state_dict, save_name)
+    # print("[i] checkpoint saved in ", save_name)
+
+    # if is_best:
+    #     torch.save(state_dict, os.path.join(save_path, "model_best.pth"))
+    #     print("[i] best checkpoint saved in ", os.path.join(save_path, "model_best.pth"))
+    # if epoch > 3:
+    #     prev_checkpoint_filename = os.path.join(
+    #         save_path, "epoch_" + str(epoch - 3) + ".pth")
+    #     if os.path.exists(prev_checkpoint_filename):
+    #         os.remove(prev_checkpoint_filename)
+    if wandb.run is not None:
+        save_name = os.path.join(wandb.run.dir, "epoch_" + str(epoch) + ".pth")
+        torch.save(state_dict, save_name)
+        # wandb.save(save_name)

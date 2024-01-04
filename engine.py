@@ -344,7 +344,7 @@ def valid_pose(
 
 
 @torch.no_grad()
-def evaluate(
+def evaluate_one(
     model: torch.nn.Module,
     postprocessors: torch.nn.Module,
     loader_dict: dict,
