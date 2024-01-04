@@ -12,6 +12,6 @@ ENV PATH="/opt/venv/bin:$PATH"
 RUN pip install PyYAML tqdm && \
     pip install torch==1.13.1 torchvision==0.14.1 
 
-RUN pip install matplotlib scipy timm ptflops tensorboardX
+RUN pip install matplotlib scipy timm ptflops wandb
 
 ENV SHELL /bin/bash
