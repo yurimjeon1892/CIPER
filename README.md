@@ -9,18 +9,25 @@
 * cuDNN 8
 * Ubuntu 20.04
 
-### Step 2: Create conda environment
+### Step 2: Create environment
+Anaconda
 ```
 conda create -n ciper python=3.8
 conda activate ciper
 pip install -r requirements.txt
 ```
 
+Docker
+```
+docker image build -t ciper:1.0 .
+docker run -it --gpus all -e HOST_USER_ID=$(id -u) -e HOST_USER_GID=$(id -g) --shm-size 16G --name xiver -v /home/$(whoami):/home/$(whoami) -v /data:/data ciper:1.0 /bin/bash
+```
+
 ## Data
 
 ### KITTI
 
-Download KITTI [street-view images](https://www.cvlibs.net/datasets/kitti/raw_data.php) and [satellite images](https://github.com/shiyujiao/HighlyAccurate). The folder structure is as follows:
+Download KITTI [ground images](https://www.cvlibs.net/datasets/kitti/raw_data.php) and [satellite images](https://github.com/shiyujiao/HighlyAccurate). The folder structure is as follows:
 ```
 kitti
 ├── raw
@@ -47,7 +54,7 @@ kitti
 
 ### Ford
 
-Download Ford [street-view images](https://avdata.ford.com/downloads/default.aspx) and [satellite images](https://github.com/shiyujiao/HighlyAccurate). The folder structure is as follows:
+Download Ford [ground images](https://avdata.ford.com/downloads/default.aspx) and [satellite images](https://github.com/shiyujiao/HighlyAccurate). The folder structure is as follows:
 ```
 ford
 ├── 2017-08-04
