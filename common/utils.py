@@ -1,7 +1,6 @@
 import torch
 import numpy as np
 
-# why? git error???
 import os
 import wandb
 
@@ -222,34 +221,6 @@ def pose_accuracy(results, targets):
     return distance, angle_diff
 
 
-def print_pigeon():
-    print(
-        r"""\
-                    .-''-.
-                    / ,    \
-                .-'`(o)    ;
-                '-==.       |
-                    `._...-;-.
-                    )--'''   `-.
-                    /   .        `-.
-                    /   /      `.    `-.
-                    |   \    ;   \      `-._________
-                    |    \    `.`.;          -------`.
-                    \    `-.   \\\\          `---...|
-                    `.     `-. ```\.--'._   `---...|
-                        `-.....7`-.))\     `-._`-.. /
-                        `._\ /   `-`         `-.,'
-                            / /
-                            /=(_
-                        -./--' `
-                    ,^-(_
-                    ,--' `                   
-    
-    """
-    )
-    return
-
-
 def adjust_learning_rate(optimizer, epoch, args):
     import math
 
@@ -287,3 +258,31 @@ def save_state(model, optimizer, epoch, is_best):
         save_name = os.path.join(wandb.run.dir, "epoch_" + str(epoch) + ".pth")
         torch.save(state_dict, save_name)
         # wandb.save(save_name)
+
+
+def print_pigeon():
+    print(
+        r"""\
+                    .-''-.
+                    / ,    \
+                .-'`(o)    ;
+                '-==.       |
+                    `._...-;-.
+                    )--'''   `-.
+                    /   .        `-.
+                    /   /      `.    `-.
+                    |   \    ;   \      `-._________
+                    |    \    `.`.;          -------`.
+                    \    `-.   \\\\          `---...|
+                    `.     `-. ```\.--'._   `---...|
+                        `-.....7`-.))\     `-._`-.. /
+                        `._\ /   `-`         `-.,'
+                            / /
+                            /=(_
+                        -./--' `
+                    ,^-(_
+                    ,--' `                   
+    
+    """
+    )
+    return
