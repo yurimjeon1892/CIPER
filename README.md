@@ -52,7 +52,7 @@ kitti
 
 ```
 
-### Ford
+### Ford multi-AV
 
 Download Ford [ground images](https://avdata.ford.com/downloads/default.aspx) and [satellite images](https://github.com/shiyujiao/HighlyAccurate). The folder structure is as follows:
 ```

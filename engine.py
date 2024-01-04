@@ -8,7 +8,12 @@ import torch
 import numpy as np
 
 import random
-from common.utils import AverageMeter, retr_accuracy, pose_accuracy
+from common.utils import (
+    AverageMeter,
+    retr_accuracy,
+    pose_accuracy,
+    pose_accuracy_latlon,
+)
 from common.utils_plot import plot_result, plot_intermediate
 import wandb
 
@@ -263,7 +268,10 @@ def valid_pose(
                 p_imgs = plot_intermediate(criterion.intermediate)
                 plot_imgs.update(p_imgs)
 
-            trs_err, rot_err = pose_accuracy(results, targets)
+            preds = result2pose(results)
+            gts = target2gt(targets)
+
+            trs_err, rot_err = pose_accuracy(preds, gts)
             trs_errs.extend(trs_err)
             rot_errs.extend(rot_err)
 
@@ -350,89 +358,117 @@ def evaluate_one(
     loader_dict: dict,
     eval_infos: dict,
 ):
-    if True:
-        # retrieval validation
-        model_query = model.query_net
-        model_reference = model.reference_net
+    # retrieval validation
+    model_query = model.query_net
+    model_reference = model.reference_net
 
-        model_query.eval()
-        model_reference.eval()
+    model_query.eval()
+    model_reference.eval()
 
-        qry_label = np.zeros([len(loader_dict["qry"].dataset)])
-        qry_feat = np.zeros(
-            [len(loader_dict["qry"].dataset), eval_infos["dim_feature"]]
-        )
-        ref_feat = np.zeros(
-            [len(loader_dict["ref"].dataset), eval_infos["dim_feature"]]
-        )
+    qry_label = np.zeros([len(loader_dict["qry"].dataset)])
+    qry_feat = np.zeros([len(loader_dict["qry"].dataset), eval_infos["dim_feature"]])
+    ref_feat = np.zeros([len(loader_dict["ref"].dataset), eval_infos["dim_feature"]])
 
-        description = "[i] Eval qry"
-        for i, (img_grd, idx_grd, labels) in enumerate(
-            tqdm(loader_dict["qry"], desc=description, unit="batches")
-        ):
-            img_grd = img_grd.to(eval_infos["device"])
-            idx_grd = idx_grd.to(eval_infos["device"])
-            labels = labels.to(eval_infos["device"])
+    description = "[i] Eval qry"
+    for i, (img_grd, idx_grd, labels) in enumerate(
+        tqdm(loader_dict["qry"], desc=description, unit="batches")
+    ):
+        img_grd = img_grd.to(eval_infos["device"])
+        idx_grd = idx_grd.to(eval_infos["device"])
+        labels = labels.to(eval_infos["device"])
 
-            y_grd, _, _ = model_query(img_grd)
-            qry_feat[idx_grd.cpu().numpy(), :] = y_grd.cpu().numpy()
-            qry_label[idx_grd.cpu().numpy()] = labels.cpu().numpy()
+        y_grd, _, _ = model_query(img_grd)
+        qry_feat[idx_grd.cpu().numpy(), :] = y_grd.cpu().numpy()
+        qry_label[idx_grd.cpu().numpy()] = labels.cpu().numpy()
 
-        description = "[i] Eval ref"
-        for i, (img_arl, idx_arl, _) in enumerate(
-            tqdm(loader_dict["ref"], desc=description, unit="batches")
-        ):
-            img_arl = img_arl.to(eval_infos["device"])
-            out_emb_arl, _ = model_reference(img_arl)  # delta
+    description = "[i] Eval ref"
+    for i, (img_arl, idx_arl, _) in enumerate(
+        tqdm(loader_dict["ref"], desc=description, unit="batches")
+    ):
+        img_arl = img_arl.to(eval_infos["device"])
+        out_emb_arl, _ = model_reference(img_arl)  # delta
 
-            ref_feat[idx_arl.cpu().numpy(), :] = out_emb_arl.detach().cpu().numpy()
+        ref_feat[idx_arl.cpu().numpy(), :] = out_emb_arl.detach().cpu().numpy()
 
-        retr_acc = retr_accuracy(qry_feat, ref_feat, qry_label.astype(int))
+    retr_acc = retr_accuracy(qry_feat, ref_feat, qry_label.astype(int))
 
-        stats = {
-            "acc/retr_top1": retr_acc[0],
-            "acc/retr_top5": retr_acc[1],
-            "acc/retr_top10": retr_acc[2],
-            "acc/retr_top1pc": retr_acc[3],
-        }
+    stats = {
+        "acc/retr_top1": retr_acc[0],
+        "acc/retr_top5": retr_acc[1],
+        "acc/retr_top10": retr_acc[2],
+        "acc/retr_top1pc": retr_acc[3],
+    }
 
-    if eval_infos["retr_only"] == False:
-        model.eval()
-        trs_errs, rot_errs = [], []
+    model.eval()
+    trs_errs, rot_errs = [], []
 
-        description = "[i] Eval pose"
-        for i, (img_grd, img_arl, targets) in enumerate(
-            tqdm(loader_dict["val"], desc=description, unit="batches")
-        ):
-            img_grd = img_grd.to(eval_infos["device"])
-            img_arl = img_arl.to(eval_infos["device"])
-            targets = [
-                {k: targets[k][b].to(eval_infos["device"]) for k in targets.keys()}
-                for b in range(img_grd.size(0))
-            ]
+    description = "[i] Eval pose"
+    for i, (img_grd, img_arl, targets) in enumerate(
+        tqdm(loader_dict["val"], desc=description, unit="batches")
+    ):
+        img_grd = img_grd.to(eval_infos["device"])
+        img_arl = img_arl.to(eval_infos["device"])
+        targets = [
+            {k: targets[k][b].to(eval_infos["device"]) for k in targets.keys()}
+            for b in range(img_grd.size(0))
+        ]
 
-            outputs = model(im_grd=img_grd, im_arl=img_arl)
-            results = postprocessors(outputs, targets)
+        outputs = model(im_grd=img_grd, im_arl=img_arl)
+        results = postprocessors(outputs, targets)
 
-            trs_err, rot_err = pose_accuracy(results, targets)
-            trs_errs.extend(trs_err)
-            rot_errs.extend(rot_err)
+        preds = result2pose(results)
+        gts = target2gt(targets)
 
-        stats = {}
+        trs_err, rot_err = pose_accuracy(preds, gts)
+        trs_errs.extend(trs_err)
+        rot_errs.extend(rot_err)
 
-        stats["acc/pose_trs_d1"] = np.sum((trs_err < 1)) / trs_err.shape[0] * 100
-        stats["acc/pose_trs_d5"] = np.sum((trs_err < 5)) / trs_err.shape[0] * 100
+    stats = {}
 
-        stats["acc/pose_rot_d1"] = np.sum((rot_err < 1)) / rot_err.shape[0] * 100
-        stats["acc/pose_rot_d5"] = np.sum((rot_err < 5)) / rot_err.shape[0] * 100
+    stats["acc/pose_trs_d1"] = np.sum((trs_err < 1)) / trs_err.shape[0] * 100
+    stats["acc/pose_trs_d5"] = np.sum((trs_err < 5)) / trs_err.shape[0] * 100
 
-        stats["err/pose_trs_mean"] = np.mean(trs_errs)
-        stats["err/pose_trs_median"] = np.median(trs_errs)
-        stats["err/pose_rot_mean"] = np.mean(rot_errs)
-        stats["err/pose_rot_median"] = np.median(rot_errs)
+    stats["acc/pose_rot_d1"] = np.sum((rot_err < 1)) / rot_err.shape[0] * 100
+    stats["acc/pose_rot_d5"] = np.sum((rot_err < 5)) / rot_err.shape[0] * 100
+
+    stats["err/pose_trs_mean"] = np.mean(trs_errs)
+    stats["err/pose_trs_median"] = np.median(trs_errs)
+    stats["err/pose_rot_mean"] = np.mean(rot_errs)
+    stats["err/pose_rot_median"] = np.median(rot_errs)
 
     print("[i] Eval ", end="\n")
     for k in stats.keys():
         print("   ", k + ": {:.8f}".format(stats[k]), end="\n")
 
     return
+
+
+def result2pose(results):
+    pred_poses = []
+    for b in range(len(results)):
+        scores = results[b]["scores"].detach().cpu().numpy()
+        shifts = results[b]["boxes"].detach().cpu().numpy()
+        shifts_max = shifts[np.argmax(scores), :]
+        shifts_max = np.array([[shifts_max[0], shifts_max[1], shifts_max[2]]])
+        pred_poses.append(shifts_max)
+    return pred_poses
+
+
+def target2gt(targets):
+    gts = []
+    for b in range(len(targets)):
+        arl_img_size = targets[b]["orig_size"].detach().cpu().numpy()
+        meter_per_pixel = targets[b]["meter_per_pixel"][0].detach().cpu().numpy()
+
+        tgt = targets[b]["boxes"][0].detach().cpu().numpy()
+        tgt = np.array(
+            [
+                [
+                    tgt[0] * arl_img_size[0] * meter_per_pixel,
+                    tgt[1] * arl_img_size[1] * meter_per_pixel,
+                    np.arctan2(tgt[3], tgt[2]),
+                ]
+            ]
+        )
+        gts.append(tgt)
+    return gts

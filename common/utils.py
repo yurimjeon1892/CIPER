@@ -79,39 +79,30 @@ def retr_accuracy(qry_feat, ref_feat, qry_label, topk=[1, 5, 10]):
     return results
 
 
-def pose_accuracy(results, targets):
-    # shift_range_lons, shift_range_lats, rotation_ranges = [], [], []
-
-    gts, preds = [], []
-    for b in range(len(results)):
-        arl_img_size = targets[b]["orig_size"].detach().cpu().numpy()
-        meter_per_pixel = targets[b]["meter_per_pixel"][0].detach().cpu().numpy()
-
-        tgt = targets[b]["boxes"][0].detach().cpu().numpy()
-        tgt = np.array(
-            [
-                [
-                    tgt[0] * arl_img_size[0] * meter_per_pixel,
-                    tgt[1] * arl_img_size[1] * meter_per_pixel,
-                    np.arctan2(tgt[3], tgt[2]),
-                ]
-            ]
-        )
-        gts.append(tgt)
-
-        scores = results[b]["scores"].detach().cpu().numpy()
-        shifts = results[b]["boxes"].detach().cpu().numpy()
-        shifts_max = shifts[np.argmax(scores), :]
-        shifts_max = np.array([[shifts_max[0], shifts_max[1], shifts_max[2]]])
-        preds.append(shifts_max)
-
-        # print("score: ", np.min(scores), np.max(scores))
+def pose_accuracy(preds, gts):
+    preds = np.concatenate(preds, 0)
+    pred_shifts, pred_headings = preds[:, :2], np.rad2deg(preds[:, 2])
 
     gts = np.concatenate(gts, 0)
-    preds = np.concatenate(preds, 0)
-
     gt_shifts, gt_headings = gts[:, :2], np.rad2deg(gts[:, 2])
+
+    distance = np.sqrt(np.sum((pred_shifts - gt_shifts) ** 2, axis=1))  # [N]
+
+    angle_diff = np.remainder(np.abs(pred_headings - gt_headings), 360)
+    idx0 = angle_diff > 180
+    angle_diff[idx0] = 360 - angle_diff[idx0]
+
+    return distance, angle_diff
+
+
+def pose_accuracy_latlon(preds, gts):
+    preds = np.concatenate(preds, 0)
     pred_shifts, pred_headings = preds[:, :2], np.rad2deg(preds[:, 2])
+
+    gts = np.concatenate(gts, 0)
+    gt_shifts, gt_headings = gts[:, :2], np.rad2deg(gts[:, 2])
+
+    ## convert 3dof to latlon!
 
     distance = np.sqrt(np.sum((pred_shifts - gt_shifts) ** 2, axis=1))  # [N]
     angle_diff = np.remainder(np.abs(pred_headings - gt_headings), 360)
