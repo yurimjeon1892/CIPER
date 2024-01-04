@@ -9,9 +9,8 @@ RUN apt-get update && \
 RUN virtualenv -p python3.8 /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-RUN pip install PyYAML tqdm && \
-    pip install torch==1.13.1 torchvision==0.14.1 
+RUN pip install torch==1.13.1 torchvision==0.14.1 
 
-RUN pip install matplotlib scipy timm ptflops wandb
+RUN pip install matplotlib scipy timm ptflops wandb PyYAML tqdm
 
 ENV SHELL /bin/bash
