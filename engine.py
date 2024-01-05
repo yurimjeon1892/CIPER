@@ -397,6 +397,7 @@ def evaluate_one(
 
     model.eval()
 
+    preds, gts = [], []
     description = "[i] eval pose"
     for i, (img_grd, img_arl, targets) in enumerate(
         tqdm(loader_dict["val"], desc=description, unit="batches")
@@ -411,10 +412,12 @@ def evaluate_one(
         outputs = model(im_grd=img_grd, im_arl=img_arl)
         results = postprocessors(outputs, targets)
 
-        preds = result2pose(results)
-        gts = target2gt(targets)
+        preds.extend(result2pose(results))
+        gts.extend(target2gt(targets))
 
-        pose_accuracy_eval(preds, gts, fname)
+    pose_accuracy_eval(preds, gts, fname)
+
+    print("[i] evaluation finished. check: ", fname)
     return
 
 

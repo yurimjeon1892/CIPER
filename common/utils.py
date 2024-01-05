@@ -120,10 +120,12 @@ def retr_accuracy_eval(qry_feat, ref_feat, qry_label, fname, topk=[1, 5, 10]):
                         results[j] += 1.0
     results = results / qry_feat.shape[0] * 100.0
     f = open(fname, "a")
-    line = "top1,{:.2f}\ntop5,{:.2f}\ntop10,{:.2f},\ntop1%:{:.2f}\n".format(
+    f.write("**cross-view image retrieval\n")
+    f.write("top1, top5, top10, top1%\n")
+    d = "{:.3f}, {:.3f}, {:.3f}, {:.3f}\n".format(
         results[0], results[1], results[2], results[-1]
     )
-    f.write(line)
+    f.write(d)
     f.close()
     return
 
@@ -161,49 +163,48 @@ def pose_accuracy_eval(preds, gts, fname):
     init_angle = np.abs(gt_oriens)
 
     f = open(fname, "a")
-    f.write(
-        "init location and orientation, "
-        + str(np.mean(init_dis))
-        + ", "
-        + str(np.median(init_dis))
-        + ", "
-        + str(np.mean(init_angle))
-        + ", "
-        + str(np.median(init_angle))
-        + "\n"
+    f.write("**cross-view pose estimation\n")
+    f.write("init location and orientation\n")
+    line = "{:.3f}, {:.3f}, {:.3f}, {:.3f}\n".format(
+        np.mean(init_dis),
+        np.median(init_dis),
+        np.mean(init_angle),
+        np.median(init_angle),
     )
-    f.write(
-        "diff location and orientation, "
-        + str(np.mean(distance))
-        + ", "
-        + str(np.median(distance))
-        + ", "
-        + str(np.mean(angle_diff))
-        + ", "
-        + str(np.median(angle_diff))
-        + "\n"
+    f.write(line)
+    f.write("diff location and orientation\n")
+    line = "{:.3f}, {:.3f}, {:.3f}, {:.3f}\n".format(
+        np.mean(distance),
+        np.median(distance),
+        np.mean(angle_diff),
+        np.median(angle_diff),
     )
+    f.write(line)
 
     diff_shifts = np.abs(pred_shifts - gt_shifts)
+    f.write("lateral 1m, 5m\n")
+    line = ""
     for idx in range(len(metrics)):
         pred = np.sum(diff_shifts[:, 0] < metrics[idx]) / diff_shifts.shape[0] * 100
-        line = "lateral " + str(metrics[idx]) + " m," + str(pred)
-        print(line)
-        f.write(line + "\n")
+        line += "{:.3f}, ".format(pred)
+    f.write(line + "\n")
 
+    f.write("longitudinal 1m, 5m\n")
+    line = ""
+    for idx in range(len(metrics)):
         pred = np.sum(diff_shifts[:, 1] < metrics[idx]) / diff_shifts.shape[0] * 100
-        line = "longitudinal " + str(metrics[idx]) + " m," + str(pred)
-        print(line)
-        f.write(line + "\n")
+        line += "{:.3f}, ".format(pred)
+    f.write(line + "\n")
 
+    f.write("orientation 1deg, 5deg\n")
+    line = ""
     angle_acc = {}
     for idx in range(len(angles)):
         pred = np.sum(angle_diff < angles[idx]) / angle_diff.shape[0] * 100
         angle_acc[str(angles[idx])] = pred
 
-        line = "angle " + str(angles[idx]) + " deg," + str(pred)
-        print(line)
-        f.write(line + "\n")
+        line += "{:.3f}, ".format(pred)
+    f.write(line + "\n")
     f.close()
 
     return

@@ -38,13 +38,12 @@ class CIPER(nn.Module):
             "grd": x1_grd,
             "arl": x1_arl,
         }
-        if not self.retr_only:
-            masks = self.rot_net(x3_grd, x3_arl)
-            x3_arl = torch.mul(masks["bev_mask"].to(x3_arl.device), x3_arl)
-            outputs.update(masks)
+        masks = self.rot_net(x3_grd, x3_arl)
+        x3_arl = torch.mul(masks["bev_mask"].to(x3_arl.device), x3_arl)
+        outputs.update(masks)
 
-            out_pos = self.pose_net(x2_grd, x3_arl)
-            outputs.update(out_pos)
+        out_pos = self.pose_net(x2_grd, x3_arl)
+        outputs.update(out_pos)
 
         return outputs
 
