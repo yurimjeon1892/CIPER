@@ -319,18 +319,18 @@ def evaluate():
         "device": args["device"],
         "dim_feature": args["dim_feature"],
     }
-    evaluate(
+    evaluate_one(
         model,
         postprocessors,
         data_loader_valid_same,
-        (eval_infos | dict(valid="same")),
+        ({**eval_infos, **dict(valid="same")}),
     )
     if args["data_name"] == "kitti":
-        evaluate(
+        evaluate_one(
             model,
             postprocessors,
             data_loader_valid_cross,
-            (eval_infos | dict(valid="cross")),
+            ({**eval_infos, **dict(valid="cross")}),
         )
     return
 
