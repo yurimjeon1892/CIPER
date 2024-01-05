@@ -15,7 +15,7 @@ start_epoch: 1
 
 # ----- data config
 data_name: kitti
-data_root: /data2/public/kitti    
+data_root: /data/public/kitti    
 
 grd_img_size: [256, 1024]
 arl_img_size: [512, 512]
@@ -29,7 +29,7 @@ val_same_pt_list: ./datasets/splits/kitti/test1_files.txt
 val_cross_pt_list: ./datasets/splits/kitti/test2_files.txt
 
 # ----- optimizer config
-lr: 0.0001
+lr: 0.00001
 weight_decay: 0.001
 
 optimizer: adamw
