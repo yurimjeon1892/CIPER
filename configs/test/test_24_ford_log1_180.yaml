@@ -1,7 +1,7 @@
 # configuration file for training
 # ----- base config
 eval: True
-pretrained: /storage1/ckpts/run-20240105_070209-p5wgzpmc/files/epoch_80.pth
+pretrained: /storage1/ckpts/run-20240105_070319-9vdl7anr/files/epoch_80.pth
 
 seed: 42
 num_workers: 4
@@ -20,7 +20,7 @@ arl_img_size: [512, 512]
 
 shift_range_lat: 20 
 shift_range_lon: 20 
-rotation_range: 10 
+rotation_range: 180 
 
 log_idx: 0
 

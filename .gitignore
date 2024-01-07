@@ -168,4 +168,4 @@ ckpts/
 pretrained/
 wandb/
 work_dir/
-eval
+eval/
