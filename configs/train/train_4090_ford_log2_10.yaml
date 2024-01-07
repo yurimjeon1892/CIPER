@@ -15,7 +15,7 @@ start_epoch: 1
 
 # ----- data config
 data_name: ford
-data_root: /data2/public/ford    
+data_root: /data/public/ford    
 
 grd_img_size: [256, 1024]
 arl_img_size: [512, 512]
@@ -27,7 +27,7 @@ rotation_range: 10
 log_idx: 1
 
 # ----- optimizer config
-lr: 0.0001
+lr: 0.00001
 weight_decay: 0.03
 
 optimizer: adamw
