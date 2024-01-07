@@ -1,0 +1,14 @@
+**cross-view image retrieval
+top1, top5, top10, top1%
+1.000,5.000,11.000,1.000
+**cross-view pose estimation
+init location and orientation
+15.094,16.258,174.801,174.835
+diff location and orientation
+14.036,14.072,6.118,5.754
+lateral 1m, 5m
+3.000,19.000,
+longitudinal 1m, 5m
+5.000,32.000,
+orientation 1 deg, 5 deg
+9.000,40.000,
