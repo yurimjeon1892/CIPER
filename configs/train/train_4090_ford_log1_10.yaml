@@ -34,8 +34,6 @@ optimizer: adamw
 cos: True
 
 # ----- model config
-rng_mask: True
-
 num_queries: 128
 
 patch_size: 32
