@@ -44,30 +44,18 @@ def retr_accuracy(qry_feat, ref_feat, qry_label):
                 if ranking < k:
                     results[j] += 1.0
     else:
-        DENOM = 7
-        print(
-            "Watch out! Due to device issue, we devide the features with number: ",
-            DENOM,
-            ", if you evaluate for paper, you MUST check this!",
-        )
-        print("N: ", N, ", M: ", M, ", N_D: ", N // DENOM)
         # split the queries if the matrix is too large, e.g. VIGOR
-        assert N % DENOM == 0  # ??
-        N_D = N // DENOM
-        for split in range(DENOM):
-            print("split 1")
+        # assert N % 4 == 0
+        print("[!] Is N % 4 == 0 ?: ", (N % 4 == 0))
+        N_D = N // 4
+        for split in range(4):
             qry_feat_i = qry_feat[(split * N_D) : ((split + 1) * N_D), :]
-            print("split 2")
             qry_label_i = qry_label[(split * N_D) : ((split + 1) * N_D)]
-            print("split 3")
             qry_feat_norm = np.sqrt(np.sum(qry_feat_i**2, axis=1, keepdims=True))
-            print("split 4")
             ref_feat_norm = np.sqrt(np.sum(ref_feat**2, axis=1, keepdims=True))
-            print("split 5")
             similarity = np.matmul(
                 qry_feat_i / qry_feat_norm, (ref_feat / ref_feat_norm).transpose()
             )
-            print("split 6")
             for i in range(qry_feat_i.shape[0]):
                 ranking = np.sum(
                     (similarity[i, :] > similarity[i, qry_label_i[i]]) * 1.0
@@ -75,7 +63,6 @@ def retr_accuracy(qry_feat, ref_feat, qry_label):
                 for j, k in enumerate(topk):
                     if ranking < k:
                         results[j] += 1.0
-            print("split 7")
     results = results / qry_feat.shape[0] * 100.0
     # print("Percentage-top1:{:.2f}, top5:{:.2f}, top10:{:.2f}, top1%:{:.2f}".format(results[0], results[1], results[2], results[-1]))
     return results
