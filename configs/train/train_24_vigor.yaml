@@ -14,16 +14,22 @@ epochs: 100
 start_epoch: 1
 
 # ----- data config
-data_name: vigor
-data_root: /data/public/vigor    
+data_name: kitti
+data_root: /data/public/kitti     
 
-grd_img_size: [320, 640] 
-arl_img_size: [320, 320]
+grd_img_size: [256, 1024]
+arl_img_size: [512, 512]
 
-same_area: True
+shift_range_lat: 20 
+shift_range_lon: 20 
+rotation_range: 10 
+
+train_pt_list: ./datasets/splits/kitti/train_files.txt
+val_same_pt_list: ./datasets/splits/kitti/test1_files.txt
+val_cross_pt_list: ./datasets/splits/kitti/test2_files.txt
 
 # ----- optimizer config
-lr: 0.0001
+lr: 0.00001
 weight_decay: 0.001
 
 optimizer: adamw

@@ -176,14 +176,12 @@ def iterate(debug):
         "iter": 0,
         "epoch": -1,
         "device": args["device"],
-        "retr_only": args["retr_only"],
         # "clip_max_norm": args["clip_max_norm"],
         "optimizer": args["optimizer"],
     }
     valid_infos = {
         "epoch": -1,
         "device": args["device"],
-        "retr_only": args["retr_only"],
         "best_metric": -1,
         "dim_feature": args["dim_feature"],
     }
@@ -318,19 +316,20 @@ def evaluate():
     eval_infos = {
         "device": args["device"],
         "dim_feature": args["dim_feature"],
+        "data_name": args["data_name"],
     }
-    evaluate(
+    evaluate_one(
         model,
         postprocessors,
         data_loader_valid_same,
-        (eval_infos | dict(valid="same")),
+        ({**eval_infos, **dict(valid="same")}),
     )
     if args["data_name"] == "kitti":
-        evaluate(
+        evaluate_one(
             model,
             postprocessors,
             data_loader_valid_cross,
-            (eval_infos | dict(valid="cross")),
+            ({**eval_infos, **dict(valid="cross")}),
         )
     return
 

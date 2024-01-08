@@ -11,11 +11,13 @@ import random
 from common.utils import (
     AverageMeter,
     retr_accuracy,
+    retr_accuracy_eval,
     pose_accuracy,
-    pose_accuracy_latlon,
+    pose_accuracy_eval,
 )
 from common.utils_plot import plot_result, plot_intermediate
 import wandb
+import datetime, os
 
 
 def train_one_epoch(
@@ -38,7 +40,7 @@ def train_one_epoch(
     iters = train_infos["iter"]
 
     sample_ind = random.choice(range(len(data_loader)))
-    description = "[i] Train {:>2}".format(train_infos["epoch"])
+    description = "[i] train {:>2}".format(train_infos["epoch"])
     for i, (img_grd, img_arl, targets) in enumerate(
         tqdm(data_loader, desc=description, unit="batches")
     ):
@@ -48,25 +50,23 @@ def train_one_epoch(
 
         outputs = model(im_grd=img_grd, im_arl=img_arl)
 
-        if not train_infos["retr_only"]:
-            targets = [
-                {k: targets[k][b].to(train_infos["device"]) for k in targets.keys()}
-                for b in range(bs)
-            ]
-            results = postprocessors(outputs, targets)
-            if i == sample_ind:
-                p_imgs = plot_result(results, targets, img_grd, img_arl)
-                plot_imgs.update(p_imgs)
+        targets = [
+            {k: targets[k][b].to(train_infos["device"]) for k in targets.keys()}
+            for b in range(bs)
+        ]
+        results = postprocessors(outputs, targets)
+        if i == sample_ind:
+            p_imgs = plot_result(results, targets, img_grd, img_arl)
+            plot_imgs.update(p_imgs)
 
         loss_dict = criterion(outputs, targets)
         losses = sum(loss_dict[k] for k in loss_dict.keys())
         for k in loss_dict.keys():
             losses_meter[k].update(loss_dict[k].item(), bs)
 
-        if not train_infos["retr_only"]:
-            if i == sample_ind:
-                p_imgs = plot_intermediate(criterion.intermediate)
-                plot_imgs.update(p_imgs)
+        if i == sample_ind:
+            p_imgs = plot_intermediate(criterion.intermediate)
+            plot_imgs.update(p_imgs)
 
         # compute gradient and do SGD step
         optimizer.zero_grad()
@@ -139,15 +139,14 @@ def valid_one_epoch(
         if wandb.run is not None:
             wandb.log(stats, step=valid_infos["epoch"])
 
-    if not valid_infos["retr_only"]:
-        imgs2, stats2 = valid_pose(
-            model, criterion, postprocessors, loader_dict["val"], valid_infos
-        )
-        imgs.update(imgs2)
-        stats.update(stats2)
-        if wandb.run is not None:
-            wandb.log(imgs2, step=valid_infos["epoch"])
-            wandb.log(stats2, step=valid_infos["epoch"])
+    imgs2, stats2 = valid_pose(
+        model, criterion, postprocessors, loader_dict["val"], valid_infos
+    )
+    imgs.update(imgs2)
+    stats.update(stats2)
+    if wandb.run is not None:
+        wandb.log(imgs2, step=valid_infos["epoch"])
+        wandb.log(stats2, step=valid_infos["epoch"])
 
     print("[i] Valid {:>2}:".format(valid_infos["epoch"]), end="\n")
     for k in stats.keys():
@@ -175,7 +174,7 @@ def valid_retr(
     img_grd_, img_arl_ = None, None
     with torch.no_grad():
         # query features
-        description = "[i] Valid qry"
+        description = "[i] valid qry"
         for i, (img_grd, idx_grd, labels) in enumerate(
             tqdm(qry_loader, desc=description, unit="batches")
         ):
@@ -191,7 +190,7 @@ def valid_retr(
                 img_grd_ = img_grd[0, :, :, :]
 
         # reference features
-        description = "[i] Valid ref"
+        description = "[i] valid ref"
         for i, (img_arl, idx_arl, _) in enumerate(
             tqdm(ref_loader, desc=description, unit="batches")
         ):
@@ -245,7 +244,7 @@ def valid_pose(
     sample_ind = random.choice(range(len(data_loader)))
     # sample_ind = 0
     with torch.no_grad():
-        description = "[i] Valid pose"
+        description = "[i] valid pose"
         for i, (img_grd, img_arl, targets) in enumerate(
             tqdm(data_loader, desc=description, unit="batches")
         ):
@@ -358,6 +357,10 @@ def evaluate_one(
     loader_dict: dict,
     eval_infos: dict,
 ):
+    os.makedirs("./eval", exist_ok=True)
+    fname = "./eval/eval-{data}-{date:%Y-%m-%d-%H:%M:%S}.txt".format(
+        data=eval_infos["data_name"], date=datetime.datetime.now()
+    )
     # retrieval validation
     model_query = model.query_net
     model_reference = model.reference_net
@@ -369,40 +372,34 @@ def evaluate_one(
     qry_feat = np.zeros([len(loader_dict["qry"].dataset), eval_infos["dim_feature"]])
     ref_feat = np.zeros([len(loader_dict["ref"].dataset), eval_infos["dim_feature"]])
 
-    description = "[i] Eval qry"
-    for i, (img_grd, idx_grd, labels) in enumerate(
-        tqdm(loader_dict["qry"], desc=description, unit="batches")
-    ):
-        img_grd = img_grd.to(eval_infos["device"])
-        idx_grd = idx_grd.to(eval_infos["device"])
-        labels = labels.to(eval_infos["device"])
+    if eval_infos["data_name"] == "vigor" or eval_infos["data_name"] == "kitti":
+        description = "[i] eval qry"
+        for i, (img_grd, idx_grd, labels) in enumerate(
+            tqdm(loader_dict["qry"], desc=description, unit="batches")
+        ):
+            img_grd = img_grd.to(eval_infos["device"])
+            idx_grd = idx_grd.to(eval_infos["device"])
+            labels = labels.to(eval_infos["device"])
 
-        y_grd, _, _ = model_query(img_grd)
-        qry_feat[idx_grd.cpu().numpy(), :] = y_grd.cpu().numpy()
-        qry_label[idx_grd.cpu().numpy()] = labels.cpu().numpy()
+            y_grd, _, _ = model_query(img_grd)
+            qry_feat[idx_grd.cpu().numpy(), :] = y_grd.cpu().numpy()
+            qry_label[idx_grd.cpu().numpy()] = labels.cpu().numpy()
 
-    description = "[i] Eval ref"
-    for i, (img_arl, idx_arl, _) in enumerate(
-        tqdm(loader_dict["ref"], desc=description, unit="batches")
-    ):
-        img_arl = img_arl.to(eval_infos["device"])
-        out_emb_arl, _ = model_reference(img_arl)  # delta
+        description = "[i] eval ref"
+        for i, (img_arl, idx_arl, _) in enumerate(
+            tqdm(loader_dict["ref"], desc=description, unit="batches")
+        ):
+            img_arl = img_arl.to(eval_infos["device"])
+            out_emb_arl, _, _ = model_reference(img_arl)  # delta
 
-        ref_feat[idx_arl.cpu().numpy(), :] = out_emb_arl.detach().cpu().numpy()
+            ref_feat[idx_arl.cpu().numpy(), :] = out_emb_arl.detach().cpu().numpy()
 
-    retr_acc = retr_accuracy(qry_feat, ref_feat, qry_label.astype(int))
-
-    stats = {
-        "acc/retr_top1": retr_acc[0],
-        "acc/retr_top5": retr_acc[1],
-        "acc/retr_top10": retr_acc[2],
-        "acc/retr_top1pc": retr_acc[3],
-    }
+        retr_accuracy_eval(qry_feat, ref_feat, qry_label.astype(int), fname)
 
     model.eval()
-    trs_errs, rot_errs = [], []
 
-    description = "[i] Eval pose"
+    preds, gts = [], []
+    description = "[i] eval pose"
     for i, (img_grd, img_arl, targets) in enumerate(
         tqdm(loader_dict["val"], desc=description, unit="batches")
     ):
@@ -416,30 +413,12 @@ def evaluate_one(
         outputs = model(im_grd=img_grd, im_arl=img_arl)
         results = postprocessors(outputs, targets)
 
-        preds = result2pose(results)
-        gts = target2gt(targets)
+        preds.extend(result2pose(results))
+        gts.extend(target2gt(targets))
 
-        trs_err, rot_err = pose_accuracy(preds, gts)
-        trs_errs.extend(trs_err)
-        rot_errs.extend(rot_err)
+    pose_accuracy_eval(preds, gts, fname)
 
-    stats = {}
-
-    stats["acc/pose_trs_d1"] = np.sum((trs_err < 1)) / trs_err.shape[0] * 100
-    stats["acc/pose_trs_d5"] = np.sum((trs_err < 5)) / trs_err.shape[0] * 100
-
-    stats["acc/pose_rot_d1"] = np.sum((rot_err < 1)) / rot_err.shape[0] * 100
-    stats["acc/pose_rot_d5"] = np.sum((rot_err < 5)) / rot_err.shape[0] * 100
-
-    stats["err/pose_trs_mean"] = np.mean(trs_errs)
-    stats["err/pose_trs_median"] = np.median(trs_errs)
-    stats["err/pose_rot_mean"] = np.mean(rot_errs)
-    stats["err/pose_rot_median"] = np.median(rot_errs)
-
-    print("[i] Eval ", end="\n")
-    for k in stats.keys():
-        print("   ", k + ": {:.8f}".format(stats[k]), end="\n")
-
+    print("[i] evaluation finished. check: ", fname)
     return
 
 

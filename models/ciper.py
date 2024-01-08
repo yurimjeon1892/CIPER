@@ -28,10 +28,8 @@ class CIPER(nn.Module):
 
         self.query_net = Encoder(args, args["grd_img_size"])
         self.reference_net = Encoder(args, args["arl_img_size"])
-        self.retr_only = args["retr_only"]
-        if not self.retr_only:
-            self.rot_net = AeroConfidenceEstimator(args)
-            self.pose_net = TwoWayDecoder(args)
+        self.rot_net = AeroConfidenceEstimator(args)
+        self.pose_net = TwoWayDecoder(args)
 
     def forward(self, im_grd, im_arl):
         x1_grd, x2_grd, x3_grd = self.query_net(im_grd)
@@ -40,13 +38,12 @@ class CIPER(nn.Module):
             "grd": x1_grd,
             "arl": x1_arl,
         }
-        if not self.retr_only:
-            masks = self.rot_net(x3_grd, x3_arl)
-            x3_arl = torch.mul(masks["bev_mask"].to(x3_arl.device), x3_arl)
-            outputs.update(masks)
+        masks = self.rot_net(x3_grd, x3_arl)
+        x3_arl = torch.mul(masks["bev_mask"].to(x3_arl.device), x3_arl)
+        outputs.update(masks)
 
-            out_pos = self.pose_net(x2_grd, x3_arl)
-            outputs.update(out_pos)
+        out_pos = self.pose_net(x2_grd, x3_arl)
+        outputs.update(out_pos)
 
         return outputs
 
@@ -266,14 +263,12 @@ class PostProcess(nn.Module):
 
 def build(args):
     model = CIPER(args)
+    model = model.to(args["device"])
 
-    # build criterion
-    if args["retr_only"]:
-        matcher = None
-        weight_dict = {"retrieval": 1}
-        eos_coef = 0
-        losses = ["retrieval"]
+    if args["eval"]:
+        criterion = None
     else:
+        # build criterion
         matcher = build_matcher(args)
         weight_dict = {
             "retrieval": 1,
@@ -283,14 +278,12 @@ def build(args):
         }
         eos_coef = args["eos_coef"]
         losses = ["retrieval", "labels", "boxes", "mask"]
-    criterion = SetCriterion(
-        matcher=matcher, weight_dict=weight_dict, eos_coef=eos_coef, losses=losses
-    )
+        criterion = SetCriterion(
+            matcher=matcher, weight_dict=weight_dict, eos_coef=eos_coef, losses=losses
+        )
+        criterion = criterion.to(args["device"])
 
     # build post processor
-    if args["retr_only"]:
-        postprocessors = None
-    else:
-        postprocessors = PostProcess()
+    postprocessors = PostProcess()
 
-    return model.to(args["device"]), criterion.to(args["device"]), postprocessors
+    return model, criterion, postprocessors
