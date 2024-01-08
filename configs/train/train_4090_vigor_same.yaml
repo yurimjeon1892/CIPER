@@ -21,6 +21,7 @@ grd_img_size: [320, 640]
 arl_img_size: [320, 320]
 
 same_area: True
+fov: 0
 
 # ----- optimizer config
 lr: 0.00001
