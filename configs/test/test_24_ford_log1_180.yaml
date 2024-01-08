@@ -1,4 +1,4 @@
-# configuration file for training
+# configuration file for test
 # ----- base config
 eval: True
 pretrained: /storage1/ckpts/run-20240105_070319-9vdl7anr/files/epoch_80.pth
@@ -25,8 +25,6 @@ rotation_range: 180
 log_idx: 0
 
 # ----- model config
-rng_mask: True
-
 num_queries: 100
 
 patch_size: 32
