@@ -1,7 +1,7 @@
 # configuration file for training
 # ----- base config
 eval: False
-resume: False
+resume: ./wandb/run-20240105_093624-etpfx0nx/files/epoch_19.pth
 
 seed: 42
 num_workers: 8
@@ -10,7 +10,7 @@ batch_size: 16
 
 device: cuda # device to use for training / testing 
 
-epochs: 100
+epochs: 50
 start_epoch: 1
 
 # ----- data config
