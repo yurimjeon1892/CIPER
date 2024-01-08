@@ -316,6 +316,7 @@ def evaluate():
     eval_infos = {
         "device": args["device"],
         "dim_feature": args["dim_feature"],
+        "data_name": args["data_name"],
     }
     evaluate_one(
         model,

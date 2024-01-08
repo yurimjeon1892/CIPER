@@ -22,10 +22,12 @@ class AverageMeter(object):
         self.avg = self.sum / self.count
 
 
-def retr_accuracy(qry_feat, ref_feat, qry_label, topk=[1, 5, 10]):
+def retr_accuracy(qry_feat, ref_feat, qry_label):
     """Computes the accuracy over the k top predictions for the specified values of k"""
     N = qry_feat.shape[0]
     M = ref_feat.shape[0]
+
+    topk = [1, 5, 10]
     topk.append(M // 100)
     results = np.zeros([len(topk)])
     # for CVUSA, CVACT
@@ -79,10 +81,12 @@ def retr_accuracy(qry_feat, ref_feat, qry_label, topk=[1, 5, 10]):
     return results
 
 
-def retr_accuracy_eval(qry_feat, ref_feat, qry_label, fname, topk=[1, 5, 10]):
+def retr_accuracy_eval(qry_feat, ref_feat, qry_label, fname):
     """Computes the accuracy over the k top predictions for the specified values of k"""
     N = qry_feat.shape[0]
     M = ref_feat.shape[0]
+
+    topk = [1, 5, 10]
     topk.append(M // 100)
     results = np.zeros([len(topk)])
     # for CVUSA, CVACT
@@ -119,6 +123,7 @@ def retr_accuracy_eval(qry_feat, ref_feat, qry_label, fname, topk=[1, 5, 10]):
                     if ranking < k:
                         results[j] += 1.0
     results = results / qry_feat.shape[0] * 100.0
+
     f = open(fname, "a")
     f.write("**cross-view image retrieval\n")
     f.write("top1, top5, top10, top1%\n")
@@ -181,7 +186,16 @@ def pose_accuracy_eval(preds, gts, fname):
     )
     f.write(line)
 
-    diff_shifts = np.abs(pred_shifts - gt_shifts)
+    diff_shifts_init = np.abs(pred_shifts - gt_shifts)
+
+    diff_shifts = []
+    for i in range(diff_shifts_init.shape[0]):
+        c, s = np.cos(np.deg2rad(-gt_oriens[i])), np.sin(np.deg2rad(-gt_oriens[i]))
+        R = np.array([[c, -s], [s, c]])
+        diff_shift = R @ diff_shifts_init[i]
+        diff_shifts.append(diff_shift)
+    diff_shifts = np.array(diff_shifts)
+
     f.write("lateral 1m, 5m\n")
     line = ""
     for idx in range(len(metrics)):
