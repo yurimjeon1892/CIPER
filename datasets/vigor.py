@@ -166,13 +166,13 @@ class VIGOR(torch.utils.data.Dataset):
 
             return img_qry, img_ref, target
 
-        elif self.mode == "valid_ref":
+        elif self.mode == "valid_same_ref":
             arl_img = Image.open(self.sat_list[index]).convert("RGB")
             img_ref = self.transform_reference(arl_img)
 
             return img_ref, torch.tensor(index), 0
 
-        elif self.mode == "valid_qry":
+        elif self.mode == "valid_same_qry":
             grd_img = Image.open(self.list[index])
             img_qry = self.transform_query(grd_img)
 
