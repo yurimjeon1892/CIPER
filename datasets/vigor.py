@@ -56,13 +56,13 @@ class VIGOR(torch.utils.data.Dataset):
         idx = 0
         for city in self.city_list:
             sat_list_fname = os.path.join(
-                self.root, self.label_root, city, "satellite_list.txt"
+                "datasets/splits/vigor", self.label_root, city, "satellite_list.txt"
             )
             with open(sat_list_fname, "r") as file:
                 for line in file.readlines():
                     self.sat_list.append(
                         os.path.join(
-                            self.root, city, "satellite", line.replace("\n", "")
+                            self.root, city, city, "satellite", line.replace("\n", "")
                         )
                     )
                     self.sat_index_dict[line.replace("\n", "")] = idx
@@ -80,21 +80,21 @@ class VIGOR(torch.utils.data.Dataset):
             # load train panorama list
             if not self.same_area:
                 label_fname = os.path.join(
-                    self.root,
+                    "datasets/splits/vigor",
                     self.label_root,
                     city,
                     "pano_label_balanced__corrected.txt",
                 )
             elif self.mode == "train":
                 label_fname = os.path.join(
-                    self.root,
+                    "datasets/splits/vigor",
                     self.label_root,
                     city,
                     "same_area_balanced_train__corrected.txt",
                 )
             else:
                 label_fname = os.path.join(
-                    self.root,
+                    "datasets/splits/vigor",
                     self.label_root,
                     city,
                     "same_area_balanced_test__corrected.txt",
@@ -109,7 +109,9 @@ class VIGOR(torch.utils.data.Dataset):
                     delta = np.array(
                         [data[2:4], data[5:7], data[8:10], data[11:13]]
                     ).astype(float)
-                    self.list.append(os.path.join(self.root, city, "panorama", data[0]))
+                    self.list.append(
+                        os.path.join(self.root, city, city, "panorama", data[0])
+                    )
                     self.label.append(label)
                     self.delta.append(delta)
                     if not label[0] in self.sat_cover_dict:
