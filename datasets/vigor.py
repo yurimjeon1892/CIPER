@@ -51,80 +51,88 @@ class VIGOR(torch.utils.data.Dataset):
         self.make_slice_match_sample_list()
 
     def make_slice_match_sample_list(self):
-        self.sat_list = []
-        self.sat_index_dict = {}
-        idx = 0
-        for city in self.city_list:
-            sat_list_fname = os.path.join(
-                "datasets/splits/vigor", self.label_root, city, "satellite_list.txt"
-            )
-            with open(sat_list_fname, "r") as file:
-                for line in file.readlines():
-                    self.sat_list.append(
-                        os.path.join(
-                            self.root, city, city, "satellite", line.replace("\n", "")
+        if self.mode != "valid_same_qry":
+            self.sat_list = []
+            self.sat_index_dict = {}
+            idx = 0
+            for city in self.city_list:
+                sat_list_fname = os.path.join(
+                    "datasets/splits/vigor", self.label_root, city, "satellite_list.txt"
+                )
+                with open(sat_list_fname, "r") as file:
+                    for line in file.readlines():
+                        self.sat_list.append(
+                            os.path.join(
+                                self.root,
+                                city,
+                                city,  # sorry for dups
+                                "satellite",
+                                line.replace("\n", ""),
+                            )
                         )
-                    )
-                    self.sat_index_dict[line.replace("\n", "")] = idx
-                    idx += 1
-        self.sat_list = np.array(self.sat_list)
-        self.sat_data_size = len(self.sat_list)
+                        self.sat_index_dict[line.replace("\n", "")] = idx
+                        idx += 1
+            self.sat_list = np.array(self.sat_list)
+            self.sat_data_size = len(self.sat_list)
 
-        self.list = []
-        self.label = []
-        self.sat_cover_dict = {}
-        self.delta = []
-        self.meter_per_pixel_list = []
-        idx = 0
-        for city in self.city_list:
-            # load train panorama list
-            if not self.same_area:
-                label_fname = os.path.join(
-                    "datasets/splits/vigor",
-                    self.label_root,
-                    city,
-                    "pano_label_balanced__corrected.txt",
-                )
-            elif self.mode == "train":
-                label_fname = os.path.join(
-                    "datasets/splits/vigor",
-                    self.label_root,
-                    city,
-                    "same_area_balanced_train__corrected.txt",
-                )
-            else:
-                label_fname = os.path.join(
-                    "datasets/splits/vigor",
-                    self.label_root,
-                    city,
-                    "same_area_balanced_test__corrected.txt",
-                )
-            with open(label_fname, "r") as file:
-                for line in file.readlines():
-                    data = np.array(line.split(" "))
-                    label = []
-                    for i in [1, 4, 7, 10]:
-                        label.append(self.sat_index_dict[data[i]])
-                    label = np.array(label).astype(int)
-                    delta = np.array(
-                        [data[2:4], data[5:7], data[8:10], data[11:13]]
-                    ).astype(float)
-                    self.list.append(
-                        os.path.join(self.root, city, city, "panorama", data[0])
+        if self.mode != "valid_same_ref":
+            self.grd_list = []
+            self.label = []
+            self.sat_cover_dict = {}
+            self.delta = []
+            self.meter_per_pixel_list = []
+            idx = 0
+            for city in self.city_list:
+                # load train panorama list
+                if not self.same_area:
+                    label_fname = os.path.join(
+                        "datasets/splits/vigor",
+                        self.label_root,
+                        city,
+                        "pano_label_balanced__corrected.txt",
                     )
-                    self.label.append(label)
-                    self.delta.append(delta)
-                    if not label[0] in self.sat_cover_dict:
-                        self.sat_cover_dict[label[0]] = [idx]
-                    else:
-                        self.sat_cover_dict[label[0]].append(idx)
-                    self.meter_per_pixel_list.append(self.meter_per_pixel_dict[city])
-                    idx += 1
+                elif self.mode == "train":
+                    label_fname = os.path.join(
+                        "datasets/splits/vigor",
+                        self.label_root,
+                        city,
+                        "same_area_balanced_train__corrected.txt",
+                    )
+                else:
+                    label_fname = os.path.join(
+                        "datasets/splits/vigor",
+                        self.label_root,
+                        city,
+                        "same_area_balanced_test__corrected.txt",
+                    )
+                with open(label_fname, "r") as file:
+                    for line in file.readlines():
+                        data = np.array(line.split(" "))
+                        label = []
+                        for i in [1, 4, 7, 10]:
+                            label.append(self.sat_index_dict[data[i]])
+                        label = np.array(label).astype(int)
+                        delta = np.array(
+                            [data[2:4], data[5:7], data[8:10], data[11:13]]
+                        ).astype(float)
+                        self.grd_list.append(
+                            os.path.join(self.root, city, city, "panorama", data[0])
+                        )
+                        self.label.append(label)
+                        self.delta.append(delta)
+                        if not label[0] in self.sat_cover_dict:
+                            self.sat_cover_dict[label[0]] = [idx]
+                        else:
+                            self.sat_cover_dict[label[0]].append(idx)
+                        self.meter_per_pixel_list.append(
+                            self.meter_per_pixel_dict[city]
+                        )
+                        idx += 1
 
-        self.data_size = len(self.list)
-        self.label = np.array(self.label)
-        self.delta = np.array(self.delta)
-        self.sat_cover_list = list(self.sat_cover_dict.keys())
+            self.data_size = len(self.grd_list)
+            self.label = np.array(self.label)
+            self.delta = np.array(self.delta)
+            self.sat_cover_list = list(self.sat_cover_dict.keys())
 
     def prep_gt(self, gt_shift_x, gt_shift_y, theta, meter_per_pixel):
         tgt_y = (gt_shift_x / self.arl_zoom_ratio) / self.arl_img_size[1]
@@ -153,7 +161,7 @@ class VIGOR(torch.utils.data.Dataset):
                 ]
             )
 
-            grd_img = Image.open(os.path.join(self.root, self.list[idx]))
+            grd_img = Image.open(os.path.join(self.root, self.grd_list[idx]))
             arl_img = Image.open(self.sat_list[self.label[idx][0]]).convert("RGB")
 
             gt_shift_x = -self.delta[idx, 0][1]
@@ -176,11 +184,17 @@ class VIGOR(torch.utils.data.Dataset):
 
         elif self.mode == "valid_same_qry":
             try:
-                grd_img = Image.open(self.list[index])
+                grd_img = Image.open(self.grd_list[index])
                 img_qry = self.transform_query(grd_img)
             except:
-                print("self.data_size", self.data_size, " index", index, len(self.list))
-                print(self.list[index])
+                print(
+                    "self.data_size",
+                    self.data_size,
+                    " index",
+                    index,
+                    len(self.grd_list),
+                )
+                print(self.grd_list[index])
 
             return img_qry, torch.tensor(index), torch.tensor(self.label[index][0])
         else:
@@ -192,10 +206,10 @@ class VIGOR(torch.utils.data.Dataset):
             return (
                 len(self.sat_cover_list) * 2
             )  # one aerial image has 2 positive queries
-        elif "valid_ref" in self.mode:
+        elif "valid_same_ref" in self.mode:
             return len(self.sat_list)
-        elif "valid_qry" in self.mode:
-            return len(self.list)
+        elif "valid_same_qry" in self.mode:
+            return len(self.grd_list)
         elif "valid" in self.mode:
             return (
                 len(self.sat_cover_list) * 2

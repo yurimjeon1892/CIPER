@@ -174,7 +174,7 @@ def valid_retr(
     with torch.no_grad():
         # query features
         description = "[i] valid qry"
-        for i, (img_grd, idx_grd, labels) in enumerate(
+        for _, (img_grd, idx_grd, labels) in enumerate(
             tqdm(qry_loader, desc=description, unit="batches")
         ):
             img_grd = img_grd.to(valid_infos["device"])
