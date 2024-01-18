@@ -171,7 +171,6 @@ def valid_retr(
     qry_feat = np.zeros([len(qry_loader.dataset), valid_infos["dim_feature"]])
     ref_feat = np.zeros([len(ref_loader.dataset), valid_infos["dim_feature"]])
 
-    img_grd_, img_arl_ = None, None
     with torch.no_grad():
         # query features
         description = "[i] valid qry"
@@ -179,15 +178,12 @@ def valid_retr(
             tqdm(qry_loader, desc=description, unit="batches")
         ):
             img_grd = img_grd.to(valid_infos["device"])
-            idx_grd = idx_grd.to(valid_infos["device"])
-            labels = labels.to(valid_infos["device"])
+            # idx_grd = idx_grd.to(valid_infos["device"])
+            # labels = labels.to(valid_infos["device"])
 
-            y_grd, _, _ = model_query(img_grd)
-            qry_feat[idx_grd.cpu().numpy(), :] = y_grd.detach().cpu().numpy()
-            qry_label[idx_grd.cpu().numpy()] = labels.detach().cpu().numpy()
-
-            if i == 0:
-                img_grd_ = img_grd[0, :, :, :]
+            # y_grd, _, _ = model_query(img_grd)
+            # qry_feat[idx_grd.cpu().numpy(), :] = y_grd.detach().cpu().numpy()
+            # qry_label[idx_grd.cpu().numpy()] = labels.detach().cpu().numpy()
 
         # reference features
         description = "[i] valid ref"
@@ -195,11 +191,9 @@ def valid_retr(
             tqdm(ref_loader, desc=description, unit="batches")
         ):
             img_arl = img_arl.to(valid_infos["device"])
-            out_emb_arl, _, _ = model_reference(img_arl)  # delta
+            # out_emb_arl, _, _ = model_reference(img_arl)  # delta
 
-            ref_feat[idx_arl.cpu().numpy(), :] = out_emb_arl.detach().cpu().numpy()
-            if i == 0:
-                img_arl_ = img_arl[0, :, :, :]
+            # ref_feat[idx_arl.cpu().numpy(), :] = out_emb_arl.detach().cpu().numpy()
 
         retr_acc = retr_accuracy(qry_feat, ref_feat, qry_label.astype(int))
 

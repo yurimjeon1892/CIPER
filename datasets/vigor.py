@@ -123,8 +123,6 @@ class VIGOR(torch.utils.data.Dataset):
         self.label = np.array(self.label)
         self.delta = np.array(self.delta)
         self.sat_cover_list = list(self.sat_cover_dict.keys())
-        print("sat_data_size", self.sat_data_size, ", data_size", self.data_size)
-        exit()
 
     def prep_gt(self, gt_shift_x, gt_shift_y, theta, meter_per_pixel):
         tgt_y = (gt_shift_x / self.arl_zoom_ratio) / self.arl_img_size[1]
@@ -175,8 +173,11 @@ class VIGOR(torch.utils.data.Dataset):
             return img_ref, torch.tensor(index), 0
 
         elif self.mode == "valid_same_qry":
-            grd_img = Image.open(self.list[index])
-            img_qry = self.transform_query(grd_img)
+            try:
+                grd_img = Image.open(self.list[index])
+                img_qry = self.transform_query(grd_img)
+            except:
+                print("self.data_size", self.data_size, " index", index)
 
             return img_qry, torch.tensor(index), torch.tensor(self.label[index][0])
         else:

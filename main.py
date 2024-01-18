@@ -191,10 +191,10 @@ def iterate(debug):
     for epoch in range(args["start_epoch"], args["epochs"] + 1):
         adjust_learning_rate(optimizer, epoch, args)
 
-        train_infos["epoch"] = epoch
-        train_infos = train_one_epoch(
-            model, criterion, postprocessors, data_loader_train, optimizer, train_infos
-        )
+        # train_infos["epoch"] = epoch
+        # train_infos = train_one_epoch(
+        #     model, criterion, postprocessors, data_loader_train, optimizer, train_infos
+        # )
 
         valid_infos["epoch"] = epoch
 
