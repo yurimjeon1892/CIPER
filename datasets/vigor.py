@@ -125,10 +125,10 @@ class VIGOR(torch.utils.data.Dataset):
                     self.meter_per_pixel_list.append(self.meter_per_pixel_dict[city])
                     idx += 1
 
-            self.data_size = len(self.grd_list)
-            self.label = np.array(self.label)
-            self.delta = np.array(self.delta)
-            self.sat_cover_list = list(self.sat_cover_dict.keys())
+        self.data_size = len(self.grd_list)
+        self.label = np.array(self.label)
+        self.delta = np.array(self.delta)
+        self.sat_cover_list = list(self.sat_cover_dict.keys())
 
     def prep_gt(self, gt_shift_x, gt_shift_y, theta, meter_per_pixel):
         tgt_y = (gt_shift_x / self.arl_zoom_ratio) / self.arl_img_size[1]
