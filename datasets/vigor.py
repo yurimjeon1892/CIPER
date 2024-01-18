@@ -177,7 +177,8 @@ class VIGOR(torch.utils.data.Dataset):
                 grd_img = Image.open(self.list[index])
                 img_qry = self.transform_query(grd_img)
             except:
-                print("self.data_size", self.data_size, " index", index)
+                print("self.data_size", self.data_size, " index", index, len(self.list))
+                print(self.list[index])
 
             return img_qry, torch.tensor(index), torch.tensor(self.label[index][0])
         else:
