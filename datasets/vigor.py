@@ -150,7 +150,7 @@ class VIGOR(torch.utils.data.Dataset):
         return target
 
     def __getitem__(self, index):
-        if self.mode == "train" or self.mode == "valid":
+        if self.mode == "train" or self.mode == "valid_same":
             idx = random.choice(
                 self.sat_cover_dict[
                     self.sat_cover_list[index % len(self.sat_cover_list)]
@@ -196,7 +196,7 @@ class VIGOR(torch.utils.data.Dataset):
             return len(self.sat_list)
         elif "valid_same_qry" in self.mode:
             return len(self.grd_list)
-        elif "valid" in self.mode:
+        elif "valid_same" in self.mode:
             return (
                 len(self.sat_cover_list) * 2
             )  # one aerial image has 2 positive queries
