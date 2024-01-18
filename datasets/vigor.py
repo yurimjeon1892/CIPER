@@ -179,18 +179,8 @@ class VIGOR(torch.utils.data.Dataset):
             return img_ref, torch.tensor(index), 0
 
         elif self.mode == "valid_same_qry":
-            try:
-                grd_img = Image.open(self.grd_list[index])
-                img_qry = self.transform_query(grd_img)
-            except:
-                print(
-                    "self.data_size",
-                    self.data_size,
-                    " index",
-                    index,
-                    len(self.grd_list),
-                )
-                print(self.grd_list[index])
+            grd_img = Image.open(self.grd_list[index])
+            img_qry = self.transform_query(grd_img)
 
             return img_qry, torch.tensor(index), torch.tensor(self.label[index][0])
         else:

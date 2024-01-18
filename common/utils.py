@@ -31,7 +31,7 @@ def retr_accuracy(qry_feat, ref_feat, qry_label):
     topk.append(M // 100)
     results = np.zeros([len(topk)])
     # for CVUSA, CVACT
-    if N < 20000:
+    if N < 80000:
         qry_feat_norm = np.sqrt(np.sum(qry_feat**2, axis=1, keepdims=True))
         ref_feat_norm = np.sqrt(np.sum(ref_feat**2, axis=1, keepdims=True))
         similarity = np.matmul(
