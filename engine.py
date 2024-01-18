@@ -358,8 +358,10 @@ def evaluate_one(
     eval_infos: dict,
 ):
     os.makedirs("./eval", exist_ok=True)
-    fname = "./eval/eval-{data}-{date:%Y-%m-%d-%H:%M:%S}.txt".format(
-        data=eval_infos["data_name"], date=datetime.datetime.now()
+    fname = "./eval/eval-{data}-{command}-{date:%Y-%m-%d-%H:%M:%S}.txt".format(
+        data=eval_infos["data_name"],
+        command=eval_infos["command"],
+        date=datetime.datetime.now(),
     )
     # retrieval validation
     model_query = model.query_net

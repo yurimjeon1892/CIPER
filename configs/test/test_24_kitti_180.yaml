@@ -1,7 +1,8 @@
 # configuration file for test
 # ----- base config
 eval: True
-pretrained: /storage1/ckpts/run-20240105_093624-etpfx0nx/files/epoch_19.pth
+pretrained: /storage1/ckpts/run-20240108_082146-lr3m41f4/files/epoch_24.pth
+command: 20_20_180_e24
 
 seed: 42
 num_workers: 8

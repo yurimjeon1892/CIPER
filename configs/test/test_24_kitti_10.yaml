@@ -1,7 +1,8 @@
 # configuration file for test
 # ----- base config
 eval: True
-pretrained: /storage1/ckpts/run-20240105_093624-etpfx0nx/files/epoch_19.pth
+pretrained: /storage1/ckpts/run-20240108_082259-lr3m41f4/files/epoch_22.pth
+command: 20_20_10_e22
 
 seed: 42
 num_workers: 8
@@ -19,7 +20,7 @@ arl_img_size: [512, 512]
 
 shift_range_lat: 20 
 shift_range_lon: 20 
-rotation_range: 180 
+rotation_range: 10 
 
 train_pt_list: ./datasets/splits/kitti/train_files.txt
 val_same_pt_list: ./datasets/splits/kitti/test1_files.txt
