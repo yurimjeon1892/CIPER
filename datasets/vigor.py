@@ -51,83 +51,79 @@ class VIGOR(torch.utils.data.Dataset):
         self.make_slice_match_sample_list()
 
     def make_slice_match_sample_list(self):
-        if self.mode != "valid_same_qry":
-            self.sat_list = []
-            self.sat_index_dict = {}
-            idx = 0
-            for city in self.city_list:
-                sat_list_fname = os.path.join(
-                    "datasets/splits/vigor", self.label_root, city, "satellite_list.txt"
-                )
-                with open(sat_list_fname, "r") as file:
-                    for line in file.readlines():
-                        self.sat_list.append(
-                            os.path.join(
-                                self.root,
-                                city,
-                                city,  # sorry for dups
-                                "satellite",
-                                line.replace("\n", ""),
-                            )
+        self.sat_list = []
+        self.sat_index_dict = {}
+        idx = 0
+        for city in self.city_list:
+            sat_list_fname = os.path.join(
+                "datasets/splits/vigor", self.label_root, city, "satellite_list.txt"
+            )
+            with open(sat_list_fname, "r") as file:
+                for line in file.readlines():
+                    self.sat_list.append(
+                        os.path.join(
+                            self.root,
+                            city,
+                            city,  # sorry for dups
+                            "satellite",
+                            line.replace("\n", ""),
                         )
-                        self.sat_index_dict[line.replace("\n", "")] = idx
-                        idx += 1
-            self.sat_list = np.array(self.sat_list)
-            self.sat_data_size = len(self.sat_list)
+                    )
+                    self.sat_index_dict[line.replace("\n", "")] = idx
+                    idx += 1
+        self.sat_list = np.array(self.sat_list)
+        self.sat_data_size = len(self.sat_list)
 
-        if self.mode != "valid_same_ref":
-            self.grd_list = []
-            self.label = []
-            self.sat_cover_dict = {}
-            self.delta = []
-            self.meter_per_pixel_list = []
-            idx = 0
-            for city in self.city_list:
-                # load train panorama list
-                if not self.same_area:
-                    label_fname = os.path.join(
-                        "datasets/splits/vigor",
-                        self.label_root,
-                        city,
-                        "pano_label_balanced__corrected.txt",
+        self.grd_list = []
+        self.label = []
+        self.sat_cover_dict = {}
+        self.delta = []
+        self.meter_per_pixel_list = []
+        idx = 0
+        for city in self.city_list:
+            # load train panorama list
+            if not self.same_area:
+                label_fname = os.path.join(
+                    "datasets/splits/vigor",
+                    self.label_root,
+                    city,
+                    "pano_label_balanced__corrected.txt",
+                )
+            elif self.mode == "train":
+                label_fname = os.path.join(
+                    "datasets/splits/vigor",
+                    self.label_root,
+                    city,
+                    "same_area_balanced_train__corrected.txt",
+                )
+            else:
+                label_fname = os.path.join(
+                    "datasets/splits/vigor",
+                    self.label_root,
+                    city,
+                    "same_area_balanced_test__corrected.txt",
+                )
+            with open(label_fname, "r") as file:
+                for line in file.readlines():
+                    data = np.array(line.split(" "))
+                    label = []
+                    for i in [1, 4, 7, 10]:
+                        label.append(self.sat_index_dict[data[i]])
+                    label = np.array(label).astype(int)
+                    delta = np.array(
+                        [data[2:4], data[5:7], data[8:10], data[11:13]]
+                    ).astype(float)
+                    self.grd_list.append(
+                        os.path.join(self.root, city, city, "panorama", data[0])
                     )
-                elif self.mode == "train":
-                    label_fname = os.path.join(
-                        "datasets/splits/vigor",
-                        self.label_root,
-                        city,
-                        "same_area_balanced_train__corrected.txt",
-                    )
-                else:
-                    label_fname = os.path.join(
-                        "datasets/splits/vigor",
-                        self.label_root,
-                        city,
-                        "same_area_balanced_test__corrected.txt",
-                    )
-                with open(label_fname, "r") as file:
-                    for line in file.readlines():
-                        data = np.array(line.split(" "))
-                        label = []
-                        for i in [1, 4, 7, 10]:
-                            label.append(self.sat_index_dict[data[i]])
-                        label = np.array(label).astype(int)
-                        delta = np.array(
-                            [data[2:4], data[5:7], data[8:10], data[11:13]]
-                        ).astype(float)
-                        self.grd_list.append(
-                            os.path.join(self.root, city, city, "panorama", data[0])
-                        )
-                        self.label.append(label)
-                        self.delta.append(delta)
-                        if not label[0] in self.sat_cover_dict:
-                            self.sat_cover_dict[label[0]] = [idx]
-                        else:
-                            self.sat_cover_dict[label[0]].append(idx)
-                        self.meter_per_pixel_list.append(
-                            self.meter_per_pixel_dict[city]
-                        )
-                        idx += 1
+                    self.label.append(label)
+                    self.delta.append(delta)
+                    if not label[0] in self.sat_cover_dict:
+                        self.sat_cover_dict[label[0]] = [idx]
+                    else:
+                        self.sat_cover_dict[label[0]].append(idx)
+                    self.meter_per_pixel_list.append(self.meter_per_pixel_dict[city])
+                    idx += 1
 
             self.data_size = len(self.grd_list)
             self.label = np.array(self.label)
