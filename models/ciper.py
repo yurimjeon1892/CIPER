@@ -271,10 +271,10 @@ def build(args):
         # build criterion
         matcher = build_matcher(args)
         weight_dict = {
-            "retrieval": 1,
+            "retrieval": args["retrieval_loss_coef"],
             "labels": args["label_loss_coef"],
             "boxes": args["bbox_loss_coef"],
-            "mask": 5.0,
+            "mask": args["mask_loss_coef"],
         }
         eos_coef = args["eos_coef"]
         losses = ["retrieval", "labels", "boxes", "mask"]
