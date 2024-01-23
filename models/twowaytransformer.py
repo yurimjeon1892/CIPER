@@ -1,10 +1,10 @@
+# From https://github.com/facebookresearch/segment-anything/blob/HEAD/segment_anything/modeling/transformer.py
+
 # Copyright (c) Meta Platforms, Inc. and affiliates.
 # All rights reserved.
 
 # This source code is licensed under the license found in the
 # LICENSE file in the root directory of this source tree.
-
-# From https://github.com/facebookresearch/segment-anything/blob/HEAD/segment_anything/modeling/transformer.py
 
 import torch
 from torch import Tensor, nn
@@ -13,6 +13,7 @@ import math
 from typing import Tuple, Type
 
 from .common import MLPBlock
+
 
 class TwoWayTransformer(nn.Module):
     def __init__(
@@ -69,7 +70,7 @@ class TwoWayTransformer(nn.Module):
         """
         Args:
           key_img_embedding (torch.Tensor): image to attend to. Should be shape
-            B x num_patches x dim_embed 
+            B x num_patches x dim_embed
           key_img_pe (torch.Tensor): the positional encoding to add to the image. Must
             have the same shape as key_img_embedding.
           query_img_embedding (torch.Tensor): the embedding to add to the query points.
@@ -194,7 +195,9 @@ class Attention(nn.Module):
         self.embedding_dim = embedding_dim
         self.internal_dim = embedding_dim // downsample_rate
         self.num_heads = num_heads
-        assert self.internal_dim % num_heads == 0, "num_heads must divide embedding_dim."
+        assert (
+            self.internal_dim % num_heads == 0
+        ), "num_heads must divide embedding_dim."
 
         self.q_proj = nn.Linear(embedding_dim, self.internal_dim)
         self.k_proj = nn.Linear(embedding_dim, self.internal_dim)
@@ -234,5 +237,3 @@ class Attention(nn.Module):
         out = self.out_proj(out)
 
         return out
-    
-

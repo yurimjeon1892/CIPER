@@ -1,5 +1,8 @@
+# From https://github.com/Jeff-Zilence/TransGeo2022/blob/main/criterion/soft_triplet.py
+
 import torch
 from torch import nn
+
 
 # this is equivalent to the loss function in CVMNet with alpha=10, here we simplify it with cosine similarity
 class SoftTripletBiLoss(nn.Module):
@@ -11,7 +14,11 @@ class SoftTripletBiLoss(nn.Module):
     def forward(self, inputs_q, inputs_k):
         loss_1, mean_pos_sim_1, mean_neg_sim_1 = self.single_forward(inputs_q, inputs_k)
         loss_2, mean_pos_sim_2, mean_neg_sim_2 = self.single_forward(inputs_k, inputs_q)
-        return (loss_1+loss_2)*0.5, (mean_pos_sim_1+mean_pos_sim_2)*0.5, (mean_neg_sim_1+mean_neg_sim_2)*0.5
+        return (
+            (loss_1 + loss_2) * 0.5,
+            (mean_pos_sim_1 + mean_pos_sim_2) * 0.5,
+            (mean_neg_sim_1 + mean_neg_sim_2) * 0.5,
+        )
 
     def single_forward(self, inputs_q, inputs_k):
         n = inputs_q.size(0)
@@ -30,8 +37,8 @@ class SoftTripletBiLoss(nn.Module):
         pos_sim = torch.masked_select(sim_mat, pos_mask)
         neg_sim = torch.masked_select(sim_mat, neg_mask)
 
-        pos_sim_ = pos_sim.unsqueeze(dim=1).expand(n, n-1)
-        neg_sim_ = neg_sim.reshape(n, n-1)
+        pos_sim_ = pos_sim.unsqueeze(dim=1).expand(n, n - 1)
+        neg_sim_ = neg_sim.reshape(n, n - 1)
 
         loss_batch = torch.log(1 + torch.exp((neg_sim_ - pos_sim_) * self.alpha))
         if torch.isnan(loss_batch).any():

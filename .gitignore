@@ -167,3 +167,5 @@ cython_debug/
 ckpts/
 pretrained/
 wandb/
+work_dir/
+eval/
