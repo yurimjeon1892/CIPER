@@ -114,7 +114,7 @@ class VIGOR(torch.utils.data.Dataset):
                         [data[2:4], data[5:7], data[8:10], data[11:13]]
                     ).astype(float)
                     self.grd_list.append(
-                        os.path.join(self.root, city, city, "panorama", data[0])
+                        os.path.join(self.root, city, "panorama", data[0])
                     )
                     self.label.append(label)
                     self.delta.append(delta)
