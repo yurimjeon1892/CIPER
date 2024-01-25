@@ -64,7 +64,6 @@ class VIGOR(torch.utils.data.Dataset):
                         os.path.join(
                             self.root,
                             city,
-                            city,  # sorry for dups
                             "satellite",
                             line.replace("\n", ""),
                         )
