@@ -1,7 +1,7 @@
 # configuration file for training
 # ----- base config
 eval: False
-resume: ../ciper-ckpts/kitti_180_epoch_26.pth
+resume: False
 
 seed: 42
 num_workers: 8
@@ -55,7 +55,7 @@ grd_to_arl_factor: 4 # 360 / cam_fov
 set_cost_class: 1 # Class coefficient in the matching cost
 set_cost_bbox: 5 # L1 box coefficient in the matching cost
 
-retrieval_loss_coef: 10
+retrieval_loss_coef: 100
 label_loss_coef: 1
 bbox_loss_coef: 5
 mask_loss_coef: 10
