@@ -1,13 +1,13 @@
 # configuration file for test
 # ----- base config
 eval: True
-pretrained: /storage1/ckpts/run-20240108_082259-lr3m41f4/files/epoch_22.pth
-command: 20_20_10_e22
+pretrained: /storage2/ckpts/orange/wandb/run-20240125_015000-jvuz25mz/files/epoch_14.pth
+command: 20_20_10_run-20240125_015000-jvuz25mz_e14
 
 seed: 42
 num_workers: 8
 
-batch_size: 1 # 12
+batch_size: 1 
 
 device: cuda # device to use for training / testing 
 

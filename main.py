@@ -7,7 +7,12 @@ import sys
 
 sys.path.append("../")
 
-from common.utils import print_pigeon, adjust_learning_rate, save_state
+from common.utils import (
+    adjust_learning_rate,
+    save_state,
+    print_pigeon_train,
+    print_pigeon_evaluation,
+)
 from datasets import build_dataset
 from models import build, SAM
 from engine import train_one_epoch, valid_one_epoch, evaluate_one
@@ -342,11 +347,11 @@ def main():
     with open(cmd_args.config, "r") as stream:
         args = yaml.safe_load(stream)
 
-    print_pigeon()
-
     if args["eval"]:
+        print_pigeon_evaluation()
         evaluate()
     else:
+        print_pigeon_train()
         iterate(cmd_args.debug)
 
     return
