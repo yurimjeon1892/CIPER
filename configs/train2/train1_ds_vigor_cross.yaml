@@ -4,9 +4,9 @@ eval: False
 resume: False
 
 seed: 42
-num_workers: 8
+num_workers: 4
 
-batch_size: 32 
+batch_size: 16 
 
 device: cuda # device to use for training / testing 
 
