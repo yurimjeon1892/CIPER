@@ -50,7 +50,7 @@ grd_to_arl_factor: 1 # 360 / cam_fov
 set_cost_class: 1 # Class coefficient in the matching cost
 set_cost_bbox: 5 # L1 box coefficient in the matching cost
 
-retrieval_loss_coef: 100
+retrieval_loss_coef: 10
 label_loss_coef: 0
 bbox_loss_coef: 0
 mask_loss_coef: 0
