@@ -1,7 +1,7 @@
 # configuration file for test
 # ----- base config
 eval: True
-pretrained: /storage1/ckpts/run-20240105_070209-p5wgzpmc/files/epoch_80.pth
+pretrained: ../ciper-ckpts/ford_log1_180_e80.pth
 
 seed: 42
 num_workers: 4
@@ -38,3 +38,6 @@ dim_feature: 1000
 
 repeat_grd_factor: 3
 grd_to_arl_factor: 4 # 360 / cam_fov
+
+# ----- misc
+eval_name: ford_log1_180_e80

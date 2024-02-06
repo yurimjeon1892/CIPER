@@ -1,6 +1,7 @@
 """
 Train and eval functions used in main.py
 """
+
 from typing import Iterable
 from tqdm import tqdm
 
@@ -352,9 +353,9 @@ def evaluate_one(
     eval_infos: dict,
 ):
     os.makedirs("./eval", exist_ok=True)
-    fname = "./eval/eval-{data}-{command}-{date:%Y-%m-%d-%H:%M:%S}.txt".format(
-        data=eval_infos["data_name"],
-        command=eval_infos["command"],
+    fname = "./eval/eval-{data_name}-{eval_name}-{date:%Y-%m-%d-%H:%M:%S}.txt".format(
+        data_name=eval_infos["data_name"],
+        eval_name=eval_infos["eval_name"],
         date=datetime.datetime.now(),
     )
     # retrieval validation

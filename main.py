@@ -50,7 +50,6 @@ def iterate(debug):
     ## resume model
     if args["resume"] != False:
         checkpoint = torch.load(args["resume"], map_location="cpu")
-        print(checkpoint.keys())
         model.load_state_dict(checkpoint["model"])
         if "optimizer" in checkpoint and "epoch" in checkpoint:
             args["start_epoch"] = checkpoint["epoch"] + 1
@@ -242,7 +241,6 @@ def evaluate():
 
     ## load pretrained
     checkpoint = torch.load(args["pretrained"], map_location="cpu")
-    print(checkpoint.keys())
     model.load_state_dict(checkpoint["model"])
     print("[i] load checkpoint from:", args["pretrained"], "for evaluation")
 
@@ -322,7 +320,7 @@ def evaluate():
         "device": args["device"],
         "dim_feature": args["dim_feature"],
         "data_name": args["data_name"],
-        "command": args["command"],
+        "eval_name": args["eval_name"],
     }
     evaluate_one(
         model,

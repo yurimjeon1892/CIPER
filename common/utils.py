@@ -314,9 +314,9 @@ def print_pigeon_train():
 def print_pigeon_evaluation():
     print(
         r"""\
-                                ╭ ◜◝ ͡ ◜◝ ͡ ◜◝╮
+                                ╭ ◜◝ ͡ ◜◝ ͡ ◜◝ ͡ ◜◝╮
                                    EVALUATION..
-                                ╰ ◟◞ ͜ ◟◞ ͜ ◟◞╯
+                                ╰ ◟◞ ͜ ◟◞ ͜ ◟◞ ͜ ◟◞╯
                                 O
                             °
                     .-''-.
