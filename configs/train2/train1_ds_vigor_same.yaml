@@ -6,21 +6,21 @@ resume: False
 seed: 42
 num_workers: 8
 
-batch_size: 1 
+batch_size: 32
 
 device: cuda # device to use for training / testing 
 
-epochs: 50
+epochs: 20
 start_epoch: 1
 
 # ----- data config
 data_name: vigor
-data_root: /storage2/public/vigor    
+data_root: /data/ciper_dataset/VIGOR 
 
 grd_img_size: [320, 640] 
 arl_img_size: [320, 320]
 
-same_area: False
+same_area: True
 fov: 0
 
 # ----- optimizer config
@@ -50,9 +50,10 @@ grd_to_arl_factor: 1 # 360 / cam_fov
 set_cost_class: 1 # Class coefficient in the matching cost
 set_cost_bbox: 5 # L1 box coefficient in the matching cost
 
-retrieval_loss_coef: 1
-label_loss_coef: 1
-bbox_loss_coef: 5
-mask_loss_coef: 1
+retrieval_loss_coef: 10
+label_loss_coef: 0
+bbox_loss_coef: 0
+mask_loss_coef: 0
 
 eos_coef: 0.01 # Relative classification weight of the no-object class
+
