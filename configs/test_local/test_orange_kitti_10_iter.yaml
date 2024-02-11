@@ -12,7 +12,7 @@ device: cuda # device to use for training / testing
 
 # ----- data config
 data_name: kitti
-data_root: /storage2/public/kitti    
+data_root: /data/experiment2/tmp/kitti   
 
 grd_img_size: [256, 1024]
 arl_img_size: [512, 512]
