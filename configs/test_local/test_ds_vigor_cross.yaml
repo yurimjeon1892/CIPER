@@ -1,7 +1,7 @@
 # configuration file for training
 # ----- base config
 eval: True
-resume: ./wandb/run-20240207_085252-z156u5kk/files/epoch_50.pth
+pretrained: ./wandb/run-20240207_085252-z156u5kk/files/epoch_50.pth
 
 seed: 42
 num_workers: 4
