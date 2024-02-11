@@ -5,7 +5,6 @@ pretrained: ./wandb/run-20240202_052650-vcuc5445/files/epoch_38.pth
 
 seed: 42
 num_workers: 8
-S
 batch_size: 16
 
 device: cuda # device to use for training / testing 
