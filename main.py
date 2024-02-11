@@ -45,7 +45,7 @@ def iterate(debug):
             config=args,
             name=sys.argv[1].split("/")[-1].split(".")[0],
             # resume=(args["resume"] != False),
-            # settings=wandb.Settings(start_method="fork")
+            settings=wandb.Settings(start_method="fork")
         )
 
     ## resume model
