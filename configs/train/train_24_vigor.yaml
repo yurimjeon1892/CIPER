@@ -20,6 +20,9 @@ data_root: /storage2/public/vigor
 grd_img_size: [320, 640] 
 arl_img_size: [320, 320]
 
+rotation_range: 180
+pos_only: True
+
 same_area: False
 fov: 0
 

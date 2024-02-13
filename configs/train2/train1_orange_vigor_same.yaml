@@ -10,7 +10,7 @@ batch_size: 16
 
 device: cuda # device to use for training / testing 
 
-epochs: 20
+epochs: 25
 start_epoch: 1
 
 # ----- data config
@@ -24,8 +24,8 @@ same_area: True
 fov: 0
 
 # ----- optimizer config
-lr: 0.0001
-weight_decay: 0.001
+lr: 0.00005
+weight_decay: 0.03
 
 optimizer: sam
 cos: True
@@ -50,7 +50,7 @@ grd_to_arl_factor: 1 # 360 / cam_fov
 set_cost_class: 1 # Class coefficient in the matching cost
 set_cost_bbox: 5 # L1 box coefficient in the matching cost
 
-retrieval_loss_coef: 10
+retrieval_loss_coef: 1
 label_loss_coef: 0
 bbox_loss_coef: 0
 mask_loss_coef: 0
