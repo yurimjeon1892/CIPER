@@ -139,9 +139,7 @@ class VIGOR(torch.utils.data.Dataset):
                 self.grd_list, self.label, self.delta, random_state=rand_state
             )
 
-        self.data_size = 50
-
-        # self.data_size = int(len(self.grd_list))
+        self.data_size = int(len(self.grd_list))
         self.grd_list = self.grd_list[: self.data_size]
         self.label = self.label[: self.data_size]
         self.delta = self.delta[: self.data_size]
@@ -305,21 +303,19 @@ class VIGOR(torch.utils.data.Dataset):
             print("not implemented!!")
             raise Exception
 
-    # def __len__(self):
-    #     if "train" in self.mode:
-    #         return (
-    #             len(self.sat_cover_list) * 2
-    #         )  # one aerial image has 2 positive queries
-    #     elif "valid_same_ref" in self.mode:
-    #         return len(self.sat_list)
-    #     elif "valid_same_qry" in self.mode:
-    #         return len(self.grd_list)
-    #     elif "valid_same" in self.mode:
-    #         return (
-    #             len(self.sat_cover_list) * 2
-    #         )  # one aerial image has 2 positive queries
-    #     else:
-    #         print("not implemented!")
-    #         raise Exception
     def __len__(self):
-        return 50
+        if "train" in self.mode:
+            return (
+                len(self.sat_cover_list) * 2
+            )  # one aerial image has 2 positive queries
+        elif "valid_same_ref" in self.mode:
+            return len(self.sat_list)
+        elif "valid_same_qry" in self.mode:
+            return len(self.grd_list)
+        elif "valid_same" in self.mode:
+            return (
+                len(self.sat_cover_list) * 2
+            )  # one aerial image has 2 positive queries
+        else:
+            print("not implemented!")
+            raise Exception
