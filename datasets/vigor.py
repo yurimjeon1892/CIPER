@@ -237,8 +237,13 @@ class VIGOR(torch.utils.data.Dataset):
 
     def __getitem__(self, index):
         if self.mode == "train" or self.mode == "valid_same":
+            idx = random.choice(
+                self.sat_cover_dict[
+                    self.sat_cover_list[index % len(self.sat_cover_list)]
+                ]
+            )
 
-            return self.get_grd_sat_img_pair(index)
+            return self.get_grd_sat_img_pair(idx)
 
         elif self.mode == "valid_same_ref":
 
