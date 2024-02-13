@@ -15,7 +15,7 @@ start_epoch: 1
 
 # ----- data config
 data_name: vigor
-data_root: /data/experiment2/tmp/vigor 
+data_root: /data/VIGOR 
 
 grd_img_size: [320, 640] 
 arl_img_size: [320, 320]
