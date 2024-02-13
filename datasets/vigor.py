@@ -90,7 +90,7 @@ class VIGOR(torch.utils.data.Dataset):
             # load train panorama list
 
             if self.same_area:
-                if self.train:
+                if self.mode == "train":
                     label_fname = os.path.join(
                         "datasets/splits/vigor",
                         self.label_root,
