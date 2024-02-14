@@ -4,7 +4,7 @@ eval: False
 resume: False
 
 seed: 42
-num_workers: 8
+num_workers: 2
 
 batch_size: 1 
 
@@ -23,7 +23,7 @@ arl_img_size: [320, 320]
 rotation_range: 180
 pos_only: True
 
-same_area: False
+same_area: True
 fov: 0
 
 # ----- optimizer config
