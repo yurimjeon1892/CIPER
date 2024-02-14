@@ -3,7 +3,6 @@ from PIL import Image
 import numpy as np
 import os
 import random
-from sklearn.utils import shuffle
 
 from common.utils_loader import input_transform, input_transform_fov
 
@@ -43,8 +42,6 @@ class VIGOR(torch.utils.data.Dataset):
         self.rotation_range = args["rotation_range"]
         self.raw_arl_img_size = (640, 640)
 
-        self.pos_only = args["pos_only"]
-
         self.arl_zoom_ratio = self.raw_arl_img_size[0] / self.arl_img_size[0]
         self.meter_per_pixel_dict = {
             "Chicago": 0.111,
@@ -59,7 +56,6 @@ class VIGOR(torch.utils.data.Dataset):
     def make_slice_match_sample_list(self):
         self.sat_list = []
         self.sat_index_dict = {}
-
         idx = 0
         for city in self.city_list:
             sat_list_fname = os.path.join(
@@ -88,22 +84,6 @@ class VIGOR(torch.utils.data.Dataset):
         idx = 0
         for city in self.city_list:
             # load train panorama list
-
-            if self.same_area:
-                if self.mode == "train":
-                    label_fname = os.path.join(
-                        "datasets/splits/vigor",
-                        self.label_root,
-                        city,
-                        "same_area_balanced_train__corrected.txt",
-                    )
-                else:
-                    label_fname = os.path.join(
-                        "datasets/splits/vigor",
-                        self.label_root,
-                        city,
-                        "same_area_balanced_test__corrected.txt",
-                    )
             if not self.same_area:
                 label_fname = os.path.join(
                     "datasets/splits/vigor",
@@ -111,7 +91,20 @@ class VIGOR(torch.utils.data.Dataset):
                     city,
                     "pano_label_balanced__corrected.txt",
                 )
-
+            elif self.mode == "train":
+                label_fname = os.path.join(
+                    "datasets/splits/vigor",
+                    self.label_root,
+                    city,
+                    "same_area_balanced_train__corrected.txt",
+                )
+            else:
+                label_fname = os.path.join(
+                    "datasets/splits/vigor",
+                    self.label_root,
+                    city,
+                    "same_area_balanced_test__corrected.txt",
+                )
             with open(label_fname, "r") as file:
                 for line in file.readlines():
                     data = np.array(line.split(" "))
@@ -134,92 +127,16 @@ class VIGOR(torch.utils.data.Dataset):
                     self.meter_per_pixel_list.append(self.meter_per_pixel_dict[city])
                     idx += 1
 
-        for rand_state in range(20):
-            self.grd_list, self.label, self.delta = shuffle(
-                self.grd_list, self.label, self.delta, random_state=rand_state
-            )
-
-        self.data_size = int(len(self.grd_list))
-        self.grd_list = self.grd_list[: self.data_size]
-        self.label = self.label[: self.data_size]
-        self.delta = self.delta[: self.data_size]
+        self.data_size = len(self.grd_list)
         self.label = np.array(self.label)
         self.delta = np.array(self.delta)
-
         self.sat_cover_list = list(self.sat_cover_dict.keys())
 
-    def get_grd_sat_img_pair(self, idx):
-
-        # full ground panorama
-        try:
-            grd = Image.open(os.path.join(self.root, self.grd_list[idx]))
-            grd = grd.convert("RGB")
-        except:
-            print("unreadable image")
-            print(os.path.join(self.root, self.grd_list[idx]))
-            grd = Image.new(
-                "RGB", (320, 640)
-            )  # if the image is unreadable, use a blank image
-        # grd = self.grdimage_transform(grd)
-        grd = self.transform_query(grd)
-
-        # generate a random rotation
-        rotation = np.random.uniform(low=-1.0, high=1.0)  #
-        rotation_angle = rotation * self.rotation_range
-        grd = torch.roll(
-            grd,
-            (
-                torch.round(
-                    torch.as_tensor(rotation_angle / 180) * grd.size()[2] / 2
-                ).int()
-            ).item(),
-            dims=2,
-        )
-
-        # satellite
-        if self.pos_only:  # load positives only
-            pos_index = 0
-            sat = Image.open(os.path.join(self.sat_list[self.label[idx][pos_index]]))
-            [row_offset, col_offset] = self.delta[
-                idx, pos_index
-            ]  # delta = [delta_lat, delta_lon]
-        else:  # load positives and semi-positives
-            col_offset = 320
-            row_offset = 320
-            while (
-                np.abs(col_offset) >= 320 or np.abs(row_offset) >= 320
-            ):  # do not use the semi-positives where GT location is outside the image
-                pos_index = random.randint(0, 3)
-                sat = Image.open(
-                    os.path.join(self.sat_list[self.label[idx][pos_index]])
-                )
-                [row_offset, col_offset] = self.delta[
-                    idx, pos_index
-                ]  # delta = [delta_lat, delta_lon]
-
-        sat = sat.convert("RGB")
-        sat = self.transform_reference(sat)
-
-        # # groundtruth location on the aerial image
-        # gt_shift_y = row_offset / height * 4  # -L/4 ~ L/4  -1 ~ 1
-        # gt_shift_x = -col_offset / width * 4  #
-
-        if "NewYork" in self.grd_list[idx]:
-            city = "NewYork"
-        elif "Seattle" in self.grd_list[idx]:
-            city = "Seattle"
-        elif "SanFrancisco" in self.grd_list[idx]:
-            city = "SanFrancisco"
-        elif "Chicago" in self.grd_list[idx]:
-            city = "Chicago"
-
-        gt_shift_y = row_offset
-        gt_shift_x = -col_offset
-
+    def prep_gt(self, gt_shift_x, gt_shift_y, theta, meter_per_pixel):
         tgt_y = (gt_shift_x / self.arl_zoom_ratio) / self.arl_img_size[1]
         tgt_x = (gt_shift_y / self.arl_zoom_ratio) / self.arl_img_size[0]
 
-        tgt_rad = np.deg2rad(-rotation_angle)
+        tgt_rad = np.deg2rad(theta + 180.0)
         tgt_cos = np.cos(tgt_rad)
         tgt_sin = np.sin(tgt_rad)
 
@@ -230,10 +147,9 @@ class VIGOR(torch.utils.data.Dataset):
                 [int(self.arl_img_size[0]), int(self.arl_img_size[1])]
             ),
             "arl_zoom_ratio": torch.tensor([self.arl_zoom_ratio]),
-            "meter_per_pixel": torch.tensor([self.meter_per_pixel_dict[city]]),
+            "meter_per_pixel": torch.tensor([meter_per_pixel]),
         }
-
-        return grd, sat, target
+        return target
 
     def __getitem__(self, index):
         if self.mode == "train" or self.mode == "valid_same":
@@ -243,67 +159,60 @@ class VIGOR(torch.utils.data.Dataset):
                 ]
             )
 
-            return self.get_grd_sat_img_pair(idx)
-
-        elif self.mode == "valid_same_ref":
-
-            # satellite
-            if self.pos_only:  # load positives only
-                pos_index = 0
-                sat = Image.open(
-                    os.path.join(self.sat_list[self.label[index][pos_index]])
-                )
-                [row_offset, col_offset] = self.delta[
-                    index, pos_index
-                ]  # delta = [delta_lat, delta_lon]
-            else:  # load positives and semi-positives
-                col_offset = 320
-                row_offset = 320
-                while (
-                    np.abs(col_offset) >= 320 or np.abs(row_offset) >= 320
-                ):  # do not use the semi-positives where GT location is outside the image
-                    pos_index = random.randint(0, 3)
-                    sat = Image.open(
-                        os.path.join(self.sat_list[self.label[index][pos_index]])
-                    )
-                    [row_offset, col_offset] = self.delta[
-                        index, pos_index
-                    ]  # delta = [delta_lat, delta_lon]
-
-            sat = sat.convert("RGB")
-            sat = self.transform_reference(sat)
-
-            return sat, torch.tensor(index), 0
-
-        elif self.mode == "valid_same_qry":
-
-            # full ground panorama
-            try:
-                grd = Image.open(os.path.join(self.root, self.grd_list[index]))
-                grd = grd.convert("RGB")
-            except:
-                print("unreadable image")
-                print(os.path.join(self.root, self.grd_list[index]))
-                grd = Image.new(
-                    "RGB", (320, 640)
-                )  # if the image is unreadable, use a blank image
-            # grd = self.grdimage_transform(grd)
-            grd = self.transform_query(grd)
+            grd_img = Image.open(os.path.join(self.root, self.grd_list[idx]))
+            grd_img = self.transform_query(grd_img)
 
             # generate a random rotation
             rotation = np.random.uniform(low=-1.0, high=1.0)  #
             rotation_angle = rotation * self.rotation_range
-            grd = torch.roll(
-                grd,
+            grd_img = torch.roll(
+                grd_img,
                 (
                     torch.round(
-                        torch.as_tensor(rotation_angle / 180) * grd.size()[2] / 2
+                        torch.as_tensor(rotation_angle / 180) * grd_img.size()[2] / 2
                     ).int()
                 ).item(),
                 dims=2,
             )
 
-            return grd, torch.tensor(index), torch.tensor(self.label[index][0])
+            arl_img = Image.open(self.sat_list[self.label[idx][0]]).convert("RGB")
+            arl_img = self.transform_reference(arl_img)
+
+            gt_shift_x = -self.delta[idx, 0][1]
+            gt_shift_y = self.delta[idx, 0][0]
+
+            meter_per_pixel = self.meter_per_pixel_list[idx]
+
+            target = self.prep_gt(
+                gt_shift_x, gt_shift_y, rotation_angle, meter_per_pixel
+            )
+
+            return grd_img, arl_img, target
+
+        elif self.mode == "valid_same_ref":
+            arl_img = Image.open(self.sat_list[index]).convert("RGB")
+            arl_img = self.transform_reference(arl_img)
+
+            return arl_img, torch.tensor(index), 0
+
+        elif self.mode == "valid_same_qry":
+            grd_img = Image.open(self.grd_list[index])
+            grd_img = self.transform_query(grd_img)
+
+            # generate a random rotation
+            rotation = np.random.uniform(low=-1.0, high=1.0)  #
+            rotation_angle = rotation * self.rotation_range
+            grd_img = torch.roll(
+                grd_img,
+                (
+                    torch.round(
+                        torch.as_tensor(rotation_angle / 180) * grd_img.size()[2] / 2
+                    ).int()
+                ).item(),
+                dims=2,
+            )
+
+            return grd_img, torch.tensor(index), torch.tensor(self.label[index][0])
         else:
             print("not implemented!!")
             raise Exception
@@ -324,3 +233,21 @@ class VIGOR(torch.utils.data.Dataset):
         else:
             print("not implemented!")
             raise Exception
+
+
+def get_aerial_and_deltas(combination_dir):
+    data_dict = {}
+    with open(combination_dir, "r") as file:
+        for line in file.readlines():
+            data = line.split(" ")
+            data_list = []
+            for idx in range(4):
+                data_list.append(
+                    (
+                        data[3 * idx + 1],
+                        float(data[3 * idx + 2]),
+                        float(data[3 * idx + 3]),
+                    )
+                )
+            data_dict[data[0]] = data_list
+    return data_dict
