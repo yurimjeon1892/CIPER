@@ -1,7 +1,7 @@
 # configuration file for test
 # ----- base config
 eval: True
-pretrained: /storage1/ckpts/ford/log1/run-20240105_070209-p5wgzpmc/files/epoch_85.pth
+pretrained: /storage1/ckpts/ford/log1/run-20240105_070209-p5wgzpmc/files/epoch_80.pth
 
 seed: 42
 num_workers: 4
@@ -40,4 +40,4 @@ repeat_grd_factor: 3
 grd_to_arl_factor: 4 # 360 / cam_fov
 
 # ----- misc
-eval_name: ford_log1_10_e85
+eval_name: ford_log1_10_e80_run-20240105_070209-p5wgzpmc
