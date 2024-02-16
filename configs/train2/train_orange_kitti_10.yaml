@@ -29,7 +29,7 @@ val_same_pt_list: ./datasets/splits/kitti/test1_files.txt
 val_cross_pt_list: ./datasets/splits/kitti/test2_files.txt
 
 # ----- optimizer config
-lr: 0.0001
+lr: 0.00001
 weight_decay: 0.03
 
 optimizer: adamw
@@ -61,3 +61,5 @@ bbox_loss_coef: 5
 mask_loss_coef: 1
 
 eos_coef: 0.01 # Relative classification weight of the no-object class
+
+#fdhdjfhj
