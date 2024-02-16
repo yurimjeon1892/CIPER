@@ -1,7 +1,7 @@
 # configuration file for training
 # ----- base config
 eval: False
-resume: False
+resume: ./wandb/run-20240214_060642-pfegmwp6/files/epoch_25.pth
 
 seed: 42
 num_workers: 8
