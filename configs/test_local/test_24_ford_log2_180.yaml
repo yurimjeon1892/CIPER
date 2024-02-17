@@ -1,7 +1,7 @@
 # configuration file for test
 # ----- base config
 eval: True
-pretrained: ./wandb/run-20240211_132853-589gux3e/files/epoch_24.pth
+pretrained: ./wandb/run-20240215_032033-9fdulc6y/files/epoch_22.pth
 
 seed: 42
 num_workers: 4
@@ -24,7 +24,7 @@ rotation_range: 180
 log_idx: 1
 
 # ----- model config
-num_queries: 128
+num_queries: 100  
 
 patch_size: 32
 mlp_ratio: 4
@@ -40,4 +40,4 @@ repeat_grd_factor: 3
 grd_to_arl_factor: 4 # 360 / cam_fov
 
 # ----- misc
-eval_name: ford_log2_180_e24
+eval_name: ford_log2_180_run-20240215_032033-9fdulc6y_e22
