@@ -1,7 +1,7 @@
 # configuration file for test
 # ----- base config
 eval: True
-pretrained: ../ciper-ckpts/ford_log1_180.pth
+pretrained: ../ciper-ckpts/ford_log2_10.pth
 
 seed: 42
 num_workers: 4
@@ -21,10 +21,10 @@ shift_range_lat: 20
 shift_range_lon: 20 
 rotation_range: 10 
 
-log_idx: 0
+log_idx: 1
 
 # ----- model config
-num_queries: 100
+num_queries: 128
 
 patch_size: 32
 mlp_ratio: 4
@@ -40,4 +40,4 @@ repeat_grd_factor: 3
 grd_to_arl_factor: 4 # 360 / cam_fov
 
 # ----- misc
-eval_name: ford_log1_180
+eval_name: ford_log2_10

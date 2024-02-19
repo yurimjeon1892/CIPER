@@ -1,7 +1,7 @@
 # configuration file for test
 # ----- base config
 eval: True
-pretrained: ../ciper-ckpts/ford_log1_10_e80.pth
+pretrained: ../ciper-ckpts/ford_log1_10.pth
 
 seed: 42
 num_workers: 4
@@ -40,4 +40,4 @@ repeat_grd_factor: 3
 grd_to_arl_factor: 4 # 360 / cam_fov
 
 # ----- misc
-eval_name: ford_log1_10_e80
+eval_name: ford_log1_10

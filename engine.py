@@ -352,10 +352,11 @@ def evaluate_one(
     loader_dict: dict,
     eval_infos: dict,
 ):
-    os.makedirs("./eval", exist_ok=True)
-    fname = "./eval/eval-{data_name}-{eval_name}-{date:%Y-%m-%d-%H:%M:%S}.txt".format(
+
+    os.makedirs("./eval-txt", exist_ok=True)
+    fname = "./eval-txt/eval-{data_name}-{eval_name}-{date:%Y-%m-%d-%H:%M:%S}.txt".format(
         data_name=eval_infos["data_name"],
-        eval_name=eval_infos["eval_name"],
+        eval_name=eval_infos["eval_name"] + "_" + eval_infos["valid"],
         date=datetime.datetime.now(),
     )
     # retrieval validation

@@ -1,8 +1,7 @@
 # configuration file for test
 # ----- base config
 eval: True
-pretrained: /storage2/ckpts/orange/wandb/run-20240125_015000-jvuz25mz/files/epoch_14.pth
-command: 20_20_10_run-20240125_015000-jvuz25mz_e14
+pretrained: /storage2/ckpts/orange/kitti/run-20240214_015942-ylff56oq/files/epoch_50.pth
 
 seed: 42
 num_workers: 8
@@ -41,3 +40,7 @@ dim_feature: 1000
 
 repeat_grd_factor: 3
 grd_to_arl_factor: 4 # 360 / cam_fov
+
+# ----- misc
+eval_name: kitti_10_run-20240214_015942-ylff56oq_e50
+
