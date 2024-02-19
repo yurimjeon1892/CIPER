@@ -20,16 +20,6 @@ from engine import train_one_epoch, valid_one_epoch, evaluate_one
 import wandb
 
 
-def parse_args():
-    parser = argparse.ArgumentParser(description="Train a CIPER")
-    parser.add_argument("config", help="config file path")
-    parser.add_argument(
-        "--debug", action="store_true", help="debug flag for disble logger"
-    )
-    args = parser.parse_args()
-    return args
-
-
 def iterate(debug):
     ## init model
     model, criterion, postprocessors = build(args)
@@ -45,7 +35,7 @@ def iterate(debug):
             config=args,
             name=sys.argv[1].split("/")[-1].split(".")[0],
             # resume=(args["resume"] != False),
-            settings=wandb.Settings(start_method="fork")
+            settings=wandb.Settings(start_method="fork"),
         )
 
     ## resume model
@@ -337,6 +327,16 @@ def evaluate():
             ({**eval_infos, **dict(valid="cross")}),
         )
     return
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Train a CIPER")
+    parser.add_argument("config", help="config file path")
+    parser.add_argument(
+        "--debug", action="store_true", help="debug flag for disble logger"
+    )
+    args = parser.parse_args()
+    return args
 
 
 def main():
