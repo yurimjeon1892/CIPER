@@ -156,14 +156,14 @@ def pose_accuracy_eval(preds, gts, fname):
 
     f = open(fname, "a")
     f.write("**cross-view pose estimation\n")
-    f.write("init location and orientation\n")
-    line = "{:.3f}, {:.3f}, {:.3f}, {:.3f}\n".format(
-        np.mean(init_dis),
-        np.median(init_dis),
-        np.mean(init_angle),
-        np.median(init_angle),
-    )
-    f.write(line)
+    # f.write("init location and orientation\n")
+    # line = "{:.3f}, {:.3f}, {:.3f}, {:.3f}\n".format(
+    #     np.mean(init_dis),
+    #     np.median(init_dis),
+    #     np.mean(init_angle),
+    #     np.median(init_angle),
+    # )
+    # f.write(line)
     # f.write("diff location and orientation\n")
     # line = "{:.3f}, {:.3f}, {:.3f}, {:.3f}\n".format(
     #     np.mean(distance),
@@ -208,6 +208,8 @@ def pose_accuracy_eval(preds, gts, fname):
     # f.write(line + "\n")
     # f.close()
 
+    # f.write("evaluation result\n")
+
     # location mean, median
     line = "{:.3f}, {:.3f}, ".format(
         np.mean(distance),
@@ -236,7 +238,6 @@ def pose_accuracy_eval(preds, gts, fname):
         pred = np.sum(angle_diff < angles[idx]) / angle_diff.shape[0] * 100
         angle_acc[str(angles[idx])] = pred
         line += "{:.3f}, ".format(pred)
-    
 
     f.write(line + "\n")
 
