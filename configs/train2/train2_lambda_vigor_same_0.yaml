@@ -1,7 +1,7 @@
 # configuration file for training
 # ----- base config
 eval: False
-resume: ./wandb/run-20240214_060642-pfegmwp6/files/epoch_25.pth
+resume: ./wandb/run-20240222_061924-6s3fufl8/files/epoch_50.pth
 
 seed: 42
 num_workers: 8
@@ -26,8 +26,8 @@ same_area: True
 fov: 0
 
 # ----- optimizer config
-lr: 0.00005
-weight_decay: 0.03
+lr: 0.00001
+weight_decay: 0.001
 
 optimizer: adamw
 cos: True

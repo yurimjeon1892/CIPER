@@ -1,8 +1,8 @@
 # configuration file for test
 # ----- base config
 eval: True
-# pretrained: /storage2/ckpts/orange/kitti/run-20240215_090235-hs1k4r1f/files/epoch_50.pth
-pretrained: ../ciper-ckpts/kitti_180_epoch_26.pth
+pretrained: /storage2/ckpts/orange/kitti/run-20240220_003022-19qtgkjs/files/epoch_50.pth
+# pretrained: ../ciper-ckpts/kitti_180_epoch_26.pth
 
 seed: 42
 num_workers: 8
@@ -43,4 +43,4 @@ repeat_grd_factor: 3
 grd_to_arl_factor: 4 # 360 / cam_fov
 
 # ----- misc
-eval_name: kitti_180_e26
+eval_name: kitti_180_run-20240220_003022-19qtgkjs_e50
