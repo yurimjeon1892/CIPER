@@ -20,7 +20,7 @@ data_root: /data/experiment2/tmp/vigor
 grd_img_size: [320, 640] 
 arl_img_size: [320, 320]
 
-rotation_range: 0
+rotation_range: 180
 
 same_area: False
 fov: 90
