@@ -10,7 +10,7 @@ batch_size: 16
 
 device: cuda # device to use for training / testing 
 
-epochs: 50
+epochs: 25
 start_epoch: 1
 
 # ----- data config

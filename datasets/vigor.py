@@ -14,8 +14,15 @@ class VIGOR(torch.utils.data.Dataset):
 
         self.mode = mode
         self.root = args["data_root"]
+        self.fov_ratio = args["fov"] / 360
 
-        self.transform_query = input_transform(size=args["grd_img_size"])
+        if self.fov_ratio < 1:
+            new_grd_img_size = [0, 0]
+            new_grd_img_size[0] = args["grd_img_size"][0]
+            new_grd_img_size[1] = int(args["grd_img_size"][1] / self.fov_ratio)
+            self.transform_query = input_transform(size=new_grd_img_size)
+        else:
+            self.transform_query = input_transform(size=args["grd_img_size"])
         self.transform_reference = input_transform(size=args["arl_img_size"])
 
         self.same_area = args["same_area"]
@@ -33,7 +40,7 @@ class VIGOR(torch.utils.data.Dataset):
 
         self.arl_img_size = args["arl_img_size"]
         self.rotation_range = args["rotation_range"]
-        self.fov_ratio = args["fov"] / 360
+        
         self.raw_arl_img_size = (640, 640)
 
         self.arl_zoom_ratio = self.raw_arl_img_size[0] / self.arl_img_size[0]
@@ -154,11 +161,7 @@ class VIGOR(torch.utils.data.Dataset):
             )
 
             grd_img = Image.open(os.path.join(self.root, self.grd_list[idx]))
-            grd_img = np.array(grd_img)
-            raw_width = grd_img.shape[1]
-            new_width = raw_width * self.fov_ratio
-            grd_img_new = grd_img[:, int((raw_width - new_width) / 2):int((raw_width + new_width) / 2), :]
-            grd_img = self.transform_query(grd_img_new)
+            grd_img = self.transform_query(grd_img)
 
             # generate a random rotation
             rotation = np.random.uniform(low=-1.0, high=1.0)  #
@@ -172,6 +175,14 @@ class VIGOR(torch.utils.data.Dataset):
                 ).item(),
                 dims=2,
             )
+
+            # crop ground image for limited fov
+            grd_img = np.array(grd_img.detach())
+            raw_width = grd_img.shape[-1]
+            new_width = raw_width * self.fov_ratio
+            grd_img_new = grd_img[:, :, int((raw_width - new_width) / 2):int((raw_width + new_width) / 2)]
+            grd_img = torch.Tensor(grd_img_new)
+
 
             arl_img = Image.open(self.sat_list[self.label[idx][0]]).convert("RGB")
             arl_img = self.transform_reference(arl_img)
