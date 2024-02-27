@@ -16,8 +16,13 @@ class VIGOR(torch.utils.data.Dataset):
         self.root = args["data_root"]
 
         if args["fov"] != 0:
+            tmp_grd_img_size = [0, 0]
+            tmp_grd_img_size[0] = args["grd_img_size"][0]
+            ratio = args["fov"] / 360
+            tmp_grd_img_size[1] = int(args["grd_img_size"][1] / ratio)
+
             self.transform_query = input_transform_fov(
-                size=args["grd_img_size"], fov=args["fov"]
+                size=tmp_grd_img_size, fov=args["fov"]
             )
         else:
             self.transform_query = input_transform(size=args["grd_img_size"])
@@ -35,8 +40,6 @@ class VIGOR(torch.utils.data.Dataset):
                 self.city_list = ["NewYork", "Seattle"]
             else:
                 self.city_list = ["SanFrancisco", "Chicago"]
-
-        self.city_list = ["Seattle"]
 
         self.arl_img_size = args["arl_img_size"]
         self.rotation_range = args["rotation_range"]
