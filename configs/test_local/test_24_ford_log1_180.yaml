@@ -1,7 +1,7 @@
 # configuration file for test
 # ----- base config
 eval: True
-pretrained: /storage1/ckpts/run-20240105_070319-9vdl7anr/files/epoch_80.pth
+pretrained: /storage1/ckpts/ford/log1/run-20240105_070319-9vdl7anr/files/epoch_80.pth
 
 seed: 42
 num_workers: 4

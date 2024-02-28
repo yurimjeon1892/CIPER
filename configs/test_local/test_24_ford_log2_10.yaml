@@ -1,7 +1,8 @@
 # configuration file for test
 # ----- base config
 eval: True
-pretrained: ./wandb/run-20240208_031809-xwe2ylbk/files/epoch_24.pth
+# pretrained: ./wandb/run-20240208_031809-xwe2ylbk/files/epoch_24.pth
+pretrained: /storage1/ckpts/ford/log2/run-20240208_031809-xwe2ylbk/files/epoch_24.pth
 
 seed: 42
 num_workers: 4

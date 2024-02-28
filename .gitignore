@@ -170,3 +170,4 @@ wandb/
 work_dir/
 eval/
 eval-txt/
+infer/
