@@ -40,7 +40,7 @@ class VIGOR(torch.utils.data.Dataset):
 
         self.arl_img_size = args["arl_img_size"]
         self.rotation_range = args["rotation_range"]
-        
+
         self.raw_arl_img_size = (640, 640)
 
         self.arl_zoom_ratio = self.raw_arl_img_size[0] / self.arl_img_size[0]
@@ -180,9 +180,12 @@ class VIGOR(torch.utils.data.Dataset):
             grd_img = np.array(grd_img.detach())
             raw_width = grd_img.shape[-1]
             new_width = raw_width * self.fov_ratio
-            grd_img_new = grd_img[:, :, int((raw_width - new_width) / 2):int((raw_width + new_width) / 2)]
+            grd_img_new = grd_img[
+                :,
+                :,
+                int((raw_width - new_width) / 2) : int((raw_width + new_width) / 2),
+            ]
             grd_img = torch.Tensor(grd_img_new)
-
 
             arl_img = Image.open(self.sat_list[self.label[idx][0]]).convert("RGB")
             arl_img = self.transform_reference(arl_img)
@@ -220,6 +223,17 @@ class VIGOR(torch.utils.data.Dataset):
                 ).item(),
                 dims=2,
             )
+
+            # crop ground image for limited fov
+            grd_img = np.array(grd_img.detach())
+            raw_width = grd_img.shape[-1]
+            new_width = raw_width * self.fov_ratio
+            grd_img_new = grd_img[
+                :,
+                :,
+                int((raw_width - new_width) / 2) : int((raw_width + new_width) / 2),
+            ]
+            grd_img = torch.Tensor(grd_img_new)
 
             return grd_img, torch.tensor(index), torch.tensor(self.label[index][0])
         else:
