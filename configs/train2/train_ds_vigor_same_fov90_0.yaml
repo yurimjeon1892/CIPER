@@ -15,21 +15,21 @@ start_epoch: 1
 
 # ----- data config
 data_name: vigor
-data_root: /data/VIGOR 
+data_root: /data/ciper_dataset/VIGOR 
 
 grd_img_size: [320, 640] 
 arl_img_size: [320, 320]
 
-rotation_range: 180
+rotation_range: 0
 
 same_area: True
 fov: 90
 
 # ----- optimizer config
-lr: 0.00005
-weight_decay: 0.03
+lr: 0.00001
+weight_decay: 0.001
 
-optimizer: sam
+optimizer: adamw
 cos: True
 
 # ----- model config
@@ -53,9 +53,9 @@ set_cost_class: 1 # Class coefficient in the matching cost
 set_cost_bbox: 5 # L1 box coefficient in the matching cost
 
 retrieval_loss_coef: 1
-label_loss_coef: 0
-bbox_loss_coef: 0
-mask_loss_coef: 0
+label_loss_coef: 1
+bbox_loss_coef: 5
+mask_loss_coef: 1
 
 eos_coef: 0.01 # Relative classification weight of the no-object class
 
