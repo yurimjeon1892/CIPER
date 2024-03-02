@@ -139,7 +139,7 @@ def inference_one(
     for i, (img_grd, img_arl, targets) in enumerate(
         tqdm(loader_dict["val"], desc=description, unit="batches")
     ):
-        if i % 10 != 0:
+        if i % 5 != 0:
             continue
         img_grd = img_grd.to(eval_infos["device"])
         img_arl = img_arl.to(eval_infos["device"])
