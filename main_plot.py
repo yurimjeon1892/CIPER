@@ -132,7 +132,8 @@ def inference_one(
     )
     os.makedirs(save_dir, exist_ok=True)
     f = open(os.path.join(save_dir, "pose.csv"), "w")
-
+    f.write("filename, pred_lons, pred_lats, pred_oriens, gt_lons, gt_lats, gt_oriens\n")
+    
     model.eval()
 
     description = "[i] eval pose"
@@ -141,14 +142,17 @@ def inference_one(
     ):
         # if i % 5 != 0:
         #     continue
+        f = open(os.path.join(save_dir, "pose.csv"), "a")
         img_grd = img_grd.to(eval_infos["device"])
         img_arl = img_arl.to(eval_infos["device"])
         targets_ = []
         for b in range(img_grd.size(0)):
             targets__ = {}
             for k in targets.keys():
-                if k == "fname": continue
-                targets__[k] = targets[k][b].to(eval_infos["device"])
+                if k == "fname": 
+                    targets__[k] = targets[k][b]
+                else:
+                    targets__[k] = targets[k][b].to(eval_infos["device"])
             targets_.append(targets__)
         targets = targets_
         # targets = [
@@ -175,18 +179,18 @@ def inference_one(
             )
             f.write(d)
 
-        plot_imgs = plot_infer_result(results, targets, img_grd, img_arl)
-        for k in plot_imgs.keys():
+        # plot_imgs = plot_infer_result(results, targets, img_grd, img_arl)
+        # for k in plot_imgs.keys():
 
-            fn = os.path.join(save_dir, str(i).zfill(6) + "_" + k + ".png")
-            if plot_imgs[k].shape[-1] != 3:
-                im = np.transpose(plot_imgs[k], (1, 2, 0))
-            else:
-                im = plot_imgs[k]
-            im = Image.fromarray(im.astype(np.uint8))
-            im.save(fn)
+        #     fn = os.path.join(save_dir, str(i).zfill(6) + "_" + k + ".png")
+        #     if plot_imgs[k].shape[-1] != 3:
+        #         im = np.transpose(plot_imgs[k], (1, 2, 0))
+        #     else:
+        #         im = plot_imgs[k]
+        #     im = Image.fromarray(im.astype(np.uint8))
+        #     im.save(fn)
 
-    f.close()
+        f.close()
 
     print("[i] evaluation finished. check: ", save_dir)
     return
@@ -198,7 +202,8 @@ def result2pose(results):
         scores = results[b]["scores"].detach().cpu().numpy()
         shifts = results[b]["boxes"].detach().cpu().numpy()
         shifts_max = shifts[np.argmax(scores), :]
-        shifts_max = np.array([[shifts_max[0], shifts_max[1], shifts_max[2]]])
+        orien_max = np.rad2deg(shifts_max[2]) - 180.
+        shifts_max = np.array([[shifts_max[1], shifts_max[0], orien_max]])
         pred_poses.append(shifts_max)
     return pred_poses
 
@@ -210,12 +215,14 @@ def target2gt(targets):
         meter_per_pixel = targets[b]["meter_per_pixel"][0].detach().cpu().numpy()
 
         tgt = targets[b]["boxes"][0].detach().cpu().numpy()
+
+        orien_max = np.rad2deg(np.arctan2(tgt[3], tgt[2])) - 180.
         tgt = np.array(
             [
                 [
-                    tgt[0] * arl_img_size[0] * meter_per_pixel,
                     tgt[1] * arl_img_size[1] * meter_per_pixel,
-                    np.arctan2(tgt[3], tgt[2]),
+                    tgt[0] * arl_img_size[0] * meter_per_pixel,
+                    orien_max,
                 ]
             ]
         )

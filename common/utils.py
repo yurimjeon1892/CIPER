@@ -138,10 +138,10 @@ def pose_accuracy(preds, gts):
 
 def pose_accuracy_eval(preds, gts, fname):
     preds = np.concatenate(preds, 0)
-    pred_shifts, pred_oriens = preds[:, :2], np.rad2deg(preds[:, 2])
+    pred_shifts, pred_oriens = preds[:, :2], preds[:, 2]
 
     gts = np.concatenate(gts, 0)
-    gt_shifts, gt_oriens = gts[:, :2], np.rad2deg(gts[:, 2])
+    gt_shifts, gt_oriens = gts[:, :2], gts[:, 2]
 
     distance = np.sqrt(np.sum((pred_shifts - gt_shifts) ** 2, axis=1))  # [N]
     angle_diff = np.remainder(np.abs(pred_oriens - gt_oriens), 360)
