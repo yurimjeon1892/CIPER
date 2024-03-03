@@ -131,7 +131,7 @@ def inference_one(
         date=datetime.datetime.now(),
     )
     os.makedirs(save_dir, exist_ok=True)
-    f = open(os.path.join(save_dir, "pose.txt"), "w")
+    f = open(os.path.join(save_dir, "pose.csv"), "w")
 
     model.eval()
 
@@ -139,14 +139,22 @@ def inference_one(
     for i, (img_grd, img_arl, targets) in enumerate(
         tqdm(loader_dict["val"], desc=description, unit="batches")
     ):
-        if i % 5 != 0:
-            continue
+        # if i % 5 != 0:
+        #     continue
         img_grd = img_grd.to(eval_infos["device"])
         img_arl = img_arl.to(eval_infos["device"])
-        targets = [
-            {k: targets[k][b].to(eval_infos["device"]) for k in targets.keys()}
-            for b in range(img_grd.size(0))
-        ]
+        targets_ = []
+        for b in range(img_grd.size(0)):
+            targets__ = {}
+            for k in targets.keys():
+                if k == "fname": continue
+                targets__[k] = targets[k][b].to(eval_infos["device"])
+            targets_.append(targets__)
+        targets = targets_
+        # targets = [
+        #     {k: targets[k][b].to(eval_infos["device"]) for k in targets.keys()}
+        #     for b in range(img_grd.size(0))
+        # ]
 
         outputs = model(im_grd=img_grd, im_arl=img_arl)
         results = postprocessors(outputs, targets)
@@ -156,13 +164,14 @@ def inference_one(
             pred_poses = np.squeeze(result2pose(results)[b])
             gt_poses = np.squeeze(target2gt(targets)[b])
 
-            d = "{:.3f}, {:.3f}, {:.3f}, {:.3f}, {:.3f}, {:.3f}\n".format(
-                gt_poses[0],
-                gt_poses[1],
-                gt_poses[2],
+            d = "{}, {:.6f}, {:.6f}, {:.6f}, {:.6f}, {:.6f}, {:.6f}\n".format(
+                targets[b]["fname"],
                 pred_poses[0],
                 pred_poses[1],
                 pred_poses[2],
+                gt_poses[0],
+                gt_poses[1],
+                gt_poses[2],
             )
             f.write(d)
 
