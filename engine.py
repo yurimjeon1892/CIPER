@@ -52,10 +52,20 @@ def train_one_epoch(
 
         outputs = model(im_grd=img_grd, im_arl=img_arl)
 
-        targets = [
-            {k: targets[k][b].to(train_infos["device"]) for k in targets.keys()}
-            for b in range(bs)
-        ]
+        targets_ = []
+        for b in range(img_grd.size(0)):
+            targets__ = {}
+            for k in targets.keys():
+                if k == "fname":
+                    targets__[k] = targets[k][b]
+                else:
+                    targets__[k] = targets[k][b].to(train_infos["device"])
+            targets_.append(targets__)
+        targets = targets_
+        # targets = [
+        #     {k: targets[k][b].to(train_infos["device"]) for k in targets.keys()}
+        #     for b in range(bs)
+        # ]
         results = postprocessors(outputs, targets)
         if i == sample_ind:
             p_imgs = plot_result(results, targets, img_grd, img_arl)
@@ -126,20 +136,19 @@ def valid_one_epoch(
     imgs = dict()
     stats = dict()
 
-    if True:
-        # retrieval validation
-        imgs1, stats1 = valid_retr(
-            model, loader_dict["qry"], loader_dict["ref"], valid_infos
-        )
-        if valid_infos["valid"] == "same":
-            valid_infos["metric"] = stats1["valid_same_acc/retr_top1"]
-        if valid_infos["valid"] == "cross":
-            valid_infos["metric"] = stats1["valid_cross_acc/retr_top1"]
-        imgs.update(imgs1)
-        stats.update(stats1)
-        # wandb.log(img1)
-        if wandb.run is not None:
-            wandb.log(stats, step=valid_infos["epoch"])
+    # retrieval validation
+    imgs1, stats1 = valid_retr(
+        model, loader_dict["qry"], loader_dict["ref"], valid_infos
+    )
+    if valid_infos["valid"] == "same":
+        valid_infos["metric"] = stats1["valid_same_acc/retr_top1"]
+    if valid_infos["valid"] == "cross":
+        valid_infos["metric"] = stats1["valid_cross_acc/retr_top1"]
+    imgs.update(imgs1)
+    stats.update(stats1)
+    # wandb.log(img1)
+    if wandb.run is not None:
+        wandb.log(stats, step=valid_infos["epoch"])
 
     imgs2, stats2 = valid_pose(
         model, criterion, postprocessors, loader_dict["val"], valid_infos
@@ -246,10 +255,22 @@ def valid_pose(
         ):
             img_grd = img_grd.to(valid_infos["device"])
             img_arl = img_arl.to(valid_infos["device"])
-            targets = [
-                {k: targets[k][b].to(valid_infos["device"]) for k in targets.keys()}
-                for b in range(img_grd.size(0))
-            ]
+
+            targets_ = []
+            for b in range(img_grd.size(0)):
+                targets__ = {}
+                for k in targets.keys():
+                    if k == "fname":
+                        targets__[k] = targets[k][b]
+                    else:
+                        targets__[k] = targets[k][b].to(valid_infos["device"])
+                targets_.append(targets__)
+            targets = targets_
+
+            # targets = [
+            #     {k: targets[k][b].to(valid_infos["device"]) for k in targets.keys()}
+            #     for b in range(img_grd.size(0))
+            # ]
 
             outputs = model(im_grd=img_grd, im_arl=img_arl)
             results = postprocessors(outputs, targets)
@@ -406,10 +427,22 @@ def evaluate_one(
     ):
         img_grd = img_grd.to(eval_infos["device"])
         img_arl = img_arl.to(eval_infos["device"])
-        targets = [
-            {k: targets[k][b].to(eval_infos["device"]) for k in targets.keys()}
-            for b in range(img_grd.size(0))
-        ]
+
+        targets_ = []
+        for b in range(img_grd.size(0)):
+            targets__ = {}
+            for k in targets.keys():
+                if k == "fname":
+                    targets__[k] = targets[k][b]
+                else:
+                    targets__[k] = targets[k][b].to(eval_infos["device"])
+            targets_.append(targets__)
+        targets = targets_
+
+        # targets = [
+        #     {k: targets[k][b].to(eval_infos["device"]) for k in targets.keys()}
+        #     for b in range(img_grd.size(0))
+        # ]
 
         outputs = model(im_grd=img_grd, im_arl=img_arl)
         results = postprocessors(outputs, targets)

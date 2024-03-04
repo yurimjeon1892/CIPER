@@ -1,7 +1,7 @@
 # configuration file for training
 # ----- base config
 eval: False
-resume: ./wandb/run-20240215_090235-hs1k4r1f/files/epoch_50.pth
+resume: False
 
 seed: 42
 num_workers: 8
@@ -10,7 +10,7 @@ batch_size: 16
 
 device: cuda # device to use for training / testing 
 
-epochs: 75
+epochs: 50
 start_epoch: 1
 
 # ----- data config
@@ -29,7 +29,7 @@ val_same_pt_list: ./datasets/splits/kitti/test1_files.txt
 val_cross_pt_list: ./datasets/splits/kitti/test2_files.txt
 
 # ----- optimizer config
-lr: 0.000005
+lr: 0.00001
 weight_decay: 0.03
 
 optimizer: adamw
@@ -55,7 +55,7 @@ grd_to_arl_factor: 4 # 360 / cam_fov
 set_cost_class: 1 # Class coefficient in the matching cost
 set_cost_bbox: 5 # L1 box coefficient in the matching cost
 
-retrieval_loss_coef: 0
+retrieval_loss_coef: 5
 label_loss_coef: 1
 bbox_loss_coef: 5
 mask_loss_coef: 1

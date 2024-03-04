@@ -59,7 +59,7 @@ def inference_one(
 
     #         ref_feat[idx_arl.cpu().numpy(), :] = out_emb_arl.detach().cpu().numpy()
 
-    save_dir = "./infer/infer-{data_name}-{eval_name}-{date:%Y-%m-%d-%H:%M:%S}".format(
+    save_dir = "./infer/{data_name}-{eval_name}-{date:%Y-%m-%d-%H:%M:%S}".format(
         data_name=eval_infos["data_name"],
         eval_name=eval_infos["eval_name"] + "_" + eval_infos["valid"],
         date=datetime.datetime.now(),
@@ -76,8 +76,6 @@ def inference_one(
     for i, (img_grd, img_arl, targets) in enumerate(
         tqdm(loader_dict["val"], desc=description, unit="batches")
     ):
-        # if i % 5 != 0:
-        #     continue
         f = open(os.path.join(save_dir, "pose.csv"), "a")
         img_grd = img_grd.to(eval_infos["device"])
         img_arl = img_arl.to(eval_infos["device"])
