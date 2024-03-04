@@ -31,7 +31,7 @@ def train_one_epoch(
     train_infos: dict,
 ):
     model.train()
-    # criterion.train()
+    criterion.train()
 
     losses_meter = {}
     for k in criterion.losses:
@@ -79,8 +79,6 @@ def train_one_epoch(
         # compute gradient and do SGD step
         optimizer.zero_grad()
         losses.backward()
-        # if train_infos["clip_max_norm"] > 0:
-        #     torch.nn.utils.clip_grad_norm_(model.parameters(), train_infos["clip_max_norm"])
         if train_infos["optimizer"] != "sam":
             optimizer.step()
         else:

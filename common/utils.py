@@ -151,8 +151,8 @@ def pose_accuracy_eval(preds, gts, fname):
     metrics = [1, 5]
     angles = [1, 5]
 
-    init_dis = np.sqrt(np.sum((gt_shifts) ** 2, axis=1))
-    init_angle = np.abs(gt_oriens)
+    # init_dis = np.sqrt(np.sum((gt_shifts) ** 2, axis=1))
+    # init_angle = np.abs(gt_oriens)
 
     f = open(fname, "a")
     f.write("**cross-view pose estimation\n")

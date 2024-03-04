@@ -26,46 +26,75 @@ def inference_one(
     loader_dict: dict,
     eval_infos: dict,
 ):
-    # # retrieval validation
-    # model_query = model.query_net
-    # model_reference = model.reference_net
+    # retrieval validation
+    model_query = model.query_net
+    model_reference = model.reference_net
 
-    # model_query.eval()
-    # model_reference.eval()
+    model_query.eval()
+    model_reference.eval()
 
-    # qry_label = np.zeros([len(loader_dict["qry"].dataset)])
-    # qry_feat = np.zeros([len(loader_dict["qry"].dataset), eval_infos["dim_feature"]])
-    # ref_feat = np.zeros([len(loader_dict["ref"].dataset), eval_infos["dim_feature"]])
+    qry_label = np.zeros([len(loader_dict["qry"].dataset)])
+    qry_feat = np.zeros([len(loader_dict["qry"].dataset), eval_infos["dim_feature"]])
+    ref_feat = np.zeros([len(loader_dict["ref"].dataset), eval_infos["dim_feature"]])
 
-    # if eval_infos["data_name"] == "vigor" or eval_infos["data_name"] == "kitti":
-    #     description = "[i] eval qry"
-    #     for i, (img_grd, idx_grd, labels) in enumerate(
-    #         tqdm(loader_dict["qry"], desc=description, unit="batches")
-    #     ):
-    #         img_grd = img_grd.to(eval_infos["device"])
-    #         idx_grd = idx_grd.to(eval_infos["device"])
-    #         labels = labels.to(eval_infos["device"])
+    fnames = []
 
-    #         y_grd, _, _ = model_query(img_grd)
-    #         qry_feat[idx_grd.cpu().numpy(), :] = y_grd.cpu().numpy()
-    #         qry_label[idx_grd.cpu().numpy()] = labels.cpu().numpy()
+    description = "[i] eval qry"
+    for i, (img_grd, idx_grd, labels) in enumerate(
+        tqdm(loader_dict["qry"], desc=description, unit="batches")
+    ):
+        img_grd = img_grd.to(eval_infos["device"])
+        idx_grd = idx_grd.to(eval_infos["device"])
+        labels = labels.to(eval_infos["device"])
 
-    #     description = "[i] eval ref"
-    #     for i, (img_arl, idx_arl, _) in enumerate(
-    #         tqdm(loader_dict["ref"], desc=description, unit="batches")
-    #     ):
-    #         img_arl = img_arl.to(eval_infos["device"])
-    #         out_emb_arl, _, _ = model_reference(img_arl)  # delta
+        y_grd, _, _ = model_query(img_grd)
+        qry_feat[idx_grd.cpu().numpy(), :] = y_grd.cpu().numpy()
+        qry_label[idx_grd.cpu().numpy()] = labels.cpu().numpy()
 
-    #         ref_feat[idx_arl.cpu().numpy(), :] = out_emb_arl.detach().cpu().numpy()
+    description = "[i] eval ref"
+    for i, (img_arl, idx_arl, _) in enumerate(
+        tqdm(loader_dict["ref"], desc=description, unit="batches")
+    ):
+        img_arl = img_arl.to(eval_infos["device"])
+        out_emb_arl, _, _ = model_reference(img_arl)  # delta
 
-    save_dir = "./infer/{data_name}-{eval_name}-{date:%Y-%m-%d-%H:%M:%S}".format(
+        ref_feat[idx_arl.cpu().numpy(), :] = out_emb_arl.detach().cpu().numpy()
+
+    # N = qry_feat.shape[0]
+    # M = ref_feat.shape[0]
+
+    # qry_feat_norm = np.sqrt(np.sum(qry_feat**2, axis=1, keepdims=True))
+    # ref_feat_norm = np.sqrt(np.sum(ref_feat**2, axis=1, keepdims=True))
+    # similarity = np.matmul(
+    #     qry_feat / qry_feat_norm, (ref_feat / ref_feat_norm).transpose()
+    # )
+
+    # for i in range(N):
+    #     ranking = np.sum((similarity[i, :] > similarity[i, qry_label[i]]) * 1.0)
+    #     for j, k in enumerate(topk):
+    #         if ranking < k:
+    #             results[j] += 1.0
+
+    # print("[i] evaluation finished. check: ", save_dir)
+    return
+
+
+@torch.no_grad()
+def inference_two(
+    model: torch.nn.Module,
+    postprocessors: torch.nn.Module,
+    loader_dict: dict,
+    eval_infos: dict,
+):
+    os.makedirs("./infer", exist_ok=True)
+
+    fname = "./infer/{data_name}-{eval_name}-{date:%Y-%m-%d-%H:%M:%S}-pose.csv".format(
         data_name=eval_infos["data_name"],
         eval_name=eval_infos["eval_name"] + "_" + eval_infos["valid"],
         date=datetime.datetime.now(),
     )
-    os.makedirs(save_dir, exist_ok=True)
-    f = open(os.path.join(save_dir, "pose.csv"), "w")
+
+    f = open(os.path.join("./infer", fname), "w")
     f.write(
         "filename, pred_lons, pred_lats, pred_oriens, gt_lons, gt_lats, gt_oriens\n"
     )
@@ -76,7 +105,7 @@ def inference_one(
     for i, (img_grd, img_arl, targets) in enumerate(
         tqdm(loader_dict["val"], desc=description, unit="batches")
     ):
-        f = open(os.path.join(save_dir, "pose.csv"), "a")
+        f = open(os.path.join("./infer", fname), "a")
         img_grd = img_grd.to(eval_infos["device"])
         img_arl = img_arl.to(eval_infos["device"])
         targets_ = []
@@ -115,7 +144,7 @@ def inference_one(
 
         f.close()
 
-    print("[i] evaluation finished. check: ", save_dir)
+    print("[i] evaluation finished. check: ", os.path.join("./infer", fname))
     return
 
 
@@ -209,19 +238,27 @@ def inference():
         "data_name": args["data_name"],
         "eval_name": args["eval_name"],
     }
+
     inference_one(
         model,
         postprocessors,
         data_loader_valid_same,
         ({**eval_infos, **dict(valid="same")}),
     )
-    if args["data_name"] == "kitti":
-        inference_one(
-            model,
-            postprocessors,
-            data_loader_valid_cross,
-            ({**eval_infos, **dict(valid="cross")}),
-        )
+
+    # inference_two(
+    #     model,
+    #     postprocessors,
+    #     data_loader_valid_same,
+    #     ({**eval_infos, **dict(valid="same")}),
+    # )
+    # if args["data_name"] == "kitti":
+    #     inference_two(
+    #         model,
+    #         postprocessors,
+    #         data_loader_valid_cross,
+    #         ({**eval_infos, **dict(valid="cross")}),
+    #     )
     return
 
 
