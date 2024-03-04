@@ -8,8 +8,9 @@ def plot_result(preds, gts, img_grd, img_arl):
     rand_ind = 0
     img_grd_ = img_grd[rand_ind, :, :, :].detach().cpu().numpy()
     img_arl_ = img_arl[rand_ind, :, :, :].detach().cpu().numpy()
-    pred = preds[rand_ind]
-    gt = gts[rand_ind]
+
+    pred = preds[rand_ind][0]
+    gt = gts[rand_ind][0]
 
     img_arl_ = draw_3dof_pin(img_arl_, gt[0], gt[1], gt[2], "orange")
     img_arl_ = draw_3dof_pin(img_arl_, pred[0], pred[1], pred[2], "cyan")
