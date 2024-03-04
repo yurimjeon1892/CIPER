@@ -426,7 +426,7 @@ def result2pose(results):
         scores = results[b]["scores"].detach().cpu().numpy()
         shifts = results[b]["boxes"].detach().cpu().numpy()
         shifts_max = shifts[np.argmax(scores), :]
-        shifts_max = np.array([[shifts_max[0], shifts_max[1], shifts_max[2]]])
+        shifts_max = np.array([[shifts_max[0], shifts_max[1], np.rad2deg(shifts_max[2])]])
         pred_poses.append(shifts_max)
     return pred_poses
 
@@ -443,7 +443,7 @@ def target2gt(targets):
                 [
                     tgt[0] * arl_img_size[0] * meter_per_pixel,
                     tgt[1] * arl_img_size[1] * meter_per_pixel,
-                    np.arctan2(tgt[3], tgt[2]),
+                    np.rad2deg(np.arctan2(tgt[3], tgt[2])),
                 ]
             ]
         )
