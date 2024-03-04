@@ -17,7 +17,7 @@ from common.utils import (
     pose_accuracy_eval,
 )
 from common.utils import result2pose, target2gt
-from common.utils_plot import plot_result, plot_intermediate
+from common.utils_plot import plot_result
 import wandb
 import datetime, os
 
@@ -46,11 +46,10 @@ def train_one_epoch(
     for i, (img_grd, img_arl, targets) in enumerate(
         tqdm(data_loader, desc=description, unit="batches")
     ):
+        # input
         bs = img_grd.size(0)
         img_grd = img_grd.to(train_infos["device"])
         img_arl = img_arl.to(train_infos["device"])
-
-        outputs = model(im_grd=img_grd, im_arl=img_arl)
 
         targets_ = []
         for b in range(img_grd.size(0)):
@@ -66,19 +65,16 @@ def train_one_epoch(
         #     {k: targets[k][b].to(train_infos["device"]) for k in targets.keys()}
         #     for b in range(bs)
         # ]
-        results = postprocessors(outputs, targets)
-        if i == sample_ind:
-            p_imgs = plot_result(results, targets, img_grd, img_arl)
-            plot_imgs.update(p_imgs)
 
+        # run model
+        outputs = model(im_grd=img_grd, im_arl=img_arl)
+        results = postprocessors(outputs, targets)
+
+        # compute loss
         loss_dict = criterion(outputs, targets)
         losses = sum(loss_dict[k] for k in loss_dict.keys())
         for k in loss_dict.keys():
             losses_meter[k].update(loss_dict[k].item(), bs)
-
-        if i == sample_ind:
-            p_imgs = plot_intermediate(criterion.intermediate)
-            plot_imgs.update(p_imgs)
 
         # compute gradient and do SGD step
         optimizer.zero_grad()
@@ -96,6 +92,14 @@ def train_one_epoch(
             losses = sum(loss_dict[k] for k in loss_dict.keys())
             losses.backward()
             optimizer.second_step(zero_grad=True)
+
+        # user friendly lol
+        preds = result2pose(results)
+        gts = target2gt(targets)
+
+        if i == sample_ind:
+            p_imgs = plot_result(preds, gts, img_grd, img_arl)
+            plot_imgs.update(p_imgs)
 
         iters += bs
         # del loss_dict
@@ -241,6 +245,8 @@ def valid_pose(
     model.eval()
     criterion.eval()
 
+    plot_imgs = {}
+
     losses_meter = {}
     for k in criterion.losses:
         losses_meter[k] = AverageMeter()
@@ -253,6 +259,7 @@ def valid_pose(
         for i, (img_grd, img_arl, targets) in enumerate(
             tqdm(data_loader, desc=description, unit="batches")
         ):
+            # input
             img_grd = img_grd.to(valid_infos["device"])
             img_arl = img_arl.to(valid_infos["device"])
 
@@ -272,20 +279,22 @@ def valid_pose(
             #     for b in range(img_grd.size(0))
             # ]
 
+            # run model
             outputs = model(im_grd=img_grd, im_arl=img_arl)
             results = postprocessors(outputs, targets)
 
+            # compute loss
             loss_dict = criterion(outputs, targets)
             for k in loss_dict.keys():
                 losses_meter[k].update(loss_dict[k].item(), img_grd.size(0))
 
-            if i == sample_ind:
-                plot_imgs = plot_result(results, targets, img_grd, img_arl)
-                p_imgs = plot_intermediate(criterion.intermediate)
-                plot_imgs.update(p_imgs)
-
+            # user friendly lol
             preds = result2pose(results)
             gts = target2gt(targets)
+
+            if i == sample_ind:
+                p_imgs = plot_result(preds, gts, img_grd, img_arl)
+                plot_imgs.update(p_imgs)
 
             trs_err, rot_err = pose_accuracy(preds, gts)
             trs_errs.extend(trs_err)
@@ -375,13 +384,11 @@ def evaluate_one(
     eval_infos: dict,
 ):
 
-    os.makedirs("./eval-txt", exist_ok=True)
-    fname = (
-        "./eval-txt/eval-{data_name}-{eval_name}-{date:%Y-%m-%d-%H:%M:%S}.txt".format(
-            data_name=eval_infos["data_name"],
-            eval_name=eval_infos["eval_name"] + "_" + eval_infos["valid"],
-            date=datetime.datetime.now(),
-        )
+    os.makedirs("./eval", exist_ok=True)
+    fname = "./eval/{data_name}-{eval_name}-{date:%Y-%m-%d-%H:%M:%S}.txt".format(
+        data_name=eval_infos["data_name"],
+        eval_name=eval_infos["eval_name"] + "_" + eval_infos["valid"],
+        date=datetime.datetime.now(),
     )
     # retrieval validation
     model_query = model.query_net
