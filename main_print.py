@@ -16,73 +16,7 @@ from models import build
 sys.path.append("../")
 
 from common.utils_plot import *
-
-
-def plot_infer_result(results, targets, img_grd, img_arl):
-
-    img_grd_ = img_grd.detach().cpu().numpy()
-    img_arl_ = img_arl.detach().cpu().numpy()
-
-    for b in range(img_grd_.shape[0]):
-
-        img_grd_b = img_grd_[b]
-        img_arl_b = img_arl_[b]
-        h, w = img_arl_b.shape[1], img_arl_b.shape[2]
-
-        img_grd_b = (img_grd_b - np.min(img_grd_b)) / (
-            np.max(img_grd_b) - np.min(img_grd_b)
-        )
-        img_arl_b = (img_arl_b - np.min(img_arl_b)) / (
-            np.max(img_arl_b) - np.min(img_arl_b)
-        )
-
-        bev_mask = results[b]["bev_mask"].detach().cpu().numpy()
-
-        n = int(bev_mask.shape[0] ** 0.5)
-        bev_mask = np.reshape(bev_mask[:, 0], (n, n))
-        img_bev_mask = draw_minmax_color_img(bev_mask, cmap=plt.cm.jet)
-        img_bev_mask = Image.fromarray(img_bev_mask.astype(np.uint8))
-        img_bev_mask = img_bev_mask.resize((h, w))
-
-        img_arl_b_ = np.transpose(img_arl_b, (1, 2, 0)) * 255
-        img_arl_b_ = Image.fromarray((img_arl_b_).astype(np.uint8))
-
-        img_blend = Image.blend(img_arl_b_, img_bev_mask, alpha=0.4)
-
-        arl_img_size = targets[b]["orig_size"].detach().cpu().numpy()
-        meter_per_pixel = targets[b]["meter_per_pixel"][0].detach().cpu().numpy()
-
-        tgt = targets[b]["boxes"][0].detach().cpu().numpy()
-        yaw = np.arctan2(tgt[3], tgt[2])
-        tgt = np.array(
-            [
-                [
-                    tgt[0] * arl_img_size[0] * meter_per_pixel,
-                    tgt[1] * arl_img_size[1] * meter_per_pixel,
-                    yaw,
-                ]
-            ]
-        )
-
-        img_pin = np.array(img_blend)
-        img_pin = draw_3dof_pin(img_pin, tgt, arl_img_size, meter_per_pixel, "orange")
-
-        scores = results[b]["scores"].detach().cpu().numpy()
-        shifts = results[b]["boxes"].detach().cpu().numpy()
-        shifts_max = shifts[np.argmax(scores), :]
-        shifts_max = np.array([[shifts_max[0], shifts_max[1], shifts_max[2]]])
-
-        img_pin = draw_3dof_pin(
-            img_pin, shifts_max, arl_img_size, meter_per_pixel, "cyan"
-        )
-
-        imgs = {
-            str(b).zfill(2) + "_grd": img_grd_b * 255,
-            # str(b).zfill(2) + "_ace": np.array(img_blend),
-            str(b).zfill(2) + "_pin": img_pin,
-        }
-
-    return imgs
+from common.utils import result2pose, target2gt
 
 
 @torch.no_grad()
@@ -132,8 +66,10 @@ def inference_one(
     )
     os.makedirs(save_dir, exist_ok=True)
     f = open(os.path.join(save_dir, "pose.csv"), "w")
-    f.write("filename, pred_lons, pred_lats, pred_oriens, gt_lons, gt_lats, gt_oriens\n")
-    
+    f.write(
+        "filename, pred_lons, pred_lats, pred_oriens, gt_lons, gt_lats, gt_oriens\n"
+    )
+
     model.eval()
 
     description = "[i] eval pose"
@@ -149,7 +85,7 @@ def inference_one(
         for b in range(img_grd.size(0)):
             targets__ = {}
             for k in targets.keys():
-                if k == "fname": 
+                if k == "fname":
                     targets__[k] = targets[k][b]
                 else:
                     targets__[k] = targets[k][b].to(eval_infos["device"])
@@ -179,55 +115,10 @@ def inference_one(
             )
             f.write(d)
 
-        # plot_imgs = plot_infer_result(results, targets, img_grd, img_arl)
-        # for k in plot_imgs.keys():
-
-        #     fn = os.path.join(save_dir, str(i).zfill(6) + "_" + k + ".png")
-        #     if plot_imgs[k].shape[-1] != 3:
-        #         im = np.transpose(plot_imgs[k], (1, 2, 0))
-        #     else:
-        #         im = plot_imgs[k]
-        #     im = Image.fromarray(im.astype(np.uint8))
-        #     im.save(fn)
-
         f.close()
 
     print("[i] evaluation finished. check: ", save_dir)
     return
-
-
-def result2pose(results):
-    pred_poses = []
-    for b in range(len(results)):
-        scores = results[b]["scores"].detach().cpu().numpy()
-        shifts = results[b]["boxes"].detach().cpu().numpy()
-        shifts_max = shifts[np.argmax(scores), :]
-        orien_max = np.rad2deg(shifts_max[2]) - 180.
-        shifts_max = np.array([[shifts_max[1], shifts_max[0], orien_max]])
-        pred_poses.append(shifts_max)
-    return pred_poses
-
-
-def target2gt(targets):
-    gts = []
-    for b in range(len(targets)):
-        arl_img_size = targets[b]["orig_size"].detach().cpu().numpy()
-        meter_per_pixel = targets[b]["meter_per_pixel"][0].detach().cpu().numpy()
-
-        tgt = targets[b]["boxes"][0].detach().cpu().numpy()
-
-        orien_max = np.rad2deg(np.arctan2(tgt[3], tgt[2])) - 180.
-        tgt = np.array(
-            [
-                [
-                    tgt[1] * arl_img_size[1] * meter_per_pixel,
-                    tgt[0] * arl_img_size[0] * meter_per_pixel,
-                    orien_max,
-                ]
-            ]
-        )
-        gts.append(tgt)
-    return gts
 
 
 def inference():

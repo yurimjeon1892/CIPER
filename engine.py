@@ -16,6 +16,7 @@ from common.utils import (
     pose_accuracy,
     pose_accuracy_eval,
 )
+from common.utils import result2pose, target2gt
 from common.utils_plot import plot_result, plot_intermediate
 import wandb
 import datetime, os
@@ -354,10 +355,12 @@ def evaluate_one(
 ):
 
     os.makedirs("./eval-txt", exist_ok=True)
-    fname = "./eval-txt/eval-{data_name}-{eval_name}-{date:%Y-%m-%d-%H:%M:%S}.txt".format(
-        data_name=eval_infos["data_name"],
-        eval_name=eval_infos["eval_name"] + "_" + eval_infos["valid"],
-        date=datetime.datetime.now(),
+    fname = (
+        "./eval-txt/eval-{data_name}-{eval_name}-{date:%Y-%m-%d-%H:%M:%S}.txt".format(
+            data_name=eval_infos["data_name"],
+            eval_name=eval_infos["eval_name"] + "_" + eval_infos["valid"],
+            date=datetime.datetime.now(),
+        )
     )
     # retrieval validation
     model_query = model.query_net
@@ -418,34 +421,3 @@ def evaluate_one(
 
     print("[i] evaluation finished. check: ", fname)
     return
-
-
-def result2pose(results):
-    pred_poses = []
-    for b in range(len(results)):
-        scores = results[b]["scores"].detach().cpu().numpy()
-        shifts = results[b]["boxes"].detach().cpu().numpy()
-        shifts_max = shifts[np.argmax(scores), :]
-        shifts_max = np.array([[shifts_max[0], shifts_max[1], np.rad2deg(shifts_max[2])]])
-        pred_poses.append(shifts_max)
-    return pred_poses
-
-
-def target2gt(targets):
-    gts = []
-    for b in range(len(targets)):
-        arl_img_size = targets[b]["orig_size"].detach().cpu().numpy()
-        meter_per_pixel = targets[b]["meter_per_pixel"][0].detach().cpu().numpy()
-
-        tgt = targets[b]["boxes"][0].detach().cpu().numpy()
-        tgt = np.array(
-            [
-                [
-                    tgt[0] * arl_img_size[0] * meter_per_pixel,
-                    tgt[1] * arl_img_size[1] * meter_per_pixel,
-                    np.rad2deg(np.arctan2(tgt[3], tgt[2])),
-                ]
-            ]
-        )
-        gts.append(tgt)
-    return gts
