@@ -11,7 +11,7 @@ from .soft_triplet import SoftTripletBiLoss
 
 from .encoder import Encoder
 from .ace import AeroConfidenceEstimator
-from .decoder import Decoder, TwoWayDecoder
+from .decoder import TwoWayDecoder
 
 
 class CIPER(nn.Module):

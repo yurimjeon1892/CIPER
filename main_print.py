@@ -37,12 +37,13 @@ def inference_one(
     qry_feat = np.zeros([len(loader_dict["qry"].dataset), eval_infos["dim_feature"]])
     ref_feat = np.zeros([len(loader_dict["ref"].dataset), eval_infos["dim_feature"]])
 
-    fnames = []
+    qry_fname_list = [None] * len(loader_dict["qry"].dataset)
 
     description = "[i] eval qry"
-    for i, (img_grd, idx_grd, labels) in enumerate(
+    for i, (img_grd, idx_grd, labels, file_name) in enumerate(
         tqdm(loader_dict["qry"], desc=description, unit="batches")
     ):
+
         img_grd = img_grd.to(eval_infos["device"])
         idx_grd = idx_grd.to(eval_infos["device"])
         labels = labels.to(eval_infos["device"])
@@ -51,8 +52,14 @@ def inference_one(
         qry_feat[idx_grd.cpu().numpy(), :] = y_grd.cpu().numpy()
         qry_label[idx_grd.cpu().numpy()] = labels.cpu().numpy()
 
+        idx_grds = idx_grd.cpu().numpy()
+        for j in range(idx_grds.shape[0]):
+            qry_fname_list[idx_grds[j]] = file_name[j]
+
+    ref_fname_list = [None] * len(loader_dict["ref"].dataset)
+
     description = "[i] eval ref"
-    for i, (img_arl, idx_arl, _) in enumerate(
+    for i, (img_arl, idx_arl, _, file_name) in enumerate(
         tqdm(loader_dict["ref"], desc=description, unit="batches")
     ):
         img_arl = img_arl.to(eval_infos["device"])
@@ -60,22 +67,46 @@ def inference_one(
 
         ref_feat[idx_arl.cpu().numpy(), :] = out_emb_arl.detach().cpu().numpy()
 
-    # N = qry_feat.shape[0]
-    # M = ref_feat.shape[0]
+        idx_arls = idx_arl.cpu().numpy()
+        for j in range(idx_arls.shape[0]):
+            ref_fname_list[idx_arls[j]] = file_name[j]
 
-    # qry_feat_norm = np.sqrt(np.sum(qry_feat**2, axis=1, keepdims=True))
-    # ref_feat_norm = np.sqrt(np.sum(ref_feat**2, axis=1, keepdims=True))
-    # similarity = np.matmul(
-    #     qry_feat / qry_feat_norm, (ref_feat / ref_feat_norm).transpose()
-    # )
+    N = qry_feat.shape[0]
+    M = ref_feat.shape[0]
 
-    # for i in range(N):
-    #     ranking = np.sum((similarity[i, :] > similarity[i, qry_label[i]]) * 1.0)
-    #     for j, k in enumerate(topk):
-    #         if ranking < k:
-    #             results[j] += 1.0
+    qry_feat_norm = np.sqrt(np.sum(qry_feat**2, axis=1, keepdims=True))
+    ref_feat_norm = np.sqrt(np.sum(ref_feat**2, axis=1, keepdims=True))
+    similarity = np.matmul(
+        qry_feat / qry_feat_norm, (ref_feat / ref_feat_norm).transpose()
+    )
 
-    # print("[i] evaluation finished. check: ", save_dir)
+    os.makedirs("./infer", exist_ok=True)
+    fname = "{data_name}-{eval_name}-retr.csv".format(
+        data_name=eval_infos["data_name"],
+        eval_name=eval_infos["eval_name"] + "_" + eval_infos["valid"],
+        date=datetime.datetime.now(),
+    )
+
+    f = open(os.path.join("./infer", fname), "w")
+    f.write("qry, ref, top1, top2, top3, top4, top5\n")
+
+    for i in range(N):
+        f = open(os.path.join("./infer", fname), "a")
+        data = ""
+        data += qry_fname_list[i] + ","
+        data += ref_fname_list[int(qry_label[i])] + ","
+
+        indices = np.argsort(similarity[i, :])[::-1]
+
+        data += ref_fname_list[indices[0]] + ","
+        data += ref_fname_list[indices[1]] + ","
+        data += ref_fname_list[indices[2]] + ","
+        data += ref_fname_list[indices[3]] + ","
+        data += ref_fname_list[indices[4]] + "\n"
+        f.write(data)
+        f.close()
+
+    print("[i] evaluation finished. check: ", os.path.join("./infer", fname))
     return
 
 
@@ -88,7 +119,7 @@ def inference_two(
 ):
     os.makedirs("./infer", exist_ok=True)
 
-    fname = "./infer/{data_name}-{eval_name}-{date:%Y-%m-%d-%H:%M:%S}-pose.csv".format(
+    fname = "./{data_name}-{eval_name}-pose.csv".format(
         data_name=eval_infos["data_name"],
         eval_name=eval_infos["eval_name"] + "_" + eval_infos["valid"],
         date=datetime.datetime.now(),
@@ -239,19 +270,19 @@ def inference():
         "eval_name": args["eval_name"],
     }
 
-    inference_one(
-        model,
-        postprocessors,
-        data_loader_valid_same,
-        ({**eval_infos, **dict(valid="same")}),
-    )
-
-    # inference_two(
+    # inference_one(
     #     model,
     #     postprocessors,
     #     data_loader_valid_same,
     #     ({**eval_infos, **dict(valid="same")}),
     # )
+
+    inference_two(
+        model,
+        postprocessors,
+        data_loader_valid_same,
+        ({**eval_infos, **dict(valid="same")}),
+    )
     # if args["data_name"] == "kitti":
     #     inference_two(
     #         model,

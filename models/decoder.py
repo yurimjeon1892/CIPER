@@ -2,67 +2,6 @@ import torch
 from torch import nn
 
 from .common import MLP
-from .transformer import TransformerDecoder, TransformerDecoderLayer
-
-
-class Decoder(nn.Module):
-    def __init__(self, args):
-        """Initializes the model."""
-        super().__init__()
-
-        decoder_layer = TransformerDecoderLayer(
-            d_model=args["dim_embed"],
-            nhead=args["num_heads"],
-            dim_feedforward=args["dim_feedforward"],
-            dropout=args["dropout"],
-            activation="relu",
-            normalize_before=args["pre_norm"],
-        )
-        decoder_norm = nn.LayerNorm(args["dim_embed"])
-        self.decoder = TransformerDecoder(
-            decoder_layer,
-            args["num_dec_layers"],
-            decoder_norm,
-            return_intermediate=False,
-        )
-
-        self.class_prediction_head = nn.Linear(args["dim_embed"], 2)
-        self.bbox_prediction_head = MLP(
-            args["dim_embed"], args["dim_embed"], output_dim=4, num_layers=3
-        )
-
-        self.num_queries = args["num_queries"]
-        self.query_embed = nn.Embedding(self.num_queries, args["dim_embed"])
-
-    def forward(self, x_grd, x_arl):
-        """
-        x_grd: bs x dim_embed
-        x_arl: bs x num_patches x dim_embed
-        """
-        x_grd = torch.repeat_interleave(
-            x_grd.unsqueeze(0), self.num_queries, dim=0
-        )  # num_queries x bs x dim_embed
-        query_pos = torch.repeat_interleave(
-            self.query_embed.weight.unsqueeze(1), x_grd.shape[1], dim=1
-        )  # num_queries x bs x dim_embed
-
-        x_arl = x_arl.permute(1, 0, 2)  # num_patches x bs x dim_embed
-        # print("input", x_grd.size(), query_pos.size(), x_arl.size(), pos.size())
-
-        dst = self.decoder(tgt=x_grd, memory=x_arl, query_pos=query_pos)
-        dst = dst.transpose(1, 2)  # 1 x bs x num_queries x dim_embed
-        # print("dst: ", dst.size())
-
-        class_pred = self.class_prediction_head(dst)  # 1 x bs x num_queries x 2
-        bbox_pred = self.bbox_prediction_head(dst)  # 1 x bs x num_queries x 4
-        # print("out: ", class_pred.size(), bbox_pred.size())
-
-        out = {
-            "pred_logits": class_pred[-1],
-            "pred_boxes": bbox_pred[-1],
-        }  # [-1]: last decoder layer output
-        return out
-
 
 # From https://github.com/facebookresearch/segment-anything/blob/HEAD/segment_anything/modeling/mask_decoder.py
 from .prompt_encoder import PositionEmbeddingRandom
@@ -90,7 +29,7 @@ class TwoWayDecoder(nn.Module):
             args["dim_embed"], args["dim_embed"], output_dim=4, num_layers=3
         )
 
-        self.num_queries = args["num_queries"] 
+        self.num_queries = args["num_queries"]
         self.image_embedding_size = (
             int(args["arl_img_size"][0] / args["patch_size"]),
             int(args["arl_img_size"][1] / args["patch_size"]),
@@ -121,7 +60,7 @@ class TwoWayDecoder(nn.Module):
 
         tokens = prompt_embeddings.unsqueeze(1)
         tokens = torch.repeat_interleave(tokens, self.num_queries, dim=1)
-        
+
         image_pe = self.pe_layer(self.image_embedding_size).unsqueeze(
             0
         )  # 1 x dim_embed x h x w
