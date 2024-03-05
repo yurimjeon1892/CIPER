@@ -1,39 +1,28 @@
-# configuration file for training
+# configuration file for test
 # ----- base config
-eval: False
-resume: False
+eval: True
+pretrained: ./wandb/run-20240202_052650-vcuc5445/files/epoch_38.pth
 
 seed: 42
 num_workers: 8
-
-batch_size: 2 # 12
+batch_size: 16
 
 device: cuda # device to use for training / testing 
 
-epochs: 5
-start_epoch: 1
-
 # ----- data config
 data_name: kitti
-data_root: /storage2/public/kitti    
+data_root: /data/experiment2/tmp/kitti   
 
 grd_img_size: [256, 1024]
 arl_img_size: [512, 512]
 
 shift_range_lat: 20 
 shift_range_lon: 20 
-rotation_range: 180 
+rotation_range: 10 
 
 train_pt_list: ./datasets/splits/kitti/train_files.txt
 val_same_pt_list: ./datasets/splits/kitti/test1_files.txt
 val_cross_pt_list: ./datasets/splits/kitti/test2_files.txt
-
-# ----- optimizer config
-lr: 0.00001
-weight_decay: 0.03
-
-optimizer: adamw
-cos: True
 
 # ----- model config
 num_queries: 128
@@ -51,13 +40,5 @@ dim_feature: 1000
 repeat_grd_factor: 3
 grd_to_arl_factor: 4 # 360 / cam_fov
 
-# ----- criterion config
-set_cost_class: 1 # Class coefficient in the matching cost
-set_cost_bbox: 5 # L1 box coefficient in the matching cost
-
-retrieval_loss_coef: 1
-label_loss_coef: 1
-bbox_loss_coef: 5
-mask_loss_coef: 1
-
-eos_coef: 0.01 # Relative classification weight of the no-object class
+# ----- misc
+eval_name: kitti_10_run-20240202_052650-vcuc5445_e38

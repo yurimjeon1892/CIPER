@@ -65,8 +65,6 @@ class SetCriterion(nn.Module):
         empty_weight[-1] = self.eos_coef
         self.register_buffer("empty_weight", empty_weight)
 
-        self.intermediate = {}
-
         if "retrieval" in losses:
             self.soft_triplet_loss = SoftTripletBiLoss().cuda()
 
@@ -154,7 +152,7 @@ class SetCriterion(nn.Module):
             else:
                 target_mask[i, :, y_id - marg_w : y_id + marg_w] = 1.0
 
-        self.intermediate["target_mask"] = target_mask
+        # self.intermediate["target_mask"] = target_mask
 
         ## real loss calc
         src_cos_sin = outputs["pred_cos_sin"]
@@ -250,14 +248,12 @@ class PostProcess(nn.Module):
 
         boxes = torch.stack([xs, ys, yaw], dim=-1)
 
-        rng_mask, bev_mask = outputs["rng_mask"], outputs["bev_mask"]
-
-        # results = [{"scores": s, "labels": l, "boxes": b} for s, l, b in zip(scores, labels, boxes)]
-        # results = [{"scores": s, "boxes": b} for s, b in zip(scores, boxes)]
-        results = [
-            {"scores": s, "boxes": b, "rng_mask": rm, "bev_mask": bm}
-            for s, b, rm, bm in zip(scores, boxes, rng_mask, bev_mask)
-        ]
+        results = [{"scores": s, "boxes": b} for s, b in zip(scores, boxes)]
+        # rng_mask, bev_mask = outputs["rng_mask"], outputs["bev_mask"]
+        # results = [
+        #     {"scores": s, "boxes": b, "rng_mask": rm, "bev_mask": bm}
+        #     for s, b, rm, bm in zip(scores, boxes, rng_mask, bev_mask)
+        # ]
         return results
 
 

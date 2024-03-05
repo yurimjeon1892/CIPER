@@ -114,7 +114,7 @@ def retr_accuracy_eval(qry_feat, ref_feat, qry_label, fname):
     f = open(fname, "a")
     f.write("**cross-view image retrieval\n")
     f.write("top1, top5, top10, top1%\n")
-    d = "{:.3f}, {:.3f}, {:.3f}, {:.3f}\n".format(
+    d = "{:.2f}, {:.2f}, {:.2f}, {:.2f}\n".format(
         results[0], results[1], results[2], results[-1]
     )
     f.write(d)
@@ -124,10 +124,10 @@ def retr_accuracy_eval(qry_feat, ref_feat, qry_label, fname):
 
 def pose_accuracy(preds, gts):
     preds = np.concatenate(preds, 0)
-    pred_shifts, pred_oriens = preds[:, :2], np.rad2deg(preds[:, 2])
+    pred_shifts, pred_oriens = preds[:, :2], preds[:, 2]
 
     gts = np.concatenate(gts, 0)
-    gt_shifts, gt_oriens = gts[:, :2], np.rad2deg(gts[:, 2])
+    gt_shifts, gt_oriens = gts[:, :2], gts[:, 2]
 
     distance = np.sqrt(np.sum((pred_shifts - gt_shifts) ** 2, axis=1))  # [N]
     angle_diff = np.remainder(np.abs(pred_oriens - gt_oriens), 360)
@@ -138,10 +138,10 @@ def pose_accuracy(preds, gts):
 
 def pose_accuracy_eval(preds, gts, fname):
     preds = np.concatenate(preds, 0)
-    pred_shifts, pred_oriens = preds[:, :2], np.rad2deg(preds[:, 2])
+    pred_shifts, pred_oriens = preds[:, :2], preds[:, 2]
 
     gts = np.concatenate(gts, 0)
-    gt_shifts, gt_oriens = gts[:, :2], np.rad2deg(gts[:, 2])
+    gt_shifts, gt_oriens = gts[:, :2], gts[:, 2]
 
     distance = np.sqrt(np.sum((pred_shifts - gt_shifts) ** 2, axis=1))  # [N]
     angle_diff = np.remainder(np.abs(pred_oriens - gt_oriens), 360)
@@ -151,27 +151,27 @@ def pose_accuracy_eval(preds, gts, fname):
     metrics = [1, 5]
     angles = [1, 5]
 
-    init_dis = np.sqrt(np.sum((gt_shifts) ** 2, axis=1))
-    init_angle = np.abs(gt_oriens)
+    # init_dis = np.sqrt(np.sum((gt_shifts) ** 2, axis=1))
+    # init_angle = np.abs(gt_oriens)
 
     f = open(fname, "a")
     f.write("**cross-view pose estimation\n")
-    f.write("init location and orientation\n")
-    line = "{:.3f}, {:.3f}, {:.3f}, {:.3f}\n".format(
-        np.mean(init_dis),
-        np.median(init_dis),
-        np.mean(init_angle),
-        np.median(init_angle),
-    )
-    f.write(line)
-    f.write("diff location and orientation\n")
-    line = "{:.3f}, {:.3f}, {:.3f}, {:.3f}\n".format(
-        np.mean(distance),
-        np.median(distance),
-        np.mean(angle_diff),
-        np.median(angle_diff),
-    )
-    f.write(line)
+    # f.write("init location and orientation\n")
+    # line = "{:.2f}, {:.2f}, {:.2f}, {:.2f}\n".format(
+    #     np.mean(init_dis),
+    #     np.median(init_dis),
+    #     np.mean(init_angle),
+    #     np.median(init_angle),
+    # )
+    # f.write(line)
+    # f.write("diff location and orientation\n")
+    # line = "{:.2f}, {:.2f}, {:.2f}, {:.2f}\n".format(
+    #     np.mean(distance),
+    #     np.median(distance),
+    #     np.mean(angle_diff),
+    #     np.median(angle_diff),
+    # )
+    # f.write(line)
 
     diff_shifts_init = np.abs(pred_shifts - gt_shifts)
 
@@ -183,30 +183,63 @@ def pose_accuracy_eval(preds, gts, fname):
         diff_shifts.append(diff_shift)
     diff_shifts = np.array(diff_shifts)
 
-    f.write("lateral 1m, 5m\n")
-    line = ""
+    # f.write("lateral 1m, 5m\n")
+    # line = ""
+    # for idx in range(len(metrics)):
+    #     pred = np.sum(diff_shifts[:, 0] < metrics[idx]) / diff_shifts.shape[0] * 100
+    #     line += "{:.2f}, ".format(pred)
+    # f.write(line + "\n")
+
+    # f.write("longitudinal 1m, 5m\n")
+    # line = ""
+    # for idx in range(len(metrics)):
+    #     pred = np.sum(diff_shifts[:, 1] < metrics[idx]) / diff_shifts.shape[0] * 100
+    #     line += "{:.2f}, ".format(pred)
+    # f.write(line + "\n")
+
+    # f.write("orientation 1deg, 5deg\n")
+    # line = ""
+    # angle_acc = {}
+    # for idx in range(len(angles)):
+    #     pred = np.sum(angle_diff < angles[idx]) / angle_diff.shape[0] * 100
+    #     angle_acc[str(angles[idx])] = pred
+
+    #     line += "{:.2f}, ".format(pred)
+    # f.write(line + "\n")
+    # f.close()
+
+    # f.write("evaluation result\n")
+
+    # location mean, median
+    line = "{:.2f}, {:.2f}, ".format(
+        np.mean(distance),
+        np.median(distance),
+    )
+
+    # lateral r@1m, r@5m
     for idx in range(len(metrics)):
         pred = np.sum(diff_shifts[:, 0] < metrics[idx]) / diff_shifts.shape[0] * 100
-        line += "{:.3f}, ".format(pred)
-    f.write(line + "\n")
+        line += "{:.2f}, ".format(pred)
 
-    f.write("longitudinal 1m, 5m\n")
-    line = ""
+    # longitudinal r@1m, r@5m
     for idx in range(len(metrics)):
         pred = np.sum(diff_shifts[:, 1] < metrics[idx]) / diff_shifts.shape[0] * 100
-        line += "{:.3f}, ".format(pred)
-    f.write(line + "\n")
+        line += "{:.2f}, ".format(pred)
 
-    f.write("orientation 1deg, 5deg\n")
-    line = ""
+    # orientation mean, median
+    line += "{:.2f}, {:.2f}, ".format(
+        np.mean(angle_diff),
+        np.median(angle_diff),
+    )
+
+    # orientation r@1deg, r@5deg
     angle_acc = {}
     for idx in range(len(angles)):
         pred = np.sum(angle_diff < angles[idx]) / angle_diff.shape[0] * 100
         angle_acc[str(angles[idx])] = pred
+        line += "{:.2f}, ".format(pred)
 
-        line += "{:.3f}, ".format(pred)
     f.write(line + "\n")
-    f.close()
 
     return
 
@@ -250,6 +283,40 @@ def save_state(model, optimizer, epoch, is_best):
         # wandb.save(save_name)
 
 
+def result2pose(results):
+    pred_poses = []
+    for b in range(len(results)):
+        scores = results[b]["scores"].detach().cpu().numpy()
+        shifts = results[b]["boxes"].detach().cpu().numpy()
+        shifts_max = shifts[np.argmax(scores), :]
+        orien_max = np.rad2deg(shifts_max[2]) - 180.0
+        shifts_max = np.array([[shifts_max[1], shifts_max[0], orien_max]])
+        pred_poses.append(shifts_max)
+    return pred_poses
+
+
+def target2gt(targets):
+    gts = []
+    for b in range(len(targets)):
+        arl_img_size = targets[b]["orig_size"].detach().cpu().numpy()
+        meter_per_pixel = targets[b]["meter_per_pixel"][0].detach().cpu().numpy()
+
+        tgt = targets[b]["boxes"][0].detach().cpu().numpy()
+
+        orien_max = np.rad2deg(np.arctan2(tgt[3], tgt[2])) - 180.0
+        tgt = np.array(
+            [
+                [
+                    tgt[1] * arl_img_size[1] * meter_per_pixel,
+                    tgt[0] * arl_img_size[0] * meter_per_pixel,
+                    orien_max,
+                ]
+            ]
+        )
+        gts.append(tgt)
+    return gts
+
+
 def print_pigeon():
     print(
         r"""\
@@ -257,6 +324,72 @@ def print_pigeon():
                     / ,    \
                 .-'`(o)    ;
                 '-==.       |
+                    `._...-;-.
+                    )--'''   `-.
+                    /   .        `-.
+                    /   /      `.    `-.
+                    |   \    ;   \      `-._________
+                    |    \    `.`.;          -------`.
+                    \    `-.   \\\\          `---...|
+                    `.     `-. ```\.--'._   `---...|
+                        `-.....7`-.))\     `-._`-.. /
+                        `._\ /   `-`         `-.,'
+                            / /
+                            /=(_
+                        -./--' `
+                    ,^-(_
+                    ,--' `                   
+    
+    """
+    )
+    return
+
+
+def print_pigeon_train():
+    print(
+        r"""\
+                                ╭ ◜◝ ͡ ◜◝ ͡ ◜◝╮
+                                    TRAIN..
+                                ╰ ◟◞ ͜ ◟◞ ͜ ◟◞╯
+                                O
+                            °
+                    .-''-.
+                    / ,    \              
+                .-'`(o)    ;
+                '-==.       |            
+                    `._...-;-.
+                    )--'''   `-.
+                    /   .        `-.
+                    /   /      `.    `-.
+                    |   \    ;   \      `-._________
+                    |    \    `.`.;          -------`.
+                    \    `-.   \\\\          `---...|
+                    `.     `-. ```\.--'._   `---...|
+                        `-.....7`-.))\     `-._`-.. /
+                        `._\ /   `-`         `-.,'
+                            / /
+                            /=(_
+                        -./--' `
+                    ,^-(_
+                    ,--' `                   
+    
+    """
+    )
+    return
+
+
+def print_pigeon_evaluation():
+    print(
+        r"""\
+                                ╭ ◜◝ ͡ ◜◝ ͡ ◜◝ ͡ ◜◝╮
+                                   EVALUATION..
+                                ╰ ◟◞ ͜ ◟◞ ͜ ◟◞ ͜ ◟◞╯
+                                O
+                            °
+                    .-''-.
+                    / ,    \              
+                .-'`(o)    ;
+                '-==.       |            
                     `._...-;-.
                     )--'''   `-.
                     /   .        `-.

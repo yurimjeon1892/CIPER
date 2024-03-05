@@ -11,6 +11,6 @@ ENV PATH="/opt/venv/bin:$PATH"
 
 RUN pip install torch==1.13.1 torchvision==0.14.1 
 
-RUN pip install matplotlib scipy timm ptflops wandb PyYAML tqdm
+RUN pip install matplotlib scipy timm ptflops wandb PyYAML tqdm scikit-learn
 
 ENV SHELL /bin/bash

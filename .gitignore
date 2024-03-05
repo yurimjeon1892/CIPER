@@ -164,8 +164,14 @@ cython_debug/
 */__pycache__/
 *.bak
 *.pyc
+
+# custom folder
 ckpts/
 pretrained/
 wandb/
 work_dir/
 eval/
+eval-txt/
+infer/
+
+configs/test_local/

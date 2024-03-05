@@ -1,34 +1,26 @@
 # configuration file for training
 # ----- base config
-eval: False
-resume: False
+eval: True
+pretrained: ./wandb/run-20240223_150225-dvzvy9ls/files/epoch_100.pth
 
 seed: 42
 num_workers: 8
 
-batch_size: 16 
+batch_size: 32
 
 device: cuda # device to use for training / testing 
 
-epochs: 50
-start_epoch: 1
-
 # ----- data config
 data_name: vigor
-data_root: /data/public/VIGOR    
+data_root: /data/VIGOR 
 
 grd_img_size: [320, 640] 
 arl_img_size: [320, 320]
 
+rotation_range: 0
+
 same_area: True
 fov: 0
-
-# ----- optimizer config
-lr: 0.00001
-weight_decay: 0.001
-
-optimizer: adamw
-cos: True
 
 # ----- model config
 num_queries: 128
@@ -46,12 +38,5 @@ dim_feature: 1000
 repeat_grd_factor: 3
 grd_to_arl_factor: 1 # 360 / cam_fov
 
-# ----- criterion config
-set_cost_class: 1 # Class coefficient in the matching cost
-set_cost_bbox: 5 # L1 box coefficient in the matching cost
-
-label_loss_coef: 1
-bbox_loss_coef: 5
-
-eos_coef: 0.01 # Relative classification weight of the no-object class
-
+# ----- misc
+eval_name: vigor_same_0_run-20240223_150225-dvzvy9ls_e100

@@ -197,6 +197,7 @@ class KITTI(torch.utils.data.Dataset):
                     [int(self.arl_img_size[0]), int(self.arl_img_size[1])]
                 ),
                 "meter_per_pixel": torch.tensor([self.meter_per_pixel]),
+                "fname": file_name
             }
 
             return grd_img, arl_img, target

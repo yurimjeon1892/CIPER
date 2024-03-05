@@ -1,19 +1,18 @@
 # configuration file for test
 # ----- base config
 eval: True
-pretrained: /storage1/ckpts/run-20240108_082146-lr3m41f4/files/epoch_24.pth
-command: 20_20_180_e24
+pretrained: ../ciper-ckpts/ford_log2_180.pth
 
 seed: 42
-num_workers: 8
+num_workers: 4
 
-batch_size: 1 # 12
+batch_size: 1
 
 device: cuda # device to use for training / testing 
 
 # ----- data config
-data_name: kitti
-data_root: /storage2/public/kitti    
+data_name: ford
+data_root: /storage2/public/ford    
 
 grd_img_size: [256, 1024]
 arl_img_size: [512, 512]
@@ -22,12 +21,10 @@ shift_range_lat: 20
 shift_range_lon: 20 
 rotation_range: 180 
 
-train_pt_list: ./datasets/splits/kitti/train_files.txt
-val_same_pt_list: ./datasets/splits/kitti/test1_files.txt
-val_cross_pt_list: ./datasets/splits/kitti/test2_files.txt
+log_idx: 1
 
 # ----- model config
-num_queries: 128
+num_queries: 100  
 
 patch_size: 32
 mlp_ratio: 4
@@ -41,3 +38,6 @@ dim_feature: 1000
 
 repeat_grd_factor: 3
 grd_to_arl_factor: 4 # 360 / cam_fov
+
+# ----- misc
+eval_name: ford_log2_180

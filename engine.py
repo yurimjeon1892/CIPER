@@ -1,6 +1,7 @@
 """
 Train and eval functions used in main.py
 """
+
 from typing import Iterable
 from tqdm import tqdm
 
@@ -15,7 +16,8 @@ from common.utils import (
     pose_accuracy,
     pose_accuracy_eval,
 )
-from common.utils_plot import plot_result, plot_intermediate
+from common.utils import result2pose, target2gt
+from common.utils_plot import plot_result
 import wandb
 import datetime, os
 
@@ -29,7 +31,7 @@ def train_one_epoch(
     train_infos: dict,
 ):
     model.train()
-    # criterion.train()
+    criterion.train()
 
     losses_meter = {}
     for k in criterion.losses:
@@ -44,35 +46,39 @@ def train_one_epoch(
     for i, (img_grd, img_arl, targets) in enumerate(
         tqdm(data_loader, desc=description, unit="batches")
     ):
+        # input
         bs = img_grd.size(0)
         img_grd = img_grd.to(train_infos["device"])
         img_arl = img_arl.to(train_infos["device"])
 
+        targets_ = []
+        for b in range(img_grd.size(0)):
+            targets__ = {}
+            for k in targets.keys():
+                if k == "fname":
+                    targets__[k] = targets[k][b]
+                else:
+                    targets__[k] = targets[k][b].to(train_infos["device"])
+            targets_.append(targets__)
+        targets = targets_
+        # targets = [
+        #     {k: targets[k][b].to(train_infos["device"]) for k in targets.keys()}
+        #     for b in range(bs)
+        # ]
+
+        # run model
         outputs = model(im_grd=img_grd, im_arl=img_arl)
-
-        targets = [
-            {k: targets[k][b].to(train_infos["device"]) for k in targets.keys()}
-            for b in range(bs)
-        ]
         results = postprocessors(outputs, targets)
-        if i == sample_ind:
-            p_imgs = plot_result(results, targets, img_grd, img_arl)
-            plot_imgs.update(p_imgs)
 
+        # compute loss
         loss_dict = criterion(outputs, targets)
         losses = sum(loss_dict[k] for k in loss_dict.keys())
         for k in loss_dict.keys():
             losses_meter[k].update(loss_dict[k].item(), bs)
 
-        if i == sample_ind:
-            p_imgs = plot_intermediate(criterion.intermediate)
-            plot_imgs.update(p_imgs)
-
         # compute gradient and do SGD step
         optimizer.zero_grad()
         losses.backward()
-        # if train_infos["clip_max_norm"] > 0:
-        #     torch.nn.utils.clip_grad_norm_(model.parameters(), train_infos["clip_max_norm"])
         if train_infos["optimizer"] != "sam":
             optimizer.step()
         else:
@@ -84,6 +90,14 @@ def train_one_epoch(
             losses = sum(loss_dict[k] for k in loss_dict.keys())
             losses.backward()
             optimizer.second_step(zero_grad=True)
+
+        # user friendly lol
+        preds = result2pose(results)
+        gts = target2gt(targets)
+
+        if i == sample_ind:
+            p_imgs = plot_result(preds, gts, img_grd, img_arl)
+            plot_imgs.update(p_imgs)
 
         iters += bs
         # del loss_dict
@@ -124,20 +138,19 @@ def valid_one_epoch(
     imgs = dict()
     stats = dict()
 
-    if True:
-        # retrieval validation
-        imgs1, stats1 = valid_retr(
-            model, loader_dict["qry"], loader_dict["ref"], valid_infos
-        )
-        if valid_infos["valid"] == "same":
-            valid_infos["metric"] = stats1["valid_same_acc/retr_top1"]
-        if valid_infos["valid"] == "cross":
-            valid_infos["metric"] = stats1["valid_cross_acc/retr_top1"]
-        imgs.update(imgs1)
-        stats.update(stats1)
-        # wandb.log(img1)
-        if wandb.run is not None:
-            wandb.log(stats, step=valid_infos["epoch"])
+    # retrieval validation
+    imgs1, stats1 = valid_retr(
+        model, loader_dict["qry"], loader_dict["ref"], valid_infos
+    )
+    if valid_infos["valid"] == "same":
+        valid_infos["metric"] = stats1["valid_same_acc/retr_top1"]
+    if valid_infos["valid"] == "cross":
+        valid_infos["metric"] = stats1["valid_cross_acc/retr_top1"]
+    imgs.update(imgs1)
+    stats.update(stats1)
+    # wandb.log(img1)
+    if wandb.run is not None:
+        wandb.log(stats, step=valid_infos["epoch"])
 
     imgs2, stats2 = valid_pose(
         model, criterion, postprocessors, loader_dict["val"], valid_infos
@@ -230,6 +243,8 @@ def valid_pose(
     model.eval()
     criterion.eval()
 
+    plot_imgs = {}
+
     losses_meter = {}
     for k in criterion.losses:
         losses_meter[k] = AverageMeter()
@@ -242,27 +257,42 @@ def valid_pose(
         for i, (img_grd, img_arl, targets) in enumerate(
             tqdm(data_loader, desc=description, unit="batches")
         ):
+            # input
             img_grd = img_grd.to(valid_infos["device"])
             img_arl = img_arl.to(valid_infos["device"])
-            targets = [
-                {k: targets[k][b].to(valid_infos["device"]) for k in targets.keys()}
-                for b in range(img_grd.size(0))
-            ]
 
+            targets_ = []
+            for b in range(img_grd.size(0)):
+                targets__ = {}
+                for k in targets.keys():
+                    if k == "fname":
+                        targets__[k] = targets[k][b]
+                    else:
+                        targets__[k] = targets[k][b].to(valid_infos["device"])
+                targets_.append(targets__)
+            targets = targets_
+
+            # targets = [
+            #     {k: targets[k][b].to(valid_infos["device"]) for k in targets.keys()}
+            #     for b in range(img_grd.size(0))
+            # ]
+
+            # run model
             outputs = model(im_grd=img_grd, im_arl=img_arl)
             results = postprocessors(outputs, targets)
 
+            # compute loss
             loss_dict = criterion(outputs, targets)
             for k in loss_dict.keys():
                 losses_meter[k].update(loss_dict[k].item(), img_grd.size(0))
 
-            if i == sample_ind:
-                plot_imgs = plot_result(results, targets, img_grd, img_arl)
-                p_imgs = plot_intermediate(criterion.intermediate)
-                plot_imgs.update(p_imgs)
-
+            # user friendly lol
             preds = result2pose(results)
             gts = target2gt(targets)
+
+            if i == sample_ind:
+                p_imgs = plot_result(preds, gts, img_grd, img_arl)
+                plot_imgs.update(p_imgs)
 
             trs_err, rot_err = pose_accuracy(preds, gts)
             trs_errs.extend(trs_err)
@@ -351,10 +381,11 @@ def evaluate_one(
     loader_dict: dict,
     eval_infos: dict,
 ):
+
     os.makedirs("./eval", exist_ok=True)
-    fname = "./eval/eval-{data}-{command}-{date:%Y-%m-%d-%H:%M:%S}.txt".format(
-        data=eval_infos["data_name"],
-        command=eval_infos["command"],
+    fname = "./eval/{data_name}-{eval_name}-{date:%Y-%m-%d-%H:%M:%S}.txt".format(
+        data_name=eval_infos["data_name"],
+        eval_name=eval_infos["eval_name"] + "_" + eval_infos["valid"],
         date=datetime.datetime.now(),
     )
     # retrieval validation
@@ -401,10 +432,22 @@ def evaluate_one(
     ):
         img_grd = img_grd.to(eval_infos["device"])
         img_arl = img_arl.to(eval_infos["device"])
-        targets = [
-            {k: targets[k][b].to(eval_infos["device"]) for k in targets.keys()}
-            for b in range(img_grd.size(0))
-        ]
+
+        targets_ = []
+        for b in range(img_grd.size(0)):
+            targets__ = {}
+            for k in targets.keys():
+                if k == "fname":
+                    targets__[k] = targets[k][b]
+                else:
+                    targets__[k] = targets[k][b].to(eval_infos["device"])
+            targets_.append(targets__)
+        targets = targets_
+
+        # targets = [
+        #     {k: targets[k][b].to(eval_infos["device"]) for k in targets.keys()}
+        #     for b in range(img_grd.size(0))
+        # ]
 
         outputs = model(im_grd=img_grd, im_arl=img_arl)
         results = postprocessors(outputs, targets)
@@ -416,34 +459,3 @@ def evaluate_one(
 
     print("[i] evaluation finished. check: ", fname)
     return
-
-
-def result2pose(results):
-    pred_poses = []
-    for b in range(len(results)):
-        scores = results[b]["scores"].detach().cpu().numpy()
-        shifts = results[b]["boxes"].detach().cpu().numpy()
-        shifts_max = shifts[np.argmax(scores), :]
-        shifts_max = np.array([[shifts_max[0], shifts_max[1], shifts_max[2]]])
-        pred_poses.append(shifts_max)
-    return pred_poses
-
-
-def target2gt(targets):
-    gts = []
-    for b in range(len(targets)):
-        arl_img_size = targets[b]["orig_size"].detach().cpu().numpy()
-        meter_per_pixel = targets[b]["meter_per_pixel"][0].detach().cpu().numpy()
-
-        tgt = targets[b]["boxes"][0].detach().cpu().numpy()
-        tgt = np.array(
-            [
-                [
-                    tgt[0] * arl_img_size[0] * meter_per_pixel,
-                    tgt[1] * arl_img_size[1] * meter_per_pixel,
-                    np.arctan2(tgt[3], tgt[2]),
-                ]
-            ]
-        )
-        gts.append(tgt)
-    return gts

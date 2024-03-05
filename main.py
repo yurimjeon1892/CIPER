@@ -7,22 +7,17 @@ import sys
 
 sys.path.append("../")
 
-from common.utils import print_pigeon, adjust_learning_rate, save_state
+from common.utils import (
+    adjust_learning_rate,
+    save_state,
+    print_pigeon_train,
+    print_pigeon_evaluation,
+)
 from datasets import build_dataset
 from models import build, SAM
 from engine import train_one_epoch, valid_one_epoch, evaluate_one
 
 import wandb
-
-
-def parse_args():
-    parser = argparse.ArgumentParser(description="Train a CIPER")
-    parser.add_argument("config", help="config file path")
-    parser.add_argument(
-        "--debug", action="store_true", help="debug flag for disble logger"
-    )
-    args = parser.parse_args()
-    return args
 
 
 def iterate(debug):
@@ -39,13 +34,13 @@ def iterate(debug):
             project="CIPER",
             config=args,
             name=sys.argv[1].split("/")[-1].split(".")[0],
-            resume=(args["resume"] != False),
+            # resume=(args["resume"] != False),
+            settings=wandb.Settings(start_method="fork"),
         )
 
     ## resume model
     if args["resume"] != False:
         checkpoint = torch.load(args["resume"], map_location="cpu")
-        print(checkpoint.keys())
         model.load_state_dict(checkpoint["model"])
         if "optimizer" in checkpoint and "epoch" in checkpoint:
             args["start_epoch"] = checkpoint["epoch"] + 1
@@ -237,7 +232,6 @@ def evaluate():
 
     ## load pretrained
     checkpoint = torch.load(args["pretrained"], map_location="cpu")
-    print(checkpoint.keys())
     model.load_state_dict(checkpoint["model"])
     print("[i] load checkpoint from:", args["pretrained"], "for evaluation")
 
@@ -317,7 +311,7 @@ def evaluate():
         "device": args["device"],
         "dim_feature": args["dim_feature"],
         "data_name": args["data_name"],
-        "command": args["command"],
+        "eval_name": args["eval_name"],
     }
     evaluate_one(
         model,
@@ -335,6 +329,16 @@ def evaluate():
     return
 
 
+def parse_args():
+    parser = argparse.ArgumentParser(description="Train a CIPER")
+    parser.add_argument("config", help="config file path")
+    parser.add_argument(
+        "--debug", action="store_true", help="debug flag for disble logger"
+    )
+    args = parser.parse_args()
+    return args
+
+
 def main():
     cmd_args = parse_args()
 
@@ -342,11 +346,11 @@ def main():
     with open(cmd_args.config, "r") as stream:
         args = yaml.safe_load(stream)
 
-    print_pigeon()
-
     if args["eval"]:
+        print_pigeon_evaluation()
         evaluate()
     else:
+        print_pigeon_train()
         iterate(cmd_args.debug)
 
     return
