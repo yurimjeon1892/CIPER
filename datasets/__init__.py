@@ -1,5 +1,6 @@
 from .kitti import KITTI
 from .ford import Ford
+from .kittidb import KITTIDB
 
 
 def build_dataset(mode, args):
@@ -7,6 +8,8 @@ def build_dataset(mode, args):
         dataset = KITTI
     elif args["data_name"] == "ford":
         dataset = Ford
+    elif args["data_name"] == "kittidb":
+        dataset = KITTIDB
     else:
         print("data name error. please check config - data_name")
         exit()

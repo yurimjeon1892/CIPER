@@ -80,13 +80,13 @@ ford
 ### Train 
 Set `data_root` in the `train.yaml` file and run:
 ```
-python main.py configs/train.yaml
+python main.py configs/train/train_**.yaml
 ```
 
-### Test
+### Evaluate
 Set `pretrained` in the `test.yaml` file and run:
 ```
-python main.py configs/test.yaml
+python main.py configs/test/test_**.yaml
 ```
 
 ## Acknowledgements

@@ -84,7 +84,6 @@ def inference_one(
     fname = "{data_name}-{eval_name}-retr.csv".format(
         data_name=eval_infos["data_name"],
         eval_name=eval_infos["eval_name"] + "_" + eval_infos["valid"],
-        date=datetime.datetime.now(),
     )
 
     f = open(os.path.join("./infer", fname), "w")
@@ -122,7 +121,6 @@ def inference_two(
     fname = "./{data_name}-{eval_name}-pose.csv".format(
         data_name=eval_infos["data_name"],
         eval_name=eval_infos["eval_name"] + "_" + eval_infos["valid"],
-        date=datetime.datetime.now(),
     )
 
     f = open(os.path.join("./infer", fname), "w")
@@ -270,12 +268,12 @@ def inference():
         "eval_name": args["eval_name"],
     }
 
-    # inference_one(
-    #     model,
-    #     postprocessors,
-    #     data_loader_valid_same,
-    #     ({**eval_infos, **dict(valid="same")}),
-    # )
+    inference_one(
+        model,
+        postprocessors,
+        data_loader_valid_same,
+        ({**eval_infos, **dict(valid="same")}),
+    )
 
     inference_two(
         model,
@@ -283,13 +281,13 @@ def inference():
         data_loader_valid_same,
         ({**eval_infos, **dict(valid="same")}),
     )
-    # if args["data_name"] == "kitti":
-    #     inference_two(
-    #         model,
-    #         postprocessors,
-    #         data_loader_valid_cross,
-    #         ({**eval_infos, **dict(valid="cross")}),
-    #     )
+    if args["data_name"] == "kitti":
+        inference_two(
+            model,
+            postprocessors,
+            data_loader_valid_cross,
+            ({**eval_infos, **dict(valid="cross")}),
+        )
     return
 
 
