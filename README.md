@@ -95,6 +95,12 @@ Set configuration in `infer_**.yaml` file and run:
 python inference.py configs/infer/infer_**.yaml
 ```
 
+## Pretrained model
+
+* [KITTI](https://drive.google.com/drive/folders/1ohE0jSxAgq6NxBu4F1dQZIP5sFE9y63q?usp=sharing)
+* [Ford](https://drive.google.com/drive/folders/10wb2SXch5IfXhtpMgCpQ8DRChRGlysJW?usp=drive_link)
+
+
 ## Acknowledgements
 This project is not possible without the following awesome open-source codebases:
 * [TransGeo: Transformer Is All You Need for Cross-view Image Geo-localization](https://github.com/Jeff-Zilence/TransGeo2022)
