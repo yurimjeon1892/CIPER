@@ -34,7 +34,6 @@ class KITTIDB(torch.utils.data.Dataset):
                 if file_name[-4:] != ".png":
                     continue
                 self.sample_list.append(os.path.join(drive_dir, file_name))
-            break
 
         print("[i] data base loaded, size: {}".format(len(self.sample_list)))
 

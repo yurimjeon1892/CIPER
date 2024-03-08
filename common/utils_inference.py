@@ -73,22 +73,14 @@ def run_geo_localization(args, pred_meta_topk, pred_pose):
 
         pred_locs.append([new_latitude, new_longitude])
 
-    # print("*********************************************************************")
-    # print("pred_locs_1")
-    # print(pred_locs_1)
-    # print("*********************************************************************")
-    # print("pred_locs_2")
-    # print(pred_locs_2)
-    # print("*********************************************************************")
-    # print("pred_locs")
-    # print(pred_locs)
-    # print("*********************************************************************")
     return pred_locs
 
 
 def save_output(args, pred_locs, output_dir):
 
-    qry_name = args["qry_path"].split("/")[-1][:-4]
+    qry_name = (
+        args["qry_path"].split("/")[-4] + "_" + args["qry_path"].split("/")[-1][:-4]
+    )
     os.makedirs(os.path.join(output_dir, qry_name), exist_ok=True)
 
     save_path_qry = os.path.join(output_dir, qry_name, "qry.png")
@@ -125,6 +117,20 @@ def save_output(args, pred_locs, output_dir):
 
     save_path_map = os.path.join(output_dir, qry_name, "res_map.png")
     fig.write_image(save_path_map)
+
+    save_path_latlon = os.path.join(output_dir, qry_name, "pose.txt")
+    f = open(save_path_latlon, "w")
+    f.write("Lat, Long\n")
+
+    for i, pred_loc in enumerate(pred_locs):
+        lat, lon = pred_loc[0], pred_loc[1]
+        line = "{:.6f}, {:.6f}\n".format(
+            lat,
+            lon,
+        )
+        f.write(line)
+    f.close
+
     print("[i] check ", os.path.join(output_dir, qry_name))
     return
 

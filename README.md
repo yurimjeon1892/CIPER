@@ -78,15 +78,21 @@ ford
 ## Run
 
 ### Train 
-Set `data_root` in the `train.yaml` file and run:
+Set configuration in `train.yaml` file and run:
 ```
 python main.py configs/train/train_**.yaml
 ```
 
 ### Evaluate
-Set `pretrained` in the `test.yaml` file and run:
+Set configuration in `test_**.yaml` file and run:
 ```
 python main.py configs/test/test_**.yaml
+```
+
+### Inference
+Set configuration in `infer_**.yaml` file and run:
+```
+python inference.py configs/infer/infer_**.yaml
 ```
 
 ## Acknowledgements
