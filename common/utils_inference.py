@@ -76,16 +76,25 @@ def run_geo_localization(args, pred_meta_topk, pred_pose):
     return pred_locs
 
 
-def save_output(args, pred_locs, output_dir):
+def save_output(args, pred_metas, pred_locs, output_dir):
 
     qry_name = (
         args["qry_path"].split("/")[-4] + "_" + args["qry_path"].split("/")[-1][:-4]
     )
     os.makedirs(os.path.join(output_dir, qry_name), exist_ok=True)
 
-    save_path_qry = os.path.join(output_dir, qry_name, "qry.png")
+    save_path_qry = os.path.join(output_dir, qry_name, "query_img.png")
     qry_img = Image.open(args["qry_path"], "r")
     qry_img.save(save_path_qry)
+
+    for i, pred_meta in enumerate(pred_metas):
+        save_path_ref = os.path.join(
+            output_dir, qry_name, "ref_top_" + str(i).zfill(2) + ".png"
+        )
+        ref_img = Image.open(
+            os.path.join(args["db_root"], pred_metas[i]["file_name"]), "r"
+        )
+        ref_img.save(save_path_ref)
 
     Lats, Longs, IDs = [], [], []
 
@@ -115,7 +124,7 @@ def save_output(args, pred_locs, output_dir):
     fig.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0})
     # fig.show()
 
-    save_path_map = os.path.join(output_dir, qry_name, "res_map.png")
+    save_path_map = os.path.join(output_dir, qry_name, "open_street_map.png")
     fig.write_image(save_path_map)
 
     save_path_latlon = os.path.join(output_dir, qry_name, "pose.txt")
