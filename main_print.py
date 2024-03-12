@@ -293,7 +293,7 @@ def inference():
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Train a CIPER")
-    parser.add_argument("config", help="config file path")
+    parser.add_argument("--config", help="config file path")
     parser.add_argument(
         "--debug", action="store_true", help="debug flag for disble logger"
     )

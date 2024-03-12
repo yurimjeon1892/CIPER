@@ -4,12 +4,14 @@ from torch import nn
 
 from common.utils_loader import input_transform
 from PIL import Image
+import matplotlib.pyplot as plt
 
 import numpy as np
 
 import os
 import plotly.express as px
 import pandas as pd
+import datetime
 
 
 def load_query(args):
@@ -78,23 +80,38 @@ def run_geo_localization(args, pred_meta_topk, pred_pose):
 
 def save_output(args, pred_metas, pred_locs, output_dir):
 
-    qry_name = (
-        args["qry_path"].split("/")[-4] + "_" + args["qry_path"].split("/")[-1][:-4]
-    )
-    os.makedirs(os.path.join(output_dir, qry_name), exist_ok=True)
+    folder_name = "{date:%Y-%m-%d-%H:%M:%S}".format(date=datetime.datetime.now())
+    os.makedirs(os.path.join(output_dir, folder_name), exist_ok=True)
 
-    save_path_qry = os.path.join(output_dir, qry_name, "query_img.png")
+    save_path_qry = os.path.join(output_dir, folder_name, "query.png")
     qry_img = Image.open(args["qry_path"], "r")
     qry_img.save(save_path_qry)
 
+    # Create a grid of subplots.
+    fig, axes = plt.subplots(2, 3, figsize=(12, 12))
+    axes = axes.flatten()
+
+    title = "query"
+
+    axes[0].imshow(qry_img)
+    axes[0].set_title(title, fontsize=10)
+
     for i, pred_meta in enumerate(pred_metas):
         save_path_ref = os.path.join(
-            output_dir, qry_name, "ref_top_" + str(i).zfill(2) + ".png"
+            output_dir, folder_name, "top_" + str(i).zfill(2) + ".png"
         )
         ref_img = Image.open(
             os.path.join(args["db_root"], pred_metas[i]["file_name"]), "r"
         )
         ref_img.save(save_path_ref)
+
+        title = "top_" + str(i + 1).zfill(2)
+        axes[i + 1].imshow(ref_img)
+        axes[i + 1].set_title(title, fontsize=10)
+
+    fig.tight_layout()
+    save_path_overview = os.path.join(output_dir, folder_name, "query_and_topk.png")
+    plt.savefig(save_path_overview)
 
     Lats, Longs, IDs = [], [], []
 
@@ -124,10 +141,10 @@ def save_output(args, pred_metas, pred_locs, output_dir):
     fig.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0})
     # fig.show()
 
-    save_path_map = os.path.join(output_dir, qry_name, "open_street_map.png")
+    save_path_map = os.path.join(output_dir, folder_name, "open_street_map.png")
     fig.write_image(save_path_map)
 
-    save_path_latlon = os.path.join(output_dir, qry_name, "pose.txt")
+    save_path_latlon = os.path.join(output_dir, folder_name, "pose.txt")
     f = open(save_path_latlon, "w")
     f.write("Lat, Long\n")
 
@@ -140,7 +157,7 @@ def save_output(args, pred_metas, pred_locs, output_dir):
         f.write(line)
     f.close
 
-    print("[i] check ", os.path.join(output_dir, qry_name))
+    print("[i] check ", os.path.join(output_dir, folder_name))
     return
 
 

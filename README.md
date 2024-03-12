@@ -80,19 +80,19 @@ ford
 ### Train 
 Set configuration in `train.yaml` file and run:
 ```
-python main.py configs/train/train_**.yaml
+python main.py --config configs/train/train_**.yaml
 ```
 
 ### Evaluate
 Set configuration in `test_**.yaml` file and run:
 ```
-python main.py configs/test/test_**.yaml
+python main.py --config configs/test/test_**.yaml
 ```
 
 ### Inference
 Set configuration in `infer_**.yaml` file and run:
 ```
-python inference.py configs/infer/infer_**.yaml
+python inference.py --config configs/infer/infer_**.yaml --query /path/to/query/image
 ```
 
 ## Pretrained model

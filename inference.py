@@ -163,7 +163,7 @@ def inference():
     print("[i] query path: ", args["qry_path"])
     print("[i] estimation result: Lat: ", pred_locs[0][0], " Long: ", pred_locs[0][1])
 
-    output_dir = "./infer"
+    output_dir = "./output"
     save_output(args, pred_meta_topk, pred_locs, output_dir)
 
     return
@@ -171,7 +171,7 @@ def inference():
 
 def parse_args():
     parser = argparse.ArgumentParser(description="CIPER inference")
-    parser.add_argument("config", help="config file path")
+    parser.add_argument("--config", help="config file path")
     parser.add_argument("--query", help="query file path", default="")
     args = parser.parse_args()
     return args
