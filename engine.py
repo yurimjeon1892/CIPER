@@ -382,11 +382,13 @@ def evaluate_one(
     eval_infos: dict,
 ):
 
-    os.makedirs("./eval", exist_ok=True)
-    fname = "./eval/{data_name}-{eval_name}-{date:%Y-%m-%d-%H:%M:%S}.txt".format(
-        data_name=eval_infos["data_name"],
-        eval_name=eval_infos["eval_name"] + "_" + eval_infos["valid"],
-        date=datetime.datetime.now(),
+    os.makedirs("./outputs/eval", exist_ok=True)
+    fname = (
+        "./outputs/eval/{data_name}-{eval_name}-{date:%Y-%m-%d-%H:%M:%S}.txt".format(
+            data_name=eval_infos["data_name"],
+            eval_name=eval_infos["eval_name"] + "_" + eval_infos["valid"],
+            date=datetime.datetime.now(),
+        )
     )
     # retrieval validation
     model_query = model.query_net

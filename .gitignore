@@ -175,3 +175,4 @@ infer/
 output/
 
 configs/test_local/
+configs/train2/

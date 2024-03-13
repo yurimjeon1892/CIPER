@@ -166,10 +166,10 @@ def inference():
     print("[i] query path: ", args["qry_path"])
     print("[i] estimation result: Lat: ", pred_locs[0][0], " Long: ", pred_locs[0][1])
 
-    output_dir = "./output"
+    output_dir = "./outputs"
     save_output(args, pred_meta_topk, pred_locs, output_dir)
 
-    return
+    return True
 
 
 def parse_args():
@@ -186,18 +186,19 @@ def main():
     global args
     with open(cmd_args.config, "r") as stream:
         args = yaml.safe_load(stream)
-    
+
     while True:
-        query_path = prompt("query file path(ex: demo/demo_sample_1.png): ", completer=PathCompleter())
+        query_path = prompt(
+            "query file path(ex: demo/demo_sample_1.png): ", completer=PathCompleter()
+        )
         if not os.path.exists(query_path):
             continue
-        if query_path.split('.')[-1] not in ["png", "jpg"]:
+        if query_path.split(".")[-1] not in ["png", "jpg"]:
             continue
         args["qry_path"] = query_path
-        inference()
-
-    if cmd_args.query != "":
-        args["qry_path"] = cmd_args.query
+        flag = inference()
+        if flag:
+            return
 
     return
 

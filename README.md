@@ -75,24 +75,26 @@ ford
         └── ..
 ```
 
-## Run
+## Train & Eval
 
 ### Train 
-Set configuration in `train.yaml` file and run:
+Set configuration in `configs/train/train_**.yaml` file and run:
 ```
 python main.py --config configs/train/train_**.yaml
 ```
 
 ### Evaluate
-Set configuration in `test_**.yaml` file and run:
+Set configuration in `configs/test/test_**.yaml` file and run:
 ```
 python main.py --config configs/test/test_**.yaml
 ```
 
+## Demo
+
 ### Inference
-Set configuration in `infer_**.yaml` file and run:
+Set configuration in `configs/inference/infer_**.yaml` file and run:
 ```
-python inference.py --config configs/infer/infer_**.yaml --query /path/to/query/image
+python inference.py --config configs/inference/infer_**.yaml --query /path/to/query/image
 ```
 
 ## Pretrained model
