@@ -185,16 +185,17 @@ def main():
 
     while True:
         query_path = prompt(
-            "query file path (ex: demo/demo_sample_1.png): ", completer=PathCompleter()
+            "query file path (Ender 'q' to exit) (ex: demo/demo_sample_1.png): ", completer=PathCompleter()
         )
+        if query_path == "q":
+            return
         if not os.path.exists(query_path):
             continue
         if query_path.split(".")[-1] not in ["png", "jpg"]:
             continue
-        args["qry_path"] = query_path
-        flag = inference()
-        if flag:
-            return
+        args["qry_path"] = query_path       
+        inference()
+        
 
     # import natsort
     # demo_files = natsort.natsorted(os.listdir("./demo"))
