@@ -12,6 +12,9 @@ import datetime
 from datasets import build_dataset
 from models import build
 
+from prompt_toolkit import prompt
+from prompt_toolkit.completion import PathCompleter
+
 sys.path.append("../")
 
 from common.utils import result2pose
@@ -171,8 +174,8 @@ def inference():
 
 def parse_args():
     parser = argparse.ArgumentParser(description="CIPER inference")
-    parser.add_argument("--config", help="config file path")
-    parser.add_argument("--query", help="query file path", default="")
+    parser.add_argument("--config", help="config file path", required=True)
+    # parser.add_argument("--query", help="query file path", default="", required=True)
     args = parser.parse_args()
     return args
 
@@ -183,11 +186,18 @@ def main():
     global args
     with open(cmd_args.config, "r") as stream:
         args = yaml.safe_load(stream)
+    
+    while True:
+        query_path = prompt("query file path(ex: demo/demo_sample_1.png): ", completer=PathCompleter())
+        if not os.path.exists(query_path):
+            continue
+        if query_path.split('.')[-1] not in ["png", "jpg"]:
+            continue
+        args["qry_path"] = query_path
+        inference()
 
     if cmd_args.query != "":
         args["qry_path"] = cmd_args.query
-
-    inference()
 
     return
 

@@ -3,7 +3,7 @@ import torch
 from torch import nn
 
 from common.utils_loader import input_transform
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 import matplotlib.pyplot as plt
 
 import numpy as np
@@ -80,7 +80,7 @@ def run_geo_localization(args, pred_meta_topk, pred_pose):
 
 def save_output(args, pred_metas, pred_locs, output_dir):
 
-    folder_name = "{date:%Y-%m-%d-%H:%M:%S}".format(date=datetime.datetime.now())
+    folder_name = "{date:%Y-%m-%d-%H-%M-%S}".format(date=datetime.datetime.now())
     os.makedirs(os.path.join(output_dir, folder_name), exist_ok=True)
 
     save_path_qry = os.path.join(output_dir, folder_name, "query.png")
@@ -95,6 +95,7 @@ def save_output(args, pred_metas, pred_locs, output_dir):
 
     axes[0].imshow(qry_img)
     axes[0].set_title(title, fontsize=10)
+    ref_imgs = []
 
     for i, pred_meta in enumerate(pred_metas):
         save_path_ref = os.path.join(
@@ -104,6 +105,7 @@ def save_output(args, pred_metas, pred_locs, output_dir):
             os.path.join(args["db_root"], pred_metas[i]["file_name"]), "r"
         )
         ref_img.save(save_path_ref)
+        ref_imgs.append(ref_img)
 
         title = "top_" + str(i + 1).zfill(2)
         axes[i + 1].imshow(ref_img)
@@ -112,7 +114,15 @@ def save_output(args, pred_metas, pred_locs, output_dir):
     fig.tight_layout()
     save_path_overview = os.path.join(output_dir, folder_name, "query_and_topk.png")
     plt.savefig(save_path_overview)
-
+    
+    factor = (ref_img.size[0] * len(pred_metas)) / float(qry_img.size[0])
+    qry_img = qry_img.resize((int(qry_img.size[0]*factor), int(qry_img.size[1]*factor)))
+    board = np.ones((ref_img.size[1] + qry_img.size[1], ref_img.size[0] * len(pred_metas) + ref_img.size[1] + qry_img.size[1], 3), dtype=np.uint8)
+    for i in range(len(ref_imgs)):
+        board[qry_img.size[1]:,ref_imgs[i].size[1] * i:ref_imgs[i].size[0] * (i + 1)] = np.array(ref_imgs[i].convert('RGB'))
+    
+    board[:qry_img.size[1], :qry_img.size[0]] = np.array(qry_img)
+    
     Lats, Longs, IDs = [], [], []
 
     for i, pred_loc in enumerate(pred_locs):
@@ -131,11 +141,11 @@ def save_output(args, pred_metas, pred_locs, output_dir):
         hover_data=["ID"],
         # color="Listed",
         # color_continuous_scale=color_scale,
-        # size="Size",
         zoom=16,
         height=800,
         width=800,
     )
+    fig.update_traces(marker=dict(size=15, color='red'))
 
     fig.update_layout(mapbox_style="open-street-map")
     fig.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0})
@@ -143,6 +153,20 @@ def save_output(args, pred_metas, pred_locs, output_dir):
 
     save_path_map = os.path.join(output_dir, folder_name, "open_street_map.png")
     fig.write_image(save_path_map)
+    osm_img = Image.open(save_path_map, 'r').resize((qry_img.size[1] + ref_img.size[0], qry_img.size[1] + ref_img.size[0])).convert('RGB')
+	
+    board[:osm_img.size[0], ref_img.size[0] * len(pred_metas):ref_img.size[0] * len(pred_metas)+osm_img.size[0]] = osm_img
+    board_img = Image.fromarray(board, 'RGB')
+    draw = ImageDraw.Draw(board_img)
+    font = ImageFont.truetype("DejaVuSansMono-Bold.ttf", 200)
+    draw.text((10, 10), f"Query Image", fill="white", font=font)
+    draw.text((qry_img.size[0] + 10, 10), f"Result", fill="black", font=font)
+    font = ImageFont.truetype("DejaVuSansMono-Bold.ttf", 100)
+    for i in range(len(ref_imgs)):
+        draw.text((ref_imgs[i].size[1] * i + 10, qry_img.size[1] + 10), f"Top {i+1}", fill="white", font=font)
+    
+    board_img.resize((board_img.size[0]//5, board_img.size[1]//5)).save(os.path.join(output_dir, folder_name, "results_summary.png"))
+    
 
     save_path_latlon = os.path.join(output_dir, folder_name, "pose.txt")
     f = open(save_path_latlon, "w")
@@ -158,6 +182,7 @@ def save_output(args, pred_metas, pred_locs, output_dir):
     f.close
 
     print("[i] check ", os.path.join(output_dir, folder_name))
+    print("[i] check ", os.path.join(output_dir, folder_name, "results_summary.png"))
     return
 
 
