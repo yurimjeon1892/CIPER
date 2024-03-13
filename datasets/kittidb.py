@@ -25,17 +25,37 @@ class KITTIDB(torch.utils.data.Dataset):
 
         self.sample_list = []
 
-        drive_dirs = natsort.natsorted(os.listdir(self.root))
-        for drive_dir in drive_dirs:
-            file_names = natsort.natsorted(
-                os.listdir(os.path.join(self.root, drive_dir))
+        date_dirs = natsort.natsorted(os.listdir(os.path.join(self.root, "satellite")))
+        for date_dir in date_dirs:
+            if not os.path.isdir(os.path.join(self.root, "satellite", date_dir)):
+                continue
+            drive_dirs = natsort.natsorted(
+                os.listdir(os.path.join(self.root, "satellite", date_dir))
             )
-            for file_name in file_names:
-                if file_name[-4:] != ".png":
+            for drive_dir in drive_dirs:
+                if not os.path.isdir(
+                    os.path.join(self.root, "satellite", date_dir, drive_dir)
+                ):
                     continue
-                self.sample_list.append(os.path.join(drive_dir, file_name))
+                if not os.path.isdir(
+                    os.path.join(self.root, "raw", date_dir, drive_dir)
+                ):
+                    continue
+                file_names = natsort.natsorted(
+                    os.listdir(
+                        os.path.join(self.root, "satellite", date_dir, drive_dir)
+                    )
+                )
+                for file_name in file_names:
+                    if file_name[-4:] != ".png":
+                        continue
+                    if int(file_name[:-4]) % 10 != 0:  # sampling!
+                        continue
+                    self.sample_list.append(
+                        os.path.join("satellite", date_dir, drive_dir, file_name)
+                    )
 
-        print("[i] data base loaded, size: {}".format(len(self.sample_list)))
+        print("[i] database loaded, size: {}".format(len(self.sample_list)))
 
     def __getitem__(self, index):
 
@@ -48,15 +68,16 @@ class KITTIDB(torch.utils.data.Dataset):
             FileNotFoundError(f"{arl_img_name} not exists")
         arl_img = self.transform_reference(arl_img)
 
-        date, roots = self.root.split("/")[-1], self.root.split("/")[:-2]
-
-        drive_dir, file_name_ = file_name.split("/")[0], file_name.split("/")[1]
+        date_dir, drive_dir, file_name_ = (
+            file_name.split("/")[1],
+            file_name.split("/")[2],
+            file_name.split("/")[3],
+        )
 
         oxts_file_name = os.path.join(
-            "/",
-            *roots,
+            self.root,
             "raw",
-            date,
+            date_dir,
             drive_dir,
             "oxts/data",
             file_name_.lower().replace(".png", ".txt"),

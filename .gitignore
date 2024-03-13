@@ -172,6 +172,7 @@ wandb/
 work_dir/
 eval/
 infer/
+outputs/
 output/
 
 configs/test_local/

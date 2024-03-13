@@ -10,14 +10,14 @@
 * Ubuntu 20.04
 
 ### Step 2: Create environment
-Anaconda
+Option 1: Anaconda
 ```
 conda create -n ciper python=3.8
 conda activate ciper
 pip install -r requirements.txt
 ```
 
-Docker
+Option 2: Docker
 ```
 docker image build -t ciper:1.0 .
 docker run -it --gpus all -e HOST_USER_ID=$(id -u) -e HOST_USER_GID=$(id -g) --shm-size 8G --name xiver -v /home/$(whoami):/home/$(whoami) -v /data:/data ciper:1.0 /bin/bash
@@ -91,10 +91,9 @@ python main.py --config configs/test/test_**.yaml
 
 ## Demo
 
-### Inference
-Set configuration in `configs/inference/infer_**.yaml` file and run:
+Set configuration in `configs/demo/demo_**.yaml` file and run:
 ```
-python inference.py --config configs/inference/infer_**.yaml --query /path/to/query/image
+python demo.py --config configs/demo/demo_**.yaml 
 ```
 
 ## Pretrained model

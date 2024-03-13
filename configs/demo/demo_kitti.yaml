@@ -3,7 +3,7 @@
 pretrained: ../ciper-ckpts/kitti_180.pth
 
 # ----- data config
-db_root: /storage2/public/kitti/satellite/2011_09_29
+db_root: /storage2/public/kitti
 
 top_k : 5
 

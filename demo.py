@@ -18,7 +18,7 @@ from prompt_toolkit.completion import PathCompleter
 sys.path.append("../")
 
 from common.utils import result2pose
-from common.utils_inference import *
+from common.utils_demo import *
 
 
 @torch.no_grad()
@@ -93,8 +93,7 @@ def stage_two(
 
     model.eval()
 
-    description = "[i] pose estimation"
-    print(description, len(arl_candidates))
+    print("[i] pose estimation, with top", len(arl_candidates), "candidates")
 
     pred_poses = []
 
@@ -141,9 +140,6 @@ def inference():
         num_workers=args["num_workers"],
         pin_memory=True,
     )
-
-    ## set infos for evaluation
-    print("[i] start inference ~")
 
     ## set query
     grd_qry = load_query(args)
