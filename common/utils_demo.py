@@ -90,7 +90,7 @@ def save_output(args, pred_metas, pred_locs, output_dir):
     ref_imgs = []
     for i, pred_meta in enumerate(pred_metas):
         save_path_ref = os.path.join(
-            output_dir, folder_name, "top_" + str(i).zfill(2) + ".png"
+            output_dir, folder_name, "top_" + str(i + 1) + ".png"
         )
         ref_img = Image.open(
             os.path.join(args["db_root"], pred_metas[i]["file_name"]), "r"
