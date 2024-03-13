@@ -183,25 +183,24 @@ def main():
     with open(cmd_args.config, "r") as stream:
         args = yaml.safe_load(stream)
 
-    # while True:
-    #     query_path = prompt(
-    #         "query file path (ex: demo/demo_sample_1.png): ", completer=PathCompleter()
-    #     )
-    #     if not os.path.exists(query_path):
-    #         continue
-    #     if query_path.split(".")[-1] not in ["png", "jpg"]:
-    #         continue
-    #     args["qry_path"] = query_path
-    #     flag = inference()
-    #     if flag:
-    #         return
+    while True:
+        query_path = prompt(
+            "query file path (ex: demo/demo_sample_1.png): ", completer=PathCompleter()
+        )
+        if not os.path.exists(query_path):
+            continue
+        if query_path.split(".")[-1] not in ["png", "jpg"]:
+            continue
+        args["qry_path"] = query_path
+        flag = inference()
+        if flag:
+            return
 
-    import natsort
-
-    demo_files = natsort.natsorted(os.listdir("./demo"))
-    for demo_file_ in demo_files:
-        args["qry_path"] = os.path.join("./demo", demo_file_)
-        inference()
+    # import natsort
+    # demo_files = natsort.natsorted(os.listdir("./demo"))
+    # for demo_file_ in demo_files:
+    #     args["qry_path"] = os.path.join("./demo", demo_file_)
+    #     inference()
 
     return
 
