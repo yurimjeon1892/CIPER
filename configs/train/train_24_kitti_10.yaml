@@ -6,11 +6,11 @@ resume: False
 seed: 42
 num_workers: 8
 
-batch_size: 2 # 12
+batch_size: 16 # 12
 
 device: cuda # device to use for training / testing 
 
-epochs: 5
+epochs: 50
 start_epoch: 1
 
 # ----- data config

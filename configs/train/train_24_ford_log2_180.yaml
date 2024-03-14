@@ -34,9 +34,6 @@ optimizer: adamw
 cos: True
 
 # ----- model config
-retr_only: False
-rng_mask: True
-
 num_queries: 100
 
 patch_size: 32
@@ -49,6 +46,10 @@ num_enc_layers: 12 # Number of encoding layers in the transformer
 dim_embed: 384 # Size of the embeddings (dimension of the transformer)
 dim_feature: 1000
 
+repeat_grd_factor: 3
+grd_to_arl_factor: 4 # 360 / cam_fov
+
+# ----- criterion config
 set_cost_class: 1 # Class coefficient in the matching cost
 set_cost_bbox: 5 # L1 box coefficient in the matching cost
 
@@ -59,5 +60,3 @@ mask_loss_coef: 1
 
 eos_coef: 0.01 # Relative classification weight of the no-object class
 
-repeat_grd_factor: 3
-grd_to_arl_factor: 4 # 360 / cam_fov

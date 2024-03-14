@@ -95,6 +95,8 @@ Set configuration in `configs/demo/demo_**.yaml` file and run:
 ```
 python demo.py --config configs/demo/demo_**.yaml 
 ```
+### Result
+![demo_sample_results](./demo/demo_sample_results.png "Title")
 
 ## Pretrained model
 

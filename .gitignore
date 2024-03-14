@@ -175,5 +175,4 @@ infer/
 outputs/
 output/
 
-configs/test_local/
-configs/train2/
+configs_bakup/
