@@ -10,14 +10,14 @@
 * Ubuntu 20.04
 
 ### Step 2: Create environment
-Anaconda
+Option 1: Anaconda
 ```
 conda create -n ciper python=3.8
 conda activate ciper
 pip install -r requirements.txt
 ```
 
-Docker
+Option 2: Docker
 ```
 docker image build -t ciper:1.0 .
 docker run -it --gpus all -e HOST_USER_ID=$(id -u) -e HOST_USER_GID=$(id -g) --shm-size 8G --name xiver -v /home/$(whoami):/home/$(whoami) -v /data:/data ciper:1.0 /bin/bash
@@ -75,19 +75,34 @@ ford
         └── ..
 ```
 
-## Run
+## Train & Eval
 
 ### Train 
-Set `data_root` in the `train.yaml` file and run:
+Set configuration in `configs/train/train_**.yaml` file and run:
 ```
-python main.py configs/train.yaml
+python main.py --config configs/train/train_**.yaml
 ```
 
-### Test
-Set `pretrained` in the `test.yaml` file and run:
+### Evaluate
+Set configuration in `configs/test/test_**.yaml` file and run:
 ```
-python main.py configs/test.yaml
+python main.py --config configs/test/test_**.yaml
 ```
+
+## Demo
+
+Set configuration in `configs/demo/demo_**.yaml` file and run:
+```
+python demo.py --config configs/demo/demo_**.yaml 
+```
+### Result
+![demo_sample_results](./demo/demo_sample_results.png "Title")
+
+## Pretrained model
+
+* [KITTI](https://drive.google.com/drive/folders/1ohE0jSxAgq6NxBu4F1dQZIP5sFE9y63q?usp=sharing)
+* [Ford](https://drive.google.com/drive/folders/10wb2SXch5IfXhtpMgCpQ8DRChRGlysJW?usp=drive_link)
+
 
 ## Acknowledgements
 This project is not possible without the following awesome open-source codebases:

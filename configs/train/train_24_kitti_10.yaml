@@ -1,14 +1,17 @@
-# configuration file for test
+# configuration file for training
 # ----- base config
-eval: True
-pretrained: ../ciper-ckpts/kitti_180.pth
+eval: False
+resume: False
 
 seed: 42
 num_workers: 8
 
-batch_size: 8 
+batch_size: 16 # 12
 
 device: cuda # device to use for training / testing 
+
+epochs: 50
+start_epoch: 1
 
 # ----- data config
 data_name: kitti
@@ -24,6 +27,13 @@ rotation_range: 10
 train_pt_list: ./datasets/splits/kitti/train_files.txt
 val_same_pt_list: ./datasets/splits/kitti/test1_files.txt
 val_cross_pt_list: ./datasets/splits/kitti/test2_files.txt
+
+# ----- optimizer config
+lr: 0.00001
+weight_decay: 0.001
+
+optimizer: adamw
+cos: True
 
 # ----- model config
 num_queries: 128
@@ -41,6 +51,13 @@ dim_feature: 1000
 repeat_grd_factor: 3
 grd_to_arl_factor: 4 # 360 / cam_fov
 
-# ----- misc
-eval_name: kitti_180
+# ----- criterion config
+set_cost_class: 1 # Class coefficient in the matching cost
+set_cost_bbox: 5 # L1 box coefficient in the matching cost
 
+retrieval_loss_coef: 1
+label_loss_coef: 1
+bbox_loss_coef: 5
+mask_loss_coef: 1
+
+eos_coef: 0.01 # Relative classification weight of the no-object class

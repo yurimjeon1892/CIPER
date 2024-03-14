@@ -171,7 +171,8 @@ pretrained/
 wandb/
 work_dir/
 eval/
-eval-txt/
 infer/
+outputs/
+output/
 
-configs/test_local/
+configs_bakup/

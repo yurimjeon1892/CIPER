@@ -382,11 +382,13 @@ def evaluate_one(
     eval_infos: dict,
 ):
 
-    os.makedirs("./eval", exist_ok=True)
-    fname = "./eval/{data_name}-{eval_name}-{date:%Y-%m-%d-%H:%M:%S}.txt".format(
-        data_name=eval_infos["data_name"],
-        eval_name=eval_infos["eval_name"] + "_" + eval_infos["valid"],
-        date=datetime.datetime.now(),
+    os.makedirs("./outputs/eval", exist_ok=True)
+    fname = (
+        "./outputs/eval/{data_name}-{eval_name}-{date:%Y-%m-%d-%H:%M:%S}.txt".format(
+            data_name=eval_infos["data_name"],
+            eval_name=eval_infos["eval_name"] + "_" + eval_infos["valid"],
+            date=datetime.datetime.now(),
+        )
     )
     # retrieval validation
     model_query = model.query_net
@@ -399,7 +401,7 @@ def evaluate_one(
     qry_feat = np.zeros([len(loader_dict["qry"].dataset), eval_infos["dim_feature"]])
     ref_feat = np.zeros([len(loader_dict["ref"].dataset), eval_infos["dim_feature"]])
 
-    if eval_infos["data_name"] == "vigor" or eval_infos["data_name"] == "kitti":
+    if eval_infos["data_name"] == "kitti":
         description = "[i] eval qry"
         for i, (img_grd, idx_grd, labels) in enumerate(
             tqdm(loader_dict["qry"], desc=description, unit="batches")

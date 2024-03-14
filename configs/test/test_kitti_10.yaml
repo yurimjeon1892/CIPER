@@ -6,7 +6,7 @@ pretrained: ../ciper-ckpts/kitti_10.pth
 seed: 42
 num_workers: 8
 
-batch_size: 1 
+batch_size: 8 
 
 device: cuda # device to use for training / testing 
 

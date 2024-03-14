@@ -322,7 +322,7 @@ class Ford(torch.utils.data.Dataset):
                 "meter_per_pixel": torch.as_tensor(np.array([self.meters_per_pixel])),
                 "R_FL": torch.as_tensor(np.array([self.R_FL])),
                 "T_FL": torch.as_tensor(np.array([self.T_FL])),
-                # "grd_name": torch.tensor([grd_name])
+                "fname": grd_name,
             }
 
             return grd_img, sat_img, target

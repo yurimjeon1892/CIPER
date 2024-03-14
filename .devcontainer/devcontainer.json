@@ -1,0 +1,22 @@
+{
+    "name": "ciper",
+    "dockerComposeFile": "docker-compose.yml",
+    "service": "ciper",
+    "workspaceFolder": "/workspace",
+    "shutdownAction": "stopCompose",
+    "remoteUser": "${localEnv:USER}",
+    "mounts": [
+        "source=/tmp/.X11-unix,target=/tmp/.X11-unix,type=bind,consistency=cached",
+        "source=/data2/public,target=/workspace/data,type=bind", // for local data mount
+    ],
+    "settings": {
+        "editor.detectIndentation": false,
+        "editor.insertSpaces": false,
+    },
+    "extensions": [
+        "mutantdino.resourcemonitor",
+        "ms-azuretools.vscode-docker",
+        "nvidia.nsight-vscode-edition",
+        "ms-python.python",
+    ]
+}
