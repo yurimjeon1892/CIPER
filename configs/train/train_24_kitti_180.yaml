@@ -6,7 +6,7 @@ resume: False
 seed: 42
 num_workers: 8
 
-batch_size: 16 # 12
+batch_size: 64 # 12
 
 device: cuda # device to use for training / testing 
 
@@ -15,7 +15,7 @@ start_epoch: 1
 
 # ----- data config
 data_name: kitti
-data_root: /data/public/kitti    
+data_root: /data/experiment2/tmp/kitti 
 
 grd_img_size: [256, 1024]
 arl_img_size: [512, 512]

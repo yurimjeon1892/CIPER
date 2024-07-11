@@ -33,7 +33,7 @@ def iterate(debug):
             # set the wandb project where this run will be logged
             project="CIPER",
             config=args,
-            name=sys.argv[1].split("/")[-1].split(".")[0],
+            name=sys.argv[2].split("/")[-1].split(".")[0],
             # resume=(args["resume"] != False),
             settings=wandb.Settings(start_method="fork"),
         )
