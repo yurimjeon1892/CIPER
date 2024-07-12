@@ -1,16 +1,16 @@
 # configuration file for training
-# ----- base config
-infer: False
+#----- base config
+eval: False
 resume: False
 
 seed: 42
 num_workers: 8
 
-batch_size: 64 #12
+batch_size: 96 #12
 
 device: cuda # device to use for training / testing 
 
-epochs: 50
+epochs: 25
 start_epoch: 1
 
 # ----- data config
@@ -18,7 +18,7 @@ data_name: vigor
 data_root: /data/experiment2/tmp/vigor/    
 
 grd_img_size: [320, 640] 
-arl_img_size: [320, 320]
+arl_img_size: [512, 512]
 
 shift_range_lat: 0 
 shift_range_lon: 0 

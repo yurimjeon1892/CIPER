@@ -38,9 +38,9 @@ class CIPER(nn.Module):
 			"grd": x1_grd,
 			"arl": x1_arl,
 		}
-		# masks = self.rot_net(x3_grd, x3_arl)
-		# x3_arl = torch.mul(masks["bev_mask"].to(x3_arl.device), x3_arl)
-		# outputs.update(masks)
+		masks = self.rot_net(x3_grd, x3_arl)
+		x3_arl = torch.mul(masks["bev_mask"].to(x3_arl.device), x3_arl)
+		outputs.update(masks)
 
 		out_pos = self.pose_net(x2_grd, x3_arl)
 		outputs.update(out_pos)
@@ -273,8 +273,8 @@ def build(args):
 			"mask": args["mask_loss_coef"],
 		}
 		eos_coef = args["eos_coef"]
-		# losses = ["retrieval", "labels", "boxes", "mask"]
-		losses = ["retrieval", "labels", "boxes"]
+		losses = ["retrieval", "labels", "boxes", "mask"]
+		# losses = ["retrieval", "labels", "boxes"]
 		criterion = SetCriterion(
 			matcher=matcher, weight_dict=weight_dict, eos_coef=eos_coef, losses=losses
 		)
