@@ -119,5 +119,4 @@ class Encoder(VisionTransformer):
         x1, x2, x3 = self.forward_features(x)
         x1_1 = self.head(x1[0])
         x1_2 = self.head_dist(x1[1])
-        # head_qry..?
         return (x1_1 + x1_2) / 2, x2, x3
