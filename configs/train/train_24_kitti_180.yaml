@@ -18,7 +18,7 @@ data_name: kitti
 data_root: /data/experiment2/tmp/kitti 
 
 grd_img_size: [256, 1024]
-arl_img_size: [512, 512]
+arl_img_size: [320, 320]
 
 shift_range_lat: 20 
 shift_range_lon: 20 
