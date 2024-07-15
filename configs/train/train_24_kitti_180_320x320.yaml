@@ -56,8 +56,8 @@ set_cost_class: 1 # Class coefficient in the matching cost
 set_cost_bbox: 5 # L1 box coefficient in the matching cost
 
 retrieval_loss_coef: 1
-label_loss_coef: 1
-bbox_loss_coef: 5
-mask_loss_coef: 1
+label_loss_coef: 0.1
+bbox_loss_coef: 0.1
+mask_loss_coef: 0.1
 
 eos_coef: 0.01 # Relative classification weight of the no-object class
