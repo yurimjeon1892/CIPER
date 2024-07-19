@@ -15,7 +15,7 @@ start_epoch: 1
 
 # ----- data config
 data_name: kitti
-data_root: /data/experiment2/tmp/kitti    
+data_root: /data/experiment2/tmp/kitti 
 
 grd_img_size: [256, 1024]
 arl_img_size: [512, 512]
@@ -36,7 +36,8 @@ optimizer: adamw
 cos: True
 
 # ----- model config
-num_queries: 128
+mask: True
+num_multimask_outputs: 64
 
 patch_size: 32
 mlp_ratio: 4

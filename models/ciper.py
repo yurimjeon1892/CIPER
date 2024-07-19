@@ -28,8 +28,9 @@ class CIPER(nn.Module):
 
 		self.query_net = Encoder(args, args["grd_img_size"])
 		self.reference_net = Encoder(args, args["arl_img_size"])
-		self.rot_net = AeroConfidenceEstimator(args)
-		self.pose_net = TwoWayDecoder(args)
+		self.two_way_decoder = TwoWayDecoder(args)
+		self.mask = args["mask"]
+		if self.mask: self.ace_mask_net = AeroConfidenceEstimator(args)
 
 	def forward(self, im_grd, im_arl):
 		x1_grd, x2_grd, x3_grd = self.query_net(im_grd)
@@ -38,11 +39,12 @@ class CIPER(nn.Module):
 			"grd": x1_grd,
 			"arl": x1_arl,
 		}
-		masks = self.rot_net(x3_grd, x3_arl)
-		x3_arl = torch.mul(masks["bev_mask"].to(x3_arl.device), x3_arl)
-		outputs.update(masks)
+		if self.mask:
+			masks = self.ace_mask_net(x3_grd, x3_arl)			
+			x3_arl = torch.mul(masks["bev_mask"], x3_arl)
+			outputs.update(masks)
 
-		pred_logits, pred_boxes = self.pose_net(sparse_prompt_embeddings=x2_grd, image_embeddings=x3_arl)		
+		pred_logits, pred_boxes = self.two_way_decoder(sparse_prompt_embeddings=x2_grd, image_embeddings=x3_arl)		
 		outputs["pred_logits"] = pred_logits
 		outputs["pred_boxes"] = pred_boxes
 		return outputs
@@ -61,9 +63,9 @@ class SetCriterion(nn.Module):
 		self.weight_dict = weight_dict
 		self.eos_coef = eos_coef
 		self.losses = losses
-		empty_weight = torch.ones(self.num_classes + 1)
-		empty_weight[-1] = self.eos_coef
-		self.register_buffer("empty_weight", empty_weight)
+		# empty_weight = torch.ones(self.num_classes + 1)
+		# empty_weight[-1] = self.eos_coef
+		# self.register_buffer("empty_weight", empty_weight)
 
 		if "retrieval" in losses:
 			self.soft_triplet_loss = SoftTripletBiLoss().cuda()
@@ -78,15 +80,14 @@ class SetCriterion(nn.Module):
 		targets dicts must contain the key "labels" containing a tensor of dim [nb_target_boxes]
 		"""
 		assert "pred_logits" in outputs
-		src_logits = outputs["pred_logits"]  # bs x num_queries
+		src_logits = outputs["pred_logits"].sigmoid()  # bs x num_queries
 
 		idx = self._get_src_permutation_idx(indices)
-		target_classes_o = torch.cat([t["labels"][J] for t, (_, J) in zip(targets, indices)])
-		target_classes = torch.full(src_logits.shape[:2], self.num_classes,
-									dtype=torch.int64, device=src_logits.device)
-		target_classes[idx] = target_classes_o
+		# target_classes_o = torch.cat([t["labels"][J] for t, (_, J) in zip(targets, indices)])
+		target_classes = torch.full(src_logits.shape[:2], 0, dtype=torch.int64, device=src_logits.device)
+		target_classes[idx] = 1
 
-		loss_ce = F.binary_cross_entropy(src_logits.transpose(1, 2), target_classes, self.empty_weight)
+		loss_ce = F.binary_cross_entropy(src_logits, target_classes.float())
 		losses = {"labels": loss_ce}
 
 		return losses
@@ -246,13 +247,15 @@ def build(args):
 		matcher = build_matcher(args)
 		weight_dict = {
 			"retrieval": args["retrieval_loss_coef"],
-			# "labels": args["label_loss_coef"],
+			"labels": args["label_loss_coef"],
 			"boxes": args["bbox_loss_coef"],
 			"mask": args["mask_loss_coef"],
 		}
 		eos_coef = args["eos_coef"]
-		losses = ["retrieval", "boxes", "mask"]
-		# losses = ["retrieval", "labels", "boxes"]
+		if args["mask"]:
+			losses = ["retrieval", "labels", "boxes", "mask"]
+		else:
+			losses = ["retrieval", "labels", "boxes"]
 		criterion = SetCriterion(
 			matcher=matcher, weight_dict=weight_dict, eos_coef=eos_coef, losses=losses
 		)
