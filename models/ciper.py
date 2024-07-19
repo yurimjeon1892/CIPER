@@ -30,6 +30,7 @@ class CIPER(nn.Module):
 		self.reference_net = Encoder(args, args["arl_img_size"])
 		self.rot_net = AeroConfidenceEstimator(args)
 		self.pose_net = TwoWayDecoder(args)
+		self.batch_size = args["batch_size"]
 
 	def forward(self, im_grd, im_arl):
 		x1_grd, x2_grd, x3_grd = self.query_net(im_grd)
@@ -42,9 +43,14 @@ class CIPER(nn.Module):
 		x3_arl = torch.mul(masks["bev_mask"].to(x3_arl.device), x3_arl)
 		outputs.update(masks)
 
-		out_pos = self.pose_net(x2_grd, x3_arl)
-		outputs.update(out_pos)
+		output_b = []
+		for b in range(self.batch_size):
+			out_pos = self.pose_net(sparse_prompt_embeddings=x2_grd[b].unsqueeze(0), image_embeddings=x3_arl[b].unsqueeze(0))
+			output_b.append(out_pos)
+		output_b = torch.cat(output_b, 0)
 
+		outputs["pred_logits"] = output_b[:, :2]
+		outputs["pred_boxes"] = output_b[:, 2:]
 		return outputs
 
 
