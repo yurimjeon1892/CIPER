@@ -30,7 +30,6 @@ class CIPER(nn.Module):
 		self.reference_net = Encoder(args, args["arl_img_size"])
 		self.rot_net = AeroConfidenceEstimator(args)
 		self.pose_net = TwoWayDecoder(args)
-		self.batch_size = args["batch_size"]
 
 	def forward(self, im_grd, im_arl):
 		x1_grd, x2_grd, x3_grd = self.query_net(im_grd)
@@ -43,14 +42,9 @@ class CIPER(nn.Module):
 		x3_arl = torch.mul(masks["bev_mask"].to(x3_arl.device), x3_arl)
 		outputs.update(masks)
 
-		output_b = []
-		for b in range(self.batch_size):
-			out_pos = self.pose_net(sparse_prompt_embeddings=x2_grd[b].unsqueeze(0), image_embeddings=x3_arl[b].unsqueeze(0))
-			output_b.append(out_pos)
-		output_b = torch.cat(output_b, 0)
-
-		outputs["pred_logits"] = output_b[:, :2]
-		outputs["pred_boxes"] = output_b[:, 2:]
+		pred_logits, pred_boxes = self.pose_net(sparse_prompt_embeddings=x2_grd, image_embeddings=x3_arl)		
+		outputs["pred_logits"] = pred_logits
+		outputs["pred_boxes"] = pred_boxes
 		return outputs
 
 
@@ -84,29 +78,16 @@ class SetCriterion(nn.Module):
 		targets dicts must contain the key "labels" containing a tensor of dim [nb_target_boxes]
 		"""
 		assert "pred_logits" in outputs
-		src_logits = outputs["pred_logits"]  # bs x num_queries x 2
-
-		# idx = self._get_src_permutation_idx(indices)
-		# target_classes_o = torch.cat([t["labels"][J] for t, (_, J) in zip(targets, indices)])
-		# target_classes = torch.full(src_logits.shape[:2], self.num_classes,
-		#                             dtype=torch.int64, device=src_logits.device)
-		# target_classes[idx] = target_classes_o
-
-		# loss_ce = F.cross_entropy(src_logits.transpose(1, 2), target_classes, self.empty_weight)
-		# losses = {"labels": loss_ce}
+		src_logits = outputs["pred_logits"]  # bs x num_queries
 
 		idx = self._get_src_permutation_idx(indices)
-		target_classes = torch.zeros_like(src_logits)
-		target_classes[:, :, -1] = 1.0
-		target_classes[idx] = torch.tensor([1.0, 0.0]).to(src_logits.device)
+		target_classes_o = torch.cat([t["labels"][J] for t, (_, J) in zip(targets, indices)])
+		target_classes = torch.full(src_logits.shape[:2], self.num_classes,
+									dtype=torch.int64, device=src_logits.device)
+		target_classes[idx] = target_classes_o
 
-		# print("aa", torch.sum(target_classes[:, :, 0]), torch.sum(target_classes[:, :, 1]), torch.sum(target_classes, dim=2))
-
-		# o = torch.flatten(src_logits, 0, 1)
-		# t = torch.flatten(target_classes, 0, 1)
-		o, t = src_logits, target_classes
-		loss_bce = F.binary_cross_entropy_with_logits(o, t.float(), self.empty_weight)
-		losses = {"labels": loss_bce}
+		loss_ce = F.binary_cross_entropy(src_logits.transpose(1, 2), target_classes, self.empty_weight)
+		losses = {"labels": loss_ce}
 
 		return losses
 
@@ -122,8 +103,7 @@ class SetCriterion(nn.Module):
 			[t["boxes"][i] for t, (_, i) in zip(targets, indices)], dim=0
 		)
 
-		# loss_bbox = F.l1_loss(src_boxes, target_boxes, reduction="none")
-		loss_bbox = F.mse_loss(src_boxes, target_boxes.float(), reduction="none")
+		loss_bbox = F.l1_loss(src_boxes, target_boxes, reduction='none')
 
 		losses = {}
 		losses["boxes"] = loss_bbox.sum()
@@ -134,7 +114,7 @@ class SetCriterion(nn.Module):
 		# this is just for debug
 		src_mask = outputs["rng_mask"]
 		bs, w = src_mask.size(0), src_mask.size(-1)
-		marg_w = int(w / 8)
+		marg_w = int(w / 5)
 
 		target_boxes = torch.cat(
 			[t["boxes"][i] for t, (_, i) in zip(targets, indices)], dim=0
@@ -158,9 +138,7 @@ class SetCriterion(nn.Module):
 			else:
 				target_mask[i, :, y_id - marg_w : y_id + marg_w] = 1.0
 
-		# self.intermediate["target_mask"] = target_mask
-
-		## real loss calc
+		# real loss calc
 		src_cos_sin = outputs["pred_cos_sin"]
 		target_boxes = torch.cat(
 			[t["boxes"][i] for t, (_, i) in zip(targets, indices)], dim=0
@@ -197,10 +175,7 @@ class SetCriterion(nn.Module):
 			 targets: list of dicts, such that len(targets) == batch_size.
 					  The expected keys in each dict depends on the losses applied, see each loss" doc
 		"""
-		if "labels" in self.losses:
-			indices = self.matcher(outputs, targets)
-		else:
-			indices = None
+		indices = self.matcher(outputs, targets)
 
 		# Compute all the requested losses
 		losses = {}
@@ -231,9 +206,6 @@ class PostProcess(nn.Module):
 		)  # bs x num_quries x 4
 
 		assert len(out_logits) == len(targets)
-
-		# prob = F.softmax(out_logits, -1)
-		# scores, labels = prob[..., :-1].max(-1)
 
 		prob = torch.sigmoid(out_logits)
 		scores = prob[..., :-1]
@@ -274,12 +246,12 @@ def build(args):
 		matcher = build_matcher(args)
 		weight_dict = {
 			"retrieval": args["retrieval_loss_coef"],
-			"labels": args["label_loss_coef"],
+			# "labels": args["label_loss_coef"],
 			"boxes": args["bbox_loss_coef"],
 			"mask": args["mask_loss_coef"],
 		}
 		eos_coef = args["eos_coef"]
-		losses = ["retrieval", "labels", "boxes", "mask"]
+		losses = ["retrieval", "boxes", "mask"]
 		# losses = ["retrieval", "labels", "boxes"]
 		criterion = SetCriterion(
 			matcher=matcher, weight_dict=weight_dict, eos_coef=eos_coef, losses=losses

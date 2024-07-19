@@ -6,7 +6,7 @@ resume: False
 seed: 42
 num_workers: 8
 
-batch_size: 16 # 12
+batch_size: 64 # 12
 
 device: cuda # device to use for training / testing 
 
@@ -36,8 +36,7 @@ optimizer: adamw
 cos: True
 
 # ----- model config
-num_multimask_outputs: 1
-num_queries: 64
+num_multimask_outputs: 64
 
 patch_size: 32
 mlp_ratio: 4
@@ -57,7 +56,6 @@ set_cost_class: 1 # Class coefficient in the matching cost
 set_cost_bbox: 5 # L1 box coefficient in the matching cost
 
 retrieval_loss_coef: 1
-label_loss_coef: 0.1
 bbox_loss_coef: 0.1
 mask_loss_coef: 0.1
 
