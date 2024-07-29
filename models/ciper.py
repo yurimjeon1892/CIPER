@@ -31,6 +31,7 @@ class CIPER(nn.Module):
 		self.two_way_decoder = TwoWayDecoder(args)
 		self.mask = args["mask"]
 		if self.mask: self.ace_mask_net = AeroConfidenceEstimator(args)
+		self.batch_size = args["batch_size"]
 
 	def forward(self, im_grd, im_arl):
 		x1_grd, x2_grd, x3_grd = self.query_net(im_grd)
@@ -44,9 +45,18 @@ class CIPER(nn.Module):
 			x3_arl = torch.mul(masks["bev_mask"], x3_arl)
 			outputs.update(masks)
 
-		pred_logits, pred_boxes = self.two_way_decoder(sparse_prompt_embeddings=x2_grd, image_embeddings=x3_arl)		
-		outputs["pred_logits"] = pred_logits
-		outputs["pred_boxes"] = pred_boxes
+		out_pred_logits, out_pred_boxes = [], []
+		for b in range(x2_grd.size(0)):
+			pred_logits, pred_boxes = self.two_way_decoder(
+				sparse_prompt_embeddings=x2_grd[b].unsqueeze(0),
+				image_embeddings=x3_arl[b].unsqueeze(0))		
+			# print(pred_logits.size(), pred_boxes.size())
+			out_pred_logits.append(pred_logits)
+			out_pred_boxes.append(pred_boxes)
+		
+		# exit()
+		outputs["pred_logits"] = torch.cat(out_pred_logits, 0)
+		outputs["pred_boxes"] = torch.cat(out_pred_boxes, 0)
 		return outputs
 
 

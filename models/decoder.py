@@ -19,22 +19,27 @@ class TwoWayDecoder(nn.Module):
 		)
 
 		self.iou_token = nn.Embedding(1, args["dim_embed"])
-		self.num_mask_tokens = args["num_multimask_outputs"] + 1
+		self.num_mask_tokens = args["num_multimask_outputs"] 
 		self.mask_tokens = nn.Embedding(self.num_mask_tokens, args["dim_embed"])
 
 		self.pe_layer = PositionEmbeddingRandom(args["dim_embed"] // 2)		
 		
-		self.iou_prediction_head = MLP(
-            args["dim_embed"], 256, output_dim=self.num_mask_tokens, num_layers=3
-        )
-		self.bbox_prediction_head = MLP(
-			args["dim_embed"], args["dim_embed"], output_dim=4, num_layers=3
-		)
+		# self.iou_prediction_head = MLP(
+		# 	args["dim_embed"], args["dim_embed"], output_dim=1, num_layers=1
+		# )
+		# self.bbox_prediction_head = MLP(
+		# 	args["dim_embed"], args["dim_embed"], output_dim=4, num_layers=1
+		# )
+
+		self.iou_prediction_head = nn.Linear(args["dim_embed"], 1)
+		self.bbox_prediction_head = nn.Linear(args["dim_embed"], 4)
 
 		self.image_embedding_size = (
 			int(args["arl_img_size"][0] / args["patch_size"]),
 			int(args["arl_img_size"][1] / args["patch_size"]),
 		)
+
+		
 
 	def forward(
 		self,
@@ -58,26 +63,33 @@ class TwoWayDecoder(nn.Module):
 		# print("image_pe", image_pe.size())
 
 		# Concatenate output tokens
-		output_tokens = torch.cat([self.iou_token.weight, self.mask_tokens.weight], dim=0) # (1 + num_queries) x dim_embed
-		output_tokens = output_tokens.unsqueeze(0).expand(sparse_prompt_embeddings.size(0), -1, -1) # 1 x (1 + num_queries) x dim_embed
-		tokens = torch.cat((output_tokens, sparse_prompt_embeddings.unsqueeze(1)), dim=1) # 1 x (1 + num_queries + 1) x dim_embed
-		# print("tokens", tokens.size())
+		# output_tokens = torch.cat([self.iou_token.weight, self.mask_tokens.weight], dim=0) # (1 + num_queries) x dim_embed
+		# output_tokens = output_tokens.unsqueeze(0).expand(sparse_prompt_embeddings.size(0), -1, -1) # 1 x (1 + num_queries) x dim_embed
+		# tokens = torch.cat((output_tokens, sparse_prompt_embeddings.unsqueeze(1)), dim=1) # 1 x (1 + num_queries + 1) x dim_embed
+		###
+		sparse_prompt_embeddings = sparse_prompt_embeddings.unsqueeze(1)
+		sparse_prompt_embeddings = torch.repeat_interleave(sparse_prompt_embeddings, self.num_mask_tokens, dim=1)
+		tokens = sparse_prompt_embeddings # 1 x (1 + num_queries + 1) x dim_embed
+		# output_tokens = self.iou_token.weight # (1 + num_queries) x dim_embed
+		# output_tokens = output_tokens.unsqueeze(0).expand(sparse_prompt_embeddings.size(0), -1, -1) # 1 x (1 + num_queries) x dim_embed
+		# print(output_tokens.size(), sparse_prompt_embeddings.size())
+		# tokens = torch.cat((output_tokens, sparse_prompt_embeddings), dim=1) # 1 x (1 + num_queries + 1) x dim_embed
+		# print("image_embeddings", image_embeddings.size())
 
 		# Expand per-image data in batch direction to be per-mask
-		# src = torch.repeat_interleave(image_embeddings, tokens.shape[0], dim=0) # 1 x num_patches x dim_embed
-		src = image_embeddings
+		src = torch.repeat_interleave(image_embeddings, tokens.shape[0], dim=0) # 1 x num_patches x dim_embed
+		# src = image_embeddings
 		# src = src + dense_prompt_embeddings
 		pos_src = torch.repeat_interleave(image_pe, tokens.shape[0], dim=0)
-		# print("pos_src", pos_src.size(), src.size())
-		# b, c, hw = src.shape
 
 		# Run the transformer
 		hs, src = self.transformer(src, pos_src, tokens)
-		iou_token_out = hs[:, 0, :]
-		mask_tokens_out = hs[:, 1 : (1 + self.num_mask_tokens), :]
+		# iou_token_out = hs[:, 0, :]
+		# mask_tokens_out = hs[:, 1 : (1 + self.num_mask_tokens), :]
+		mask_tokens_out = hs
 
-		class_pred = self.iou_prediction_head(iou_token_out)  # 1 x (num_queries + 1)
+		class_pred = self.iou_prediction_head(mask_tokens_out)  # 1 x (num_queries + 1) x 1
 		bbox_pred = self.bbox_prediction_head(mask_tokens_out)  # 1 x (num_queries + 1) x 4
 		# print(class_pred.size(), bbox_pred.size());exit()
 
-		return class_pred, bbox_pred
+		return class_pred.squeeze(-1), bbox_pred
