@@ -12,6 +12,7 @@ from .soft_triplet import SoftTripletBiLoss
 from .encoder import Encoder
 from .ace import AeroConfidenceEstimator
 from .decoder import TwoWayDecoder
+from .prompt_encoder import PositionEmbeddingRandom
 
 
 class CIPER(nn.Module):
@@ -33,13 +34,22 @@ class CIPER(nn.Module):
 		if self.mask: self.ace_mask_net = AeroConfidenceEstimator(args)
 		self.batch_size = args["batch_size"]
 
+		self.pe_layer = PositionEmbeddingRandom(args["dim_embed"] // 2)	
+		self.image_embedding_size = (
+			int(args["arl_img_size"][0] / args["patch_size"]),
+			int(args["arl_img_size"][1] / args["patch_size"]),
+		)
+
+
 	def forward(self, im_grd, im_arl):
+
 		x1_grd, x2_grd, x3_grd = self.query_net(im_grd)
 		x1_arl, _, x3_arl = self.reference_net(im_arl)
 		outputs = {
 			"grd": x1_grd,
 			"arl": x1_arl,
 		}
+
 		if self.mask:
 			masks = self.ace_mask_net(x3_grd, x3_arl)			
 			x3_arl = torch.mul(masks["bev_mask"], x3_arl)
@@ -48,13 +58,13 @@ class CIPER(nn.Module):
 		out_pred_logits, out_pred_boxes = [], []
 		for b in range(x2_grd.size(0)):
 			pred_logits, pred_boxes = self.two_way_decoder(
+				image_pe=self.query_net.get_dense_pe(),
 				sparse_prompt_embeddings=x2_grd[b].unsqueeze(0),
 				image_embeddings=x3_arl[b].unsqueeze(0))		
 			# print(pred_logits.size(), pred_boxes.size())
 			out_pred_logits.append(pred_logits)
 			out_pred_boxes.append(pred_boxes)
 		
-		# exit()
 		outputs["pred_logits"] = torch.cat(out_pred_logits, 0)
 		outputs["pred_boxes"] = torch.cat(out_pred_boxes, 0)
 		return outputs
