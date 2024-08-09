@@ -34,7 +34,6 @@ class CIPER(nn.Module):
 		if self.mask: self.ace_mask_net = AeroConfidenceEstimator(args)
 		self.batch_size = args["batch_size"]
 
-		self.pe_layer = PositionEmbeddingRandom(args["dim_embed"] // 2)	
 		self.image_embedding_size = (
 			int(args["arl_img_size"][0] / args["patch_size"]),
 			int(args["arl_img_size"][1] / args["patch_size"]),

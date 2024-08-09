@@ -6,7 +6,7 @@ resume: False
 seed: 42
 num_workers: 8
 
-batch_size: 4 # 12
+batch_size: 12 # 12
 
 device: cuda # device to use for training / testing 
 
@@ -29,7 +29,7 @@ val_same_pt_list: ./datasets/splits/kitti/test1_files.txt
 val_cross_pt_list: ./datasets/splits/kitti/test2_files.txt
 
 # ----- optimizer config
-lr: 0.00001
+lr: 0.0001
 weight_decay: 0.001
 
 optimizer: adamw
