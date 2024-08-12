@@ -24,9 +24,6 @@ def iterate(debug):
 	## init model
 	model, criterion, postprocessors = build(args)
 
-	n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
-	print("[i] number of params:", n_parameters // 10**6, "M")
-
 	## init wandb
 	if not debug:
 		wandb.init(
@@ -41,7 +38,9 @@ def iterate(debug):
 	## pretrained model
 	if args["resume"] != False:
 		checkpoint = torch.load(args["resume"], map_location="cpu")
-		state_dict = checkpoint["state_dict"]
+		model.load_state_dict(checkpoint["model"], strict=True)
+		
+		# state_dict = checkpoint["state_dict"]
 		# new_state_dict = {}
 		
 		# for k in state_dict.keys():
@@ -50,7 +49,7 @@ def iterate(debug):
 		# 	if "module." in k:
 		# 		new_state_dict[k[7:]] = state_dict[k]
 					
-		model.load_state_dict(state_dict, strict=False)
+		# model.load_state_dict(state_dict, strict=False)
 		
 		# if "optimizer" in checkpoint and "epoch" in checkpoint:
 		#     args["start_epoch"] = checkpoint["epoch"] + 1
@@ -58,6 +57,10 @@ def iterate(debug):
 		# else:
 		#     print("[i] failed to load checkpoint from:", args["resume"])
 		# 	return
+
+		for name, param in model.named_parameters():
+			if "query_net" in name: param.requires_grad = False
+			if "reference_net" in name : param.requires_grad = False
 
 	## set optimizer and ir_scheduler
 	param_dicts = list(filter(lambda p: p.requires_grad, model.parameters()))
@@ -91,6 +94,9 @@ def iterate(debug):
 			rho=2.5,
 			adaptive=True,
 		)
+
+	n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
+	print("[i] number of params:", n_parameters // 10**6, "M")
 
 	## set data_loader for train
 	dataset_train = build_dataset(mode="train", args=args)
@@ -190,8 +196,6 @@ def iterate(debug):
 		"best_metric": -1,
 		"dim_feature": args["dim_feature"],
 	}
-
-	# print(len(data_loader_valid["qry"].dataset), len(data_loader_valid["ref"].dataset)); exit()
 
 	for epoch in range(args["start_epoch"], args["epochs"] + 1):
 		adjust_learning_rate(optimizer, epoch, args)
