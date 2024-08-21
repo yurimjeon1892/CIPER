@@ -28,7 +28,7 @@ def iterate(debug):
 	if not debug:
 		wandb.init(
 			# set the wandb project where this run will be logged
-			project="CIPER",
+			project="ciper-v2",
 			config=args,
 			name=sys.argv[2].split("/")[-1].split(".")[0],
 			# resume=(args["resume"] != False),
