@@ -48,6 +48,7 @@ def retr_accuracy(qry_feat, ref_feat, qry_label):
 	else:
 		# split the queries if the matrix is too large, e.g. VIGOR
 		# assert N % 4 == 0
+		print("divided..")
 		print("[!] Is N % 4 == 0 ?: ", (N % 4 == 0))
 		N_D = N // 4
 		for split in range(4):

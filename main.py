@@ -36,31 +36,36 @@ def iterate(debug):
 		)
 
 	## pretrained model
-	if args["resume"] != False:
-		checkpoint = torch.load(args["resume"], map_location="cpu")
-		model.load_state_dict(checkpoint["model"], strict=True)
+	if args["pretrained"] != False:
+		checkpoint = torch.load(args["pretrained"], map_location="cpu")
+		print(checkpoint.keys())
 		
-		# state_dict = checkpoint["state_dict"]
-		# new_state_dict = {}
+		state_dict = checkpoint["state_dict"]
+		new_state_dict = {}
 		
-		# for k in state_dict.keys():
-		# 	if "pos_embed" in k : continue
-		# 	if "patch_embed" in k : continue
-		# 	if "module." in k:
-		# 		new_state_dict[k[7:]] = state_dict[k]
+		for k in state_dict.keys():
+			if "pos_embed" in k : continue
+			if "patch_embed" in k : continue
+			if "module." in k:
+				new_state_dict[k[7:]] = state_dict[k]
 					
-		# model.load_state_dict(state_dict, strict=False)
-		
-		# if "optimizer" in checkpoint and "epoch" in checkpoint:
-		#     args["start_epoch"] = checkpoint["epoch"] + 1
-		#     print("[i] load checkpoint from:", args["resume"], "for train")
-		# else:
-		#     print("[i] failed to load checkpoint from:", args["resume"])
-		# 	return
+		model.load_state_dict(new_state_dict, strict=False)
 
 		for name, param in model.named_parameters():
 			if "query_net" in name: param.requires_grad = False
 			if "reference_net" in name : param.requires_grad = False
+
+	elif args["resume"] != False:
+		checkpoint = torch.load(args["resume"], map_location="cpu")
+		model.load_state_dict(checkpoint["model"], strict=True)
+		
+		if "optimizer" in checkpoint and "epoch" in checkpoint:
+			args["start_epoch"] = checkpoint["epoch"] + 1
+			print("[i] load checkpoint from:", args["resume"], "for train")
+		else:
+			print("[i] failed to load checkpoint from:", args["resume"])
+			return
+
 
 	## set optimizer and ir_scheduler
 	param_dicts = list(filter(lambda p: p.requires_grad, model.parameters()))
