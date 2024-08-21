@@ -98,6 +98,7 @@ class Encoder(VisionTransformer):
 			].repeat(1, 1, int(patch_size / 16), int(patch_size / 16))
 		msg = self.load_state_dict(checkpoint["model"])
 		print(msg)
+		
 
 	def forward_features(self, x):
 		# taken from https://github.com/rwightman/pytorch-image-models/blob/master/timm/models/vision_transformer.py

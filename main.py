@@ -24,9 +24,6 @@ def iterate(debug):
 	## init model
 	model, criterion, postprocessors = build(args)
 
-	n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
-	print("[i] number of params:", n_parameters // 10**6, "M")
-
 	## init wandb
 	if not debug:
 		wandb.init(
@@ -101,6 +98,9 @@ def iterate(debug):
 			rho=2.5,
 			adaptive=True,
 		)
+
+	n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
+	print("[i] number of params:", n_parameters // 10**6, "M")
 
 	## set data_loader for train
 	dataset_train = build_dataset(mode="train", args=args)
@@ -200,8 +200,6 @@ def iterate(debug):
 		"best_metric": -1,
 		"dim_feature": args["dim_feature"],
 	}
-
-	# print(len(data_loader_valid["qry"].dataset), len(data_loader_valid["ref"].dataset)); exit()
 
 	for epoch in range(args["start_epoch"], args["epochs"] + 1):
 		adjust_learning_rate(optimizer, epoch, args)
