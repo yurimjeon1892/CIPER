@@ -66,7 +66,6 @@ def iterate(debug):
 			print("[i] failed to load checkpoint from:", args["resume"])
 			return
 
-
 	## set optimizer and ir_scheduler
 	param_dicts = list(filter(lambda p: p.requires_grad, model.parameters()))
 	if args["optimizer"] == "adam":
