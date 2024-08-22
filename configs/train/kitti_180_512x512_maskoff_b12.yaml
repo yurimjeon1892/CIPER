@@ -1,6 +1,7 @@
 # configuration file for training
 # ----- base config
 eval: False
+pretrained: False
 resume: False
 
 seed: 42
