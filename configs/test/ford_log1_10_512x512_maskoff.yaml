@@ -41,4 +41,4 @@ repeat_grd_factor: 3
 grd_to_arl_factor: 4 # 360 / cam_fov
 
 # ----- misc
-eval_name: ford-run-20240822_031333-gm8bn61y
+eval_name: run-20240822_031333-gm8bn61y
