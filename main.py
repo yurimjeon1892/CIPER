@@ -38,22 +38,24 @@ def iterate(debug):
 	## pretrained model
 	if args["pretrained"] != False:
 		checkpoint = torch.load(args["pretrained"], map_location="cpu")
-		print(checkpoint.keys())
 		
-		state_dict = checkpoint["state_dict"]
+		state_dict = checkpoint["state_dict"].copy()
 		new_state_dict = {}
 		
 		for k in state_dict.keys():
-			if "pos_embed" in k : continue
-			if "patch_embed" in k : continue
+			if "pos_embed" in k : 
+				continue
+			if "patch_embed" in k :
+				continue
 			if "module." in k:
 				new_state_dict[k[7:]] = state_dict[k]
 					
 		model.load_state_dict(new_state_dict, strict=False)
 
-		for name, param in model.named_parameters():
-			if "query_net" in name: param.requires_grad = False
-			if "reference_net" in name : param.requires_grad = False
+		# for name, param in model.named_parameters():
+		# 	if "query_net" in name: param.requires_grad = False
+		# 	if "reference_net" in name : param.requires_grad = False
+		# 	print(name)
 
 	elif args["resume"] != False:
 		checkpoint = torch.load(args["resume"], map_location="cpu")
