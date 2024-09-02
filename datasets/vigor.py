@@ -119,7 +119,7 @@ class VIGOR(torch.utils.data.Dataset):
     
     def __getitem__(self, index):
         
-        if self.mode == "train" or self.mode == "valid":
+        if self.mode == "train" or self.mode == "valid_same":
             idx = random.choice(self.sat_cover_dict[self.sat_cover_list[index%len(self.sat_cover_list)]])      
             
             grd_img = Image.open(os.path.join(self.root, self.list[idx]))
@@ -137,14 +137,14 @@ class VIGOR(torch.utils.data.Dataset):
             
             return img_qry, img_ref, target
             
-        elif self.mode == "valid_ref":            
+        elif self.mode == "valid_same_ref":            
             
             arl_img = Image.open(self.sat_list[index]).convert("RGB")
             img_ref = self.transform_reference(arl_img)  
                  
             return img_ref, torch.tensor(index), 0
         
-        elif self.mode == "valid_qry":
+        elif self.mode == "valid_same_qry":
             
             grd_img = Image.open(self.list[index])
             img_qry = self.transform_query(grd_img)
@@ -157,11 +157,11 @@ class VIGOR(torch.utils.data.Dataset):
     def __len__(self):
         if "train" in self.mode:
             return len(self.sat_cover_list) * 2  # one aerial image has 2 positive queries
-        elif "valid_ref" in self.mode:
+        elif "valid_same_ref" in self.mode:
             return len(self.sat_list)
-        elif "valid_qry" in self.mode:
+        elif "valid_same_qry" in self.mode:
             return len(self.list)
-        elif "valid" in self.mode:
+        elif "valid_same" in self.mode:
             return len(self.sat_cover_list) * 2  # one aerial image has 2 positive queries
         else:
             print("not implemented!")
