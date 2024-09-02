@@ -1,8 +1,8 @@
 # configuration file for training
 #----- base config
 eval: False
-pretrained: ./pretrained/vigor_cross.pth.tar
-resume: False
+pretrained: False
+resume: ./wandb/run-20240901_050907-p1duymd3/files/model.pth
 
 seed: 42
 num_workers: 8
@@ -11,7 +11,7 @@ batch_size: 12 #12
 
 device: cuda # device to use for training / testing 
 
-epochs: 20
+epochs: 35
 start_epoch: 1
 
 # ----- data config
@@ -29,7 +29,7 @@ fov: 0
 same_area: False
 
 # ----- optimizer config
-lr: 0.0001
+lr: 0.00001
 weight_decay: 0.0001
 
 optimizer: adamw
@@ -57,8 +57,8 @@ set_cost_class: 1 # Class coefficient in the matching cost
 set_cost_bbox: 5 # L1 box coefficient in the matching cost
 
 retrieval_loss_coef: 1
-label_loss_coef: 0
-bbox_loss_coef: 0
+label_loss_coef: 1
+bbox_loss_coef: 1
 mask_loss_coef: 0
 
 eos_coef: 0.01 # Relative classification weight of the no-object class

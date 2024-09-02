@@ -401,29 +401,28 @@ def evaluate_one(
 	qry_feat = np.zeros([len(loader_dict["qry"].dataset), eval_infos["dim_feature"]])
 	ref_feat = np.zeros([len(loader_dict["ref"].dataset), eval_infos["dim_feature"]])
 
-	if eval_infos["data_name"] == "kitti":
-		description = "[i] eval qry"
-		for i, (img_grd, idx_grd, labels) in enumerate(
-			tqdm(loader_dict["qry"], desc=description, unit="batches")
-		):
-			img_grd = img_grd.to(eval_infos["device"])
-			idx_grd = idx_grd.to(eval_infos["device"])
-			labels = labels.to(eval_infos["device"])
+	description = "[i] eval qry"
+	for i, (img_grd, idx_grd, labels) in enumerate(
+		tqdm(loader_dict["qry"], desc=description, unit="batches")
+	):
+		img_grd = img_grd.to(eval_infos["device"])
+		idx_grd = idx_grd.to(eval_infos["device"])
+		labels = labels.to(eval_infos["device"])
 
-			y_grd, _, _ = model_query(img_grd)
-			qry_feat[idx_grd.cpu().numpy(), :] = y_grd.cpu().numpy()
-			qry_label[idx_grd.cpu().numpy()] = labels.cpu().numpy()
+		y_grd, _, _ = model_query(img_grd)
+		qry_feat[idx_grd.cpu().numpy(), :] = y_grd.cpu().numpy()
+		qry_label[idx_grd.cpu().numpy()] = labels.cpu().numpy()
 
-		description = "[i] eval ref"
-		for i, (img_arl, idx_arl, _) in enumerate(
-			tqdm(loader_dict["ref"], desc=description, unit="batches")
-		):
-			img_arl = img_arl.to(eval_infos["device"])
-			out_emb_arl, _, _ = model_reference(img_arl)  # delta
+	description = "[i] eval ref"
+	for i, (img_arl, idx_arl, _) in enumerate(
+		tqdm(loader_dict["ref"], desc=description, unit="batches")
+	):
+		img_arl = img_arl.to(eval_infos["device"])
+		out_emb_arl, _, _ = model_reference(img_arl)  # delta
 
-			ref_feat[idx_arl.cpu().numpy(), :] = out_emb_arl.detach().cpu().numpy()
+		ref_feat[idx_arl.cpu().numpy(), :] = out_emb_arl.detach().cpu().numpy()
 
-		retr_accuracy_eval(qry_feat, ref_feat, qry_label.astype(int), fname)
+	retr_accuracy_eval(qry_feat, ref_feat, qry_label.astype(int), fname)
 
 	model.eval()
 

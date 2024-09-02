@@ -52,10 +52,8 @@ def iterate(debug):
 					
 		model.load_state_dict(new_state_dict, strict=False)
 
-		# for name, param in model.named_parameters():
-		# 	if "query_net" in name: param.requires_grad = False
-		# 	if "reference_net" in name : param.requires_grad = False
-		# 	print(name)
+		for name, param in model.named_parameters():
+			if name in new_state_dict.keys(): param.requires_grad = False
 
 	elif args["resume"] != False:
 		checkpoint = torch.load(args["resume"], map_location="cpu")
