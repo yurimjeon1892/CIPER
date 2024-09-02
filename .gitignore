@@ -176,3 +176,4 @@ outputs/
 output/
 
 configs_bakup/
+*.pth.tar

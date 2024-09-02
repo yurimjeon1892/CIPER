@@ -1,40 +1,42 @@
 # configuration file for training
-# ----- base config
+#----- base config
 eval: False
-resume: False
+resume: ./wandb/run-20240807_015220-wld9zw78/files/model.pth
 
 seed: 42
 num_workers: 8
 
-batch_size: 8 # 12
+batch_size: 12 #12
 
 device: cuda # device to use for training / testing 
 
-epochs: 100
+epochs: 25
 start_epoch: 1
 
 # ----- data config
-data_name: ford
-data_root: /storage2/public/ford     
+data_name: vigor
+data_root: /data/experiment2/tmp/vigor/    
 
 grd_img_size: [256, 1024]
 arl_img_size: [512, 512]
 
-shift_range_lat: 20 
-shift_range_lon: 20 
-rotation_range: 10 
+shift_range_lat: 0 
+shift_range_lon: 0 
+rotation_range: 0 
+fov: 0
 
-log_idx: 1
+same_area: True
 
 # ----- optimizer config
-lr: 0.00001
-weight_decay: 0.03
+lr: 0.0001
+weight_decay: 0.001
 
 optimizer: adamw
 cos: True
 
 # ----- model config
-num_queries: 100
+mask: False
+num_multimask_outputs: 64
 
 patch_size: 32
 mlp_ratio: 4
@@ -55,8 +57,7 @@ set_cost_bbox: 5 # L1 box coefficient in the matching cost
 
 retrieval_loss_coef: 1
 label_loss_coef: 1
-bbox_loss_coef: 5
-mask_loss_coef: 1
+bbox_loss_coef: 1
+mask_loss_coef: 0
 
 eos_coef: 0.01 # Relative classification weight of the no-object class
-

@@ -55,9 +55,8 @@ class HungarianMatcher(nn.Module):
         bs, num_queries = outputs["pred_logits"].shape[:2]  # bs x num_queries x 2
 
         # We flatten to compute the cost matrices in a batch
-        out_prob = (
-            outputs["pred_logits"].flatten(0, 1).softmax(-1)
-        )  # (batch_size x num_queries) x num_classes=2
+        # out_prob = (outputs["pred_logits"].flatten(0, 1).softmax(-1))  # (batch_size x num_queries) x num_classes=2
+        out_prob = (outputs["pred_logits"].flatten(0, 1).sigmoid())  # (batch_size x num_queries)
         out_bbox = outputs["pred_boxes"].flatten(0, 1)  # (batch_size x num_queries) x 4
 
         # Also concat the target labels and boxes
@@ -67,34 +66,23 @@ class HungarianMatcher(nn.Module):
         # Compute the classification cost. Contrary to the loss, we don't use the NLL,
         # but approximate it in 1 - proba[target class].
         # The 1 is a constant that doesn't change the matching, it can be ommitted.
-        cost_class = -out_prob[:, tgt_ids]  # (batch x num_queries) x num_objects
+        # cost_class = -out_prob[:, tgt_ids]  # (batch x num_queries) x num_objects
+        cost_class = -out_prob.unsqueeze(-1)  # (batch x num_queries) x num_objects
 
         # Compute the L1 cost between boxes
-        cost_bbox = torch.cdist(
-            out_bbox, tgt_bbox.float(), p=1
-        )  # (batch x num_queries) x num_objects
+        cost_bbox = torch.cdist(out_bbox.float(), tgt_bbox.float(), p=1) # (batch x num_queries) x num_objects
 
         # # Compute the giou cost betwen boxes
         # cost_giou = -generalized_box_iou(box_cxcywh_to_xyxy(out_bbox), box_cxcywh_to_xyxy(tgt_bbox))
 
         # Final cost matrix
         C = self.cost_bbox * cost_bbox + self.cost_class * cost_class
-        C = C.view(bs, num_queries, -1).cpu()  # batch x num_queries x num_objects
+        C = C.view(bs, num_queries, -1).cpu()
 
         sizes = [len(v["boxes"]) for v in targets]
-        indices = [
-            linear_sum_assignment(c[i]) for i, c in enumerate(C.split(sizes, -1))
-        ]
-        return [
-            (
-                torch.as_tensor(i, dtype=torch.int64),
-                torch.as_tensor(j, dtype=torch.int64),
-            )
-            for i, j in indices
-        ]
+        indices = [linear_sum_assignment(c[i]) for i, c in enumerate(C.split(sizes, -1))]
+        return [(torch.as_tensor(i, dtype=torch.int64), torch.as_tensor(j, dtype=torch.int64)) for i, j in indices]
 
 
 def build_matcher(args):
-    return HungarianMatcher(
-        cost_class=args["set_cost_class"], cost_bbox=args["set_cost_bbox"]
-    )
+    return HungarianMatcher(cost_class=args["set_cost_class"], cost_bbox=args["set_cost_bbox"])
