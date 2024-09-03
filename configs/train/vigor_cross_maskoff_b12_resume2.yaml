@@ -2,7 +2,7 @@
 #----- base config
 eval: False
 pretrained: False
-resume: ./wandb/run-20240901_050907-p1duymd3/files/model.pth
+resume: ./wandb/run-20240902_090252-xwr25ycb/files/model.pth
 
 seed: 42
 num_workers: 8
@@ -11,7 +11,7 @@ batch_size: 12 #12
 
 device: cuda # device to use for training / testing 
 
-epochs: 35
+epochs: 45
 start_epoch: 1
 
 # ----- data config
@@ -29,7 +29,7 @@ fov: 0
 same_area: False
 
 # ----- optimizer config
-lr: 0.0001
+lr: 0.00001
 weight_decay: 0.0001
 
 optimizer: adamw
