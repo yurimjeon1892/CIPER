@@ -13,7 +13,7 @@ class KITTIDB(torch.utils.data.Dataset):
     def __init__(self, mode, args):
         super(KITTIDB, self).__init__()
 
-        self.root = args["db_root"]
+        self.root = args["data_root"]
 
         self.transform_reference = input_transform(size=args["arl_img_size"])
         self.arl_img_size = args["arl_img_size"]

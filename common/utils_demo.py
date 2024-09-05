@@ -27,7 +27,7 @@ def load_candidates(args, pred_meta_topk):
     candidates = []
     for i in range(len(pred_meta_topk)):
         file_name = pred_meta_topk[i]["file_name"]
-        arl_img = Image.open(os.path.join(args["db_root"], file_name), "r")
+        arl_img = Image.open(os.path.join(args["data_root"], file_name), "r")
         arl_img = arl_img.convert("RGB")
         arl_img = transform_ref(arl_img)
         candidates.append(arl_img.unsqueeze(0))
@@ -93,7 +93,7 @@ def save_output(args, pred_metas, pred_locs, output_dir):
             output_dir, folder_name, "top_" + str(i + 1) + ".png"
         )
         ref_img = Image.open(
-            os.path.join(args["db_root"], pred_metas[i]["file_name"]), "r"
+            os.path.join(args["data_root"], pred_metas[i]["file_name"]), "r"
         )
         ref_img.save(save_path_ref)
         ref_imgs.append(ref_img)
