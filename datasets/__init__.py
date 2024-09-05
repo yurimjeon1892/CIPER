@@ -3,6 +3,7 @@ from .kitti import KITTI
 from .kittidb import KITTIDB
 from .ford import Ford
 from .vigor import VIGOR
+from .vigordb import VIGORDB
 
 def build_dataset(mode, args):
 	if args["data_name"] == "kitti":
@@ -13,6 +14,8 @@ def build_dataset(mode, args):
 		dataset = Ford
 	elif args["data_name"] == "vigor":
 		dataset = VIGOR
+	elif args["data_name"] == "vigordb":
+		dataset = VIGORDB
 	else:
 		print("data name error. please check config - data_name")
 		exit()

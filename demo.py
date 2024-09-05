@@ -121,8 +121,8 @@ def inference():
 
     ## load pretrained
     checkpoint = torch.load(args["pretrained"], map_location="cpu")
-    model.load_state_dict(checkpoint["model"])
-    print("[i] load checkpoint from:", args["pretrained"], "for evaluation")
+    model.load_state_dict(checkpoint["model"], strict=True)
+    print("[i] load checkpoint from:", args["pretrained"], "for demo")
 
     ## set infos
     infos = {

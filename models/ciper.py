@@ -10,7 +10,6 @@ from .matcher import build_matcher
 from .soft_triplet import SoftTripletBiLoss
 
 from .encoder import Encoder
-from .ace import AeroConfidenceEstimator
 from .decoder import TwoWayDecoder
 from .prompt_encoder import PositionEmbeddingRandom
 
@@ -30,10 +29,8 @@ class CIPER(nn.Module):
 		self.query_net = Encoder(args, args["grd_img_size"])
 		self.reference_net = Encoder(args, args["arl_img_size"])
 		self.two_way_decoder = TwoWayDecoder(args)
-		self.mask = args["mask"]
-		if self.mask: self.ace_mask_net = AeroConfidenceEstimator(args)
-		self.batch_size = args["batch_size"]
 
+		self.batch_size = args["batch_size"]
 		self.image_embedding_size = (
 			int(args["arl_img_size"][0] / args["patch_size"]),
 			int(args["arl_img_size"][1] / args["patch_size"]),
@@ -42,25 +39,20 @@ class CIPER(nn.Module):
 
 	def forward(self, im_grd, im_arl):
 
-		x1_grd, x2_grd, x3_grd = self.query_net(im_grd)
+		x1_grd, x2_grd, _ = self.query_net(im_grd)
 		x1_arl, _, x3_arl = self.reference_net(im_arl)
 		outputs = {
 			"grd": x1_grd,
 			"arl": x1_arl,
 		}
 
-		if self.mask:
-			masks = self.ace_mask_net(x3_grd, x3_arl)			
-			x3_arl = torch.mul(masks["bev_mask"], x3_arl)
-			outputs.update(masks)
-
 		out_pred_logits, out_pred_boxes = [], []
 		for b in range(x2_grd.size(0)):
 			pred_logits, pred_boxes = self.two_way_decoder(
 				image_pe=self.query_net.get_dense_pe(),
 				sparse_prompt_embeddings=x2_grd[b].unsqueeze(0),
-				image_embeddings=x3_arl[b].unsqueeze(0))		
-			# print(pred_logits.size(), pred_boxes.size())
+				image_embeddings=x3_arl[b].unsqueeze(0))	
+			
 			out_pred_logits.append(pred_logits)
 			out_pred_boxes.append(pred_boxes)
 		
@@ -130,46 +122,6 @@ class SetCriterion(nn.Module):
 
 		return losses
 
-	def loss_mask(self, outputs, targets, indices):
-		# this is just for debug
-		src_mask = outputs["rng_mask"]
-		bs, w = src_mask.size(0), src_mask.size(-1)
-		marg_w = int(w / 5)
-
-		target_boxes = torch.cat(
-			[t["boxes"][i] for t, (_, i) in zip(targets, indices)], dim=0
-		)
-		c, s = target_boxes[:, 2], target_boxes[:, 3]
-		yaw = torch.atan2(s, c)
-		yaw[yaw < 0] = yaw[yaw < 0] + 2 * math.pi
-
-		rounded_tensor = (yaw / (2 * math.pi)) * w
-		rounded_tensor = torch.clamp(rounded_tensor.round(), 0, w - 1).long()
-
-		target_mask = torch.zeros(src_mask.size(), requires_grad=False)
-		for i in range(bs):
-			y_id = rounded_tensor[i]
-			if y_id < marg_w:
-				target_mask[i, :, : y_id + marg_w] = 1.0
-				target_mask[i, :, y_id - marg_w :] = 1.0
-			elif y_id > w - marg_w:
-				target_mask[i, :, : w - y_id] = 1.0
-				target_mask[i, :, y_id - marg_w :] = 1.0
-			else:
-				target_mask[i, :, y_id - marg_w : y_id + marg_w] = 1.0
-
-		# real loss calc
-		src_cos_sin = outputs["pred_cos_sin"]
-		target_boxes = torch.cat(
-			[t["boxes"][i] for t, (_, i) in zip(targets, indices)], dim=0
-		)
-		loss_cos_sin = F.mse_loss(src_cos_sin.float(), target_boxes[:, 2:].float())
-
-		losses = {}
-		losses["mask"] = loss_cos_sin
-
-		return losses
-
 	def _get_src_permutation_idx(self, indices):
 		# permute predictions following indices
 		batch_idx = torch.cat(
@@ -182,8 +134,7 @@ class SetCriterion(nn.Module):
 		loss_map = {
 			"retrieval": self.loss_retrieval,
 			"labels": self.loss_labels,
-			"boxes": self.loss_boxes,
-			"mask": self.loss_mask,
+			"boxes": self.loss_boxes
 		}
 		assert loss in loss_map, f"do you really want to compute {loss} loss?"
 		return loss_map[loss](outputs, targets, indices)
@@ -268,13 +219,9 @@ def build(args):
 			"retrieval": args["retrieval_loss_coef"],
 			"labels": args["label_loss_coef"],
 			"boxes": args["bbox_loss_coef"],
-			"mask": args["mask_loss_coef"],
 		}
 		eos_coef = args["eos_coef"]
-		if args["mask"]:
-			losses = ["retrieval", "labels", "boxes", "mask"]
-		else:
-			losses = ["retrieval", "labels", "boxes"]
+		losses = ["retrieval", "labels", "boxes"]
 		criterion = SetCriterion(
 			matcher=matcher, weight_dict=weight_dict, eos_coef=eos_coef, losses=losses
 		)

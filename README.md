@@ -10,6 +10,7 @@
 * Ubuntu 20.04
 
 ### Step 2: Create environment
+
 Option 1: Anaconda
 ```
 conda create -n ciper python=3.8
@@ -19,11 +20,29 @@ pip install -r requirements.txt
 
 Option 2: Docker
 ```
-docker image build -t ciper:1.0 .
+docker build -f .devcontainer/ciper.Dockerfile -t ciper:1.0 .
 docker run -it --gpus all -e HOST_USER_ID=$(id -u) -e HOST_USER_GID=$(id -g) --shm-size 8G --name xiver -v /home/$(whoami):/home/$(whoami) -v /data:/data ciper:1.0 /bin/bash
 ```
 
 ## Data
+
+### VIGOR
+
+Download [VIGOR](https://github.com/Jeff-Zilence/VIGOR). The folder structure is as follows:
+```
+vigor
+├── Chicago
+|   ├── panorama
+|   └── satellite
+├── NewYork
+├── ..
+└── splits__corrected
+    ├── Chicago
+    |   ├── pano_label_balanced__corrected.txt
+    |   └── ..
+    └── ..
+
+```
 
 ### KITTI
 
@@ -78,23 +97,24 @@ ford
 ## Train & Eval
 
 ### Train 
-Set configuration in `configs/train/train_**.yaml` file and run:
+Set configuration in `configs/train/**.yaml` file and run:
 ```
-python main.py --config configs/train/train_**.yaml
+python main.py --config configs/train/**.yaml
 ```
 
 ### Evaluate
-Set configuration in `configs/test/test_**.yaml` file and run:
+Set configuration in `configs/test/**.yaml` file and run:
 ```
-python main.py --config configs/test/test_**.yaml
+python main.py --config configs/test/**.yaml
 ```
 
 ## Demo
 
-Set configuration in `configs/demo/demo_**.yaml` file and run:
+Set configuration in `configs/demo/**.yaml` file and run:
 ```
-python demo.py --config configs/demo/demo_**.yaml 
+python demo.py --config configs/demo/**.yaml 
 ```
+
 ### Result
 ![demo_sample_results](./demo/demo_sample_results.png "Title")
 

@@ -1,34 +1,25 @@
-# configuration file for training
-#----- base config
+# configuration file for demo
+pretrained: ./wandb/run-20240821_071347-ocaaf1o2/files/model.pth
+data_root: /data/public/kitti
+top_k : 5
+
+# ----- base config
 eval: True
-pretrained: ./wandb/run-20240830_015414-hcycdn7s/files/model.pth
-
-seed: 42
-num_workers: 8
-
-batch_size: 12 #12
-
+num_workers: 4
+batch_size: 1
 device: cuda # device to use for training / testing 
 
 # ----- data config
-data_name: vigordb
-data_root: /data/thor2/vigor/    
+data_name: kittidb
 
 grd_img_size: [256, 1024]
 arl_img_size: [512, 512]
-
-shift_range_lat: 0 
-shift_range_lon: 0 
-rotation_range: 0 
-fov: 0
-
-same_area: True
 
 # ----- model config
 mask: False
 num_multimask_outputs: 64
 
-patch_size: 16
+patch_size: 32
 mlp_ratio: 4
 qkv_bias: True
 
@@ -39,6 +30,4 @@ dim_embed: 384 # Size of the embeddings (dimension of the transformer)
 dim_feature: 1000
 
 repeat_grd_factor: 3
-grd_to_arl_factor: 1 # 360 / cam_fov
-
-eval_name: run-20240830_015414-hcycdn7s
+grd_to_arl_factor: 4 # 360 / cam_fov
