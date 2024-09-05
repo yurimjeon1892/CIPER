@@ -80,7 +80,7 @@ def run_geo_localization(args, pred_meta_topk, pred_pose):
 
 def save_output(args, pred_metas, pred_locs, output_dir):
 
-    folder_name = "{date:%Y-%m-%d-%H-%M-%S}".format(date=datetime.datetime.now())
+    folder_name = "demo/{date:%Y-%m-%d-%H-%M-%S}".format(date=datetime.datetime.now())
     os.makedirs(os.path.join(output_dir, folder_name), exist_ok=True)
 
     save_path_qry = os.path.join(output_dir, folder_name, "query.png")
