@@ -1,6 +1,6 @@
 # configuration file for demo
 pretrained: ./wandb/run-20240830_015414-hcycdn7s/files/model.pth
-data_root: /data/thor2/vigor/    
+data_root: /data/experiment2/tmp/vigor/  
 top_k : 5
 
 #----- base config

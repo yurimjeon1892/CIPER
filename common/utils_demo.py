@@ -162,14 +162,14 @@ def save_output(args, pred_metas, pred_locs, output_dir):
     ] = osm_img
     board_img = Image.fromarray(board, "RGB")
     draw = ImageDraw.Draw(board_img)
-    font = ImageFont.truetype("DejaVuSansMono-Bold.ttf", 200)
-    draw.text((10, 10), f"Query Image", fill="white", font=font)
-    draw.text((qry_img.size[0] + 10, 10), f"Result", fill="black", font=font)
-    font = ImageFont.truetype("DejaVuSansMono-Bold.ttf", 100)
+    font = ImageFont.truetype("./demo/Helvetica Bold.ttf", 200)
+    draw.text((10, 10), f"Query Image", fill="black", font=font)
+    draw.text((qry_img.size[0] + 10, 10), f"Prediction on OpenStreetMap", fill="black", font=font)
+    font = ImageFont.truetype("./demo/Helvetica Bold.ttf", 150)
     for i in range(len(ref_imgs)):
         draw.text(
             (ref_imgs[i].size[1] * i + 10, qry_img.size[1] + 10),
-            f"Top {i+1}",
+            f"TOP #{i+1}",
             fill="white",
             font=font,
         )
