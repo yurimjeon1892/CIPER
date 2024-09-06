@@ -81,7 +81,6 @@ def save_output(args, pred_metas, pred_pose, pred_locs, output_dir):
 	
 	qry_name = args["qry_path"].split("/")[-1][:-4]
 
-	# folder_name = "demo/{date:%Y-%m-%d-%H-%M-%S}".format(date=datetime.datetime.now())
 	folder_name = os.path.join("demo", qry_name)
 	os.makedirs(os.path.join(output_dir, folder_name), exist_ok=True)
 
@@ -104,10 +103,12 @@ def save_output(args, pred_metas, pred_pose, pred_locs, output_dir):
 	qry_img = qry_img.resize(
 		(int(qry_img.size[0] * factor), int(qry_img.size[1] * factor))
 	)
+
+	board_height = ref_imgs[0].size[1] + qry_img.size[1]
 	board = np.ones(
 		(
-			ref_imgs[0].size[1] + qry_img.size[1],
-			ref_imgs[0].size[0] * len(pred_metas) + ref_imgs[0].size[1] + qry_img.size[1],
+			board_height,
+			ref_imgs[0].size[0] * len(pred_metas) + board_height * 2,
 			3,
 		),
 		dtype=np.uint8,
@@ -116,8 +117,14 @@ def save_output(args, pred_metas, pred_pose, pred_locs, output_dir):
 		board[
 			qry_img.size[1] :, ref_imgs[i].size[1] * i : ref_imgs[i].size[0] * (i + 1)
 		] = np.array(ref_imgs[i].convert("RGB"))
-
 	board[: qry_img.size[1], : qry_img.size[0]] = np.array(qry_img)
+
+	top1_pose_img = np.array(ref_imgs[0].convert("RGB"))
+	top1_pose = pred_pose[0][0][0]
+	top1_pose_img = draw_3dof_bigpin(top1_pose_img, top1_pose[0], top1_pose[1], top1_pose[2], "cyan")	
+	top1_pose_img = Image.fromarray(top1_pose_img, "RGB").resize((board_height, board_height))
+	top1_pose_img.save(os.path.join(output_dir, folder_name, "top1_pose.png"))
+	board[:board_height, -2 * board_height:-board_height, :] = np.array(top1_pose_img)
 
 	Lats, Longs, IDs = [], [], []
 
@@ -152,25 +159,23 @@ def save_output(args, pred_metas, pred_pose, pred_locs, output_dir):
 	fig.write_image(save_path_map)
 	osm_img = (
 		Image.open(save_path_map, "r")
-		.resize((qry_img.size[1] + ref_img.size[0], qry_img.size[1] + ref_img.size[0]))
+		.resize((board_height, board_height))
 		.convert("RGB")
 	)
-
-	board[
-		: osm_img.size[0],
-		ref_img.size[0] * len(pred_metas) : ref_img.size[0] * len(pred_metas)
-		+ osm_img.size[0],
-	] = osm_img
+	board[:board_height, -board_height:, :] = osm_img
+	
 	board_img = Image.fromarray(board, "RGB")
+	
 	draw = ImageDraw.Draw(board_img)
 	font = ImageFont.truetype("./demo/assets/Helvetica Bold.ttf", 150)
 	draw.text((10, 10), f"Query Image", fill="black", font=font)
-	draw.text((qry_img.size[0] + 10, 10), f"Prediction", fill="black", font=font)
+	draw.text((qry_img.size[0] + 10, 10), f"PE", fill="black", font=font)
+	draw.text((qry_img.size[0] + board_height + 10, 10), f"Final result", fill="black", font=font)
 	font = ImageFont.truetype("./demo/assets/Helvetica Bold.ttf", 150)
 	for i in range(len(ref_imgs)):
 		draw.text(
 			(ref_imgs[i].size[1] * i + 10, qry_img.size[1] + 10),
-			f"TOP #{i+1}",
+			f"IR: Top #{i+1}",
 			fill="white",
 			font=font,
 		)
@@ -193,11 +198,7 @@ def save_output(args, pred_metas, pred_pose, pred_locs, output_dir):
 	f.close
 
 	# p_imgs = plot_pose(pred_pose[0], ref_imgs[0])
-	top1_pose_img = ref_imgs[0]
-	top1_pose = pred_pose[0]
-	top1_pose_img = draw_3dof_pin(top1_pose_img, top1_pose[0], top1_pose[1], top1_pose[2], "cyan")
-	top1_pose_img = Image.fromarray(top1_pose_img, "RGB")
-	top1_pose_img.save(os.path.join(output_dir, folder_name, "top1_pose.png"))
+	
 
 	print("[i] check ", os.path.join(output_dir, folder_name))
 	# print("[i] check ", os.path.join(output_dir, folder_name, "results_summary.png"))
@@ -233,9 +234,25 @@ class PostProcess(nn.Module):
 		results = [{"scores": s, "boxes": b} for s, b in zip(scores, boxes)]
 		return results
 
-def plot_pose(pred_pose, img_arl):
+def draw_3dof_bigpin(img, px, py, theta, color, radius=20):
+    if img.shape[0] == 3:
+        img = np.transpose(img, (1, 2, 0)).copy()
+    else:
+        img = img.copy()
+    img_size = img.shape[:2]
 
-	img_arl_ = img_arl[rand_ind, :, :, :].detach().cpu().numpy()
-	img_arl_ = draw_3dof_pin(img_arl_, pred_pose[0], pred_pose[1], pred_pose[2], "cyan")
+    px, py = int(px + img_size[0] / 2), int(py + img_size[1] / 2)
+    theta = np.deg2rad(theta)
 
-	return img_arl_
+    img = (img - np.min(img)) / (np.max(img) - np.min(img))
+    img = Image.fromarray(np.uint8(np.array(img).copy() * 255))
+
+    draw = ImageDraw.Draw(img)
+    draw.ellipse([(px - radius, py - radius), (px + radius, py + radius)], fill=color)
+    draw.line(
+        [(px, py), (px + 100 * np.sin(theta), py + 100 * np.cos(theta))],
+        fill=color,
+        width=10,
+    )
+
+    return np.array(img)
