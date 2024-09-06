@@ -12,7 +12,7 @@ device: cuda # device to use for training / testing
 
 # ----- data config
 data_name: vigordb
-data_root: /data/thor2/vigor/    
+data_root: /data/experiment2/tmp/vigor/  
 
 grd_img_size: [256, 1024]
 arl_img_size: [512, 512]
