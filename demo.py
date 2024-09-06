@@ -7,7 +7,6 @@ import numpy as np
 
 from tqdm import tqdm
 from torch.utils.data import DataLoader
-import datetime
 
 from datasets import build_dataset
 from models import build
@@ -156,14 +155,14 @@ def inference():
         infos,
     )
     # combine results
-    pred_locs = run_geo_localization(args, pred_meta_topk, pred_pose)
+    pred_locs = add_predicts(args, pred_meta_topk, pred_pose)
 
     print("[i] cross-view image geo-localization finished")
     print("[i] query path: ", args["qry_path"])
     print("[i] estimation result: Lat: ", pred_locs[0][0], " Long: ", pred_locs[0][1])
 
     output_dir = "./outputs"
-    save_output(args, pred_meta_topk, pred_locs, output_dir)
+    save_output(args, pred_meta_topk, pred_pose, pred_locs, output_dir)
 
     return True
 
