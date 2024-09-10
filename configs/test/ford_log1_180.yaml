@@ -1,7 +1,7 @@
 # configuration file for test
 # ----- base config
 eval: True
-pretrained: ./wandb/run-20240822_065344-3vnq2x90/files/model.pth
+pretrained: /path/to/model.pth
 
 seed: 42
 num_workers: 8
@@ -41,4 +41,4 @@ repeat_grd_factor: 3
 grd_to_arl_factor: 4 # 360 / cam_fov
 
 # ----- misc
-eval_name: run-20240822_065344-3vnq2x90
+eval_name: ford-log1
