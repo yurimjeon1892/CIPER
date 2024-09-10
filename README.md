@@ -121,8 +121,9 @@ Samples for demo are located in `./demo/kitti` and `./demo/vigor`
 
 ## Pretrained model
 
+* [VIGOR](https://drive.google.com/drive/folders/13iOB-K30lCy8BeOe92eByKlveZ3kPMUn?usp=sharing)
 * [KITTI](https://drive.google.com/drive/folders/1ohE0jSxAgq6NxBu4F1dQZIP5sFE9y63q?usp=sharing)
-* [Ford](https://drive.google.com/drive/folders/10wb2SXch5IfXhtpMgCpQ8DRChRGlysJW?usp=drive_link)
+* [Ford](https://drive.google.com/drive/folders/10wb2SXch5IfXhtpMgCpQ8DRChRGlysJW?usp=sharing)
 
 
 ## Acknowledgements
