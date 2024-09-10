@@ -1,18 +1,18 @@
 # configuration file for test
 # ----- base config
 eval: True
-pretrained: ../ciper-ckpts/ford_log1_180.pth
+pretrained: ./wandb/run-20240822_103019-cr0523hm/files/model.pth
 
 seed: 42
-num_workers: 4
+num_workers: 8
 
-batch_size: 8
+batch_size: 12 # 12
 
 device: cuda # device to use for training / testing 
 
 # ----- data config
 data_name: ford
-data_root: /storage2/public/ford    
+data_root: /data/public/ford 
 
 grd_img_size: [256, 1024]
 arl_img_size: [512, 512]
@@ -21,10 +21,11 @@ shift_range_lat: 20
 shift_range_lon: 20 
 rotation_range: 10 
 
-log_idx: 0
+log_idx: 1
 
 # ----- model config
-num_queries: 100
+mask: False
+num_multimask_outputs: 64
 
 patch_size: 32
 mlp_ratio: 4
@@ -40,4 +41,4 @@ repeat_grd_factor: 3
 grd_to_arl_factor: 4 # 360 / cam_fov
 
 # ----- misc
-eval_name: ford_log1_180
+eval_name: run-20240822_103019-cr0523hm

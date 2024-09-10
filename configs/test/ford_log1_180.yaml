@@ -1,25 +1,31 @@
 # configuration file for test
 # ----- base config
-pretrained: ../ciper-ckpts/kitti_180.pth
-
-# ----- data config
-db_root: /storage2/public/kitti
-
-top_k : 5
-
-# ----- base config
 eval: True
+pretrained: ./wandb/run-20240822_065344-3vnq2x90/files/model.pth
+
+seed: 42
 num_workers: 8
+
+batch_size: 12 # 12
+
 device: cuda # device to use for training / testing 
 
 # ----- data config
-data_name: kittidb
+data_name: ford
+data_root: /data/public/ford 
 
 grd_img_size: [256, 1024]
 arl_img_size: [512, 512]
 
+shift_range_lat: 20 
+shift_range_lon: 20 
+rotation_range: 180 
+
+log_idx: 0
+
 # ----- model config
-num_queries: 128
+mask: False
+num_multimask_outputs: 64
 
 patch_size: 32
 mlp_ratio: 4
@@ -33,3 +39,6 @@ dim_feature: 1000
 
 repeat_grd_factor: 3
 grd_to_arl_factor: 4 # 360 / cam_fov
+
+# ----- misc
+eval_name: run-20240822_065344-3vnq2x90
