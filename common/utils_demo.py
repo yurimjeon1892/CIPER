@@ -124,7 +124,7 @@ def save_output(args, pred_metas, pred_pose, pred_locs, output_dir):
 	top1_pose_img = draw_3dof_bigpin(top1_pose_img, top1_pose[0], top1_pose[1], top1_pose[2], "cyan")	
 	top1_pose_img = Image.fromarray(top1_pose_img, "RGB").resize((board_height, board_height))
 	top1_pose_img.save(os.path.join(output_dir, folder_name, "top1_pose.png"))
-	board[:board_height, -2 * board_height:-board_height, :] = np.array(top1_pose_img)
+	board[:board_height, -board_height:, :] = np.array(top1_pose_img)
 
 	Lats, Longs, IDs = [], [], []
 
@@ -162,20 +162,20 @@ def save_output(args, pred_metas, pred_pose, pred_locs, output_dir):
 		.resize((board_height, board_height))
 		.convert("RGB")
 	)
-	board[:board_height, -board_height:, :] = osm_img
+	board[:board_height, -2 * board_height:-board_height, :] = osm_img
 	
 	board_img = Image.fromarray(board, "RGB")
 	
 	draw = ImageDraw.Draw(board_img)
 	font = ImageFont.truetype("./demo/assets/Helvetica Bold.ttf", 150)
 	draw.text((10, 10), f"Query Image", fill="black", font=font)
-	draw.text((qry_img.size[0] + 10, 10), f"PE", fill="black", font=font)
-	draw.text((qry_img.size[0] + board_height + 10, 10), f"Final result", fill="black", font=font)
+	draw.text((qry_img.size[0] + 10, 10), f"OpenStreetMap", fill="black", font=font)
+	draw.text((qry_img.size[0] + board_height + 10, 10), f"Final result", fill="white", font=font)
 	font = ImageFont.truetype("./demo/assets/Helvetica Bold.ttf", 150)
 	for i in range(len(ref_imgs)):
 		draw.text(
 			(ref_imgs[i].size[1] * i + 10, qry_img.size[1] + 10),
-			f"IR: Top #{i+1}",
+			f"Top #{i+1}",
 			fill="white",
 			font=font,
 		)

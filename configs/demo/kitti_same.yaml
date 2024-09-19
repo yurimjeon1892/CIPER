@@ -1,5 +1,5 @@
 # configuration file for demo
-pretrained: /path/to/model.pth
+pretrained: ./wandb/run-20240821_071347-ocaaf1o2/files/model.pth
 data_root: /data/public/kitti
 top_k : 5
 

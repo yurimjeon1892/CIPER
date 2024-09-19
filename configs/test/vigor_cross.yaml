@@ -1,7 +1,7 @@
 # configuration file for training
 #----- base config
 eval: True
-pretrained: /path/to/model.pth
+pretrained: ./wandb/run-20240905_040041-bnamiayi/files/model.pth
 
 seed: 42
 num_workers: 8
@@ -41,4 +41,4 @@ dim_feature: 1000
 repeat_grd_factor: 3
 grd_to_arl_factor: 1 # 360 / cam_fov
 
-eval_name: vigor-cross
+eval_name: run-20240905_040041-bnamiayi
