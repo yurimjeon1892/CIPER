@@ -14,6 +14,8 @@ data_name: kittidb
 
 grd_img_size: [256, 1024]
 arl_img_size: [512, 512]
+arl_zoom_ratio: 1
+
 
 # ----- model config
 mask: False

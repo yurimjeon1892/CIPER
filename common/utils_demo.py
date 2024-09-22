@@ -51,13 +51,13 @@ def add_predicts(args, pred_meta_topk, pred_pose):
 			pred_pose[i][0][0][0]
 			# * pred_meta_topk[i]["meter_per_pixel"].detach().cpu().numpy()
 			* args["arl_img_size"][0]
-			* args["arl_zoom_ratio"][0]
+			* args["arl_zoom_ratio"]
 		)
 		dlon = (
 			pred_pose[i][0][0][1]
 			# * pred_meta_topk[i]["meter_per_pixel"].detach().cpu().numpy()
 			* args["arl_img_size"][1]
-			* args["arl_zoom_ratio"][0]
+			* args["arl_zoom_ratio"]
 		)
 		dyaw = pred_pose[i][0][0][2]
 		pred_locs_2.append([dlat, dlon, dyaw])
@@ -123,7 +123,9 @@ def save_output(args, pred_metas, pred_pose, pred_locs, output_dir):
 
 	top1_pose_img = np.array(ref_imgs[0].convert("RGB"))
 	top1_pose = pred_pose[0][0][0]
-	top1_pose_img = draw_3dof_bigpin(top1_pose_img, top1_pose[0], top1_pose[1], top1_pose[2], "cyan")	
+	dx = top1_pose[0] * args["arl_img_size"][0] * args["arl_zoom_ratio"]
+	dy = top1_pose[1] * args["arl_img_size"][1] * args["arl_zoom_ratio"]
+	top1_pose_img = draw_3dof_bigpin(top1_pose_img, dx, dy, top1_pose[2], "cyan")	
 	top1_pose_img = Image.fromarray(top1_pose_img, "RGB").resize((board_height, board_height))
 	top1_pose_img.save(os.path.join(output_dir, folder_name, "top1_pose.png"))
 	board[:board_height, -board_height:, :] = np.array(top1_pose_img)
@@ -237,24 +239,25 @@ class PostProcess(nn.Module):
 		return results
 
 def draw_3dof_bigpin(img, px, py, theta, color, radius=20):
-    if img.shape[0] == 3:
-        img = np.transpose(img, (1, 2, 0)).copy()
-    else:
-        img = img.copy()
-    img_size = img.shape[:2]
+	if img.shape[0] == 3:
+		img = np.transpose(img, (1, 2, 0)).copy()
+	else:
+		img = img.copy()
+	img_size = img.shape[:2]
+	print(px, py)
 
-    px, py = int(px + img_size[0] / 2), int(py + img_size[1] / 2)
-    theta = np.deg2rad(theta)
+	px, py = int(px + img_size[0] / 2), int(py + img_size[1] / 2)
+	theta = np.deg2rad(theta)
 
-    img = (img - np.min(img)) / (np.max(img) - np.min(img))
-    img = Image.fromarray(np.uint8(np.array(img).copy() * 255))
+	img = (img - np.min(img)) / (np.max(img) - np.min(img))
+	img = Image.fromarray(np.uint8(np.array(img).copy() * 255))
 
-    draw = ImageDraw.Draw(img)
-    draw.ellipse([(px - radius, py - radius), (px + radius, py + radius)], fill=color)
-    draw.line(
-        [(px, py), (px + 100 * np.sin(theta), py + 100 * np.cos(theta))],
-        fill=color,
-        width=10,
-    )
+	draw = ImageDraw.Draw(img)
+	draw.ellipse([(px - radius, py - radius), (px + radius, py + radius)], fill=color)
+	draw.line(
+		[(px, py), (px + 100 * np.sin(theta), py + 100 * np.cos(theta))],
+		fill=color,
+		width=10,
+	)
 
-    return np.array(img)
+	return np.array(img)
