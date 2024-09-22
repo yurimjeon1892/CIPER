@@ -117,7 +117,7 @@ python demo.py --config configs/demo/**.yaml
 Samples for demo are located in `./demo/kitti` and `./demo/vigor`
 
 ### Result
-![demo_sample_results](./demo/demo_sample_results.png "Title")
+![demo_sample_results](./demo/demo_sample_results.png "demo_result")
 
 ## Pretrained model
 

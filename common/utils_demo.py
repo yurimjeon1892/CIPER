@@ -49,13 +49,15 @@ def add_predicts(args, pred_meta_topk, pred_pose):
 	for i in range(len(pred_pose)):
 		dlat = (
 			pred_pose[i][0][0][0]
-			* pred_meta_topk[i]["meter_per_pixel"].detach().cpu().numpy()
+			# * pred_meta_topk[i]["meter_per_pixel"].detach().cpu().numpy()
 			* args["arl_img_size"][0]
+			* args["arl_zoom_ratio"][0]
 		)
 		dlon = (
 			pred_pose[i][0][0][1]
-			* pred_meta_topk[i]["meter_per_pixel"].detach().cpu().numpy()
+			# * pred_meta_topk[i]["meter_per_pixel"].detach().cpu().numpy()
 			* args["arl_img_size"][1]
+			* args["arl_zoom_ratio"][0]
 		)
 		dyaw = pred_pose[i][0][0][2]
 		pred_locs_2.append([dlat, dlon, dyaw])
