@@ -1,12 +1,13 @@
-import torch
-import torchvision.transforms.functional as TF
-
-from PIL import Image
-import numpy as np
 import os
 
+import numpy as np
+import torch
+import torchvision.transforms.functional as TF
+from PIL import Image
+
 from common.utils_loader import input_transform
-from .kitti_func import get_meter_per_pixel, CameraGPS_shift_left
+
+from .kitti_func import CameraGPS_shift_left, get_meter_per_pixel
 
 
 class KITTI(torch.utils.data.Dataset):
@@ -50,9 +51,11 @@ class KITTI(torch.utils.data.Dataset):
         self.make_sample_list()
 
     def make_sample_list(self):
-        ignore_drive_list = []  # due to download error. broken zip file
+        ignore_drive_list = [
+            "2011_10_03/2011_10_03_drive_0047_sync"
+        ]  # due to download error. broken zip file
         ignore_file_list = [
-            # "2011_10_03/2011_10_03_drive_0034_sync/",
+            # "2011_10_03/2011_10_03_drive_0047_sync/",
             # "2011_09_30/2011_09_30_drive_0028_sync/"
         ]  # due to download error. broken zip file
 
@@ -63,9 +66,14 @@ class KITTI(torch.utils.data.Dataset):
         self.sample_list = []
         for file_ in file_name_list:
             file_ = file_[:-1]
+            # print(file_)
+            # print("file1", file_[:37])
+            # print("file2", file_[:52])
             if file_[:37] in ignore_drive_list:
+                
                 continue
             if file_[:52] in ignore_file_list:
+                
                 continue
             self.sample_list.append(file_)
         FileNotFoundError(
@@ -197,7 +205,7 @@ class KITTI(torch.utils.data.Dataset):
                     [int(self.arl_img_size[0]), int(self.arl_img_size[1])]
                 ),
                 "meter_per_pixel": torch.tensor([self.meter_per_pixel]),
-                "fname": file_name
+                "fname": file_name,
             }
 
             return grd_img, arl_img, target

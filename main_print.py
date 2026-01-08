@@ -1,22 +1,21 @@
-import yaml
 import argparse
-import torch
 import datetime
-import sys, os
+import os
+import sys
 
 import numpy as np
-
-from tqdm import tqdm
+import torch
+import yaml
 from torch.utils.data import DataLoader
-
+from tqdm import tqdm
 
 from datasets import build_dataset
 from models import build
 
 sys.path.append("../")
 
-from common.utils_plot import *
 from common.utils import result2pose, target2gt
+from common.utils_plot import *
 
 
 @torch.no_grad()
@@ -43,7 +42,6 @@ def inference_one(
     for i, (img_grd, idx_grd, labels, file_name) in enumerate(
         tqdm(loader_dict["qry"], desc=description, unit="batches")
     ):
-
         img_grd = img_grd.to(eval_infos["device"])
         idx_grd = idx_grd.to(eval_infos["device"])
         labels = labels.to(eval_infos["device"])
@@ -156,7 +154,6 @@ def inference_two(
         results = postprocessors(outputs, targets)
 
         for b in range(len(results)):
-
             pred_poses = np.squeeze(result2pose(results)[b])
             gt_poses = np.squeeze(target2gt(targets)[b])
 

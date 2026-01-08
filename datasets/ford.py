@@ -1,14 +1,15 @@
+import os
+
+import numpy as np
 import torch
 import torchvision.transforms as transforms
 import torchvision.transforms.functional as TF
-
+import yaml
 from PIL import Image
-import numpy as np
-import os, yaml
 
 from common.utils_loader import gps2utm
-from .ford_cfgnode import CfgNode
 
+from .ford_cfgnode import CfgNode
 
 # For the Ford dataset coordinates:
 # x--> North, y --> east, z --> down
@@ -256,8 +257,8 @@ class Ford(torch.utils.data.Dataset):
             # x, y here are the x, y under gps/utm coordinates, x pointing right and y pointing up
 
             b_delta_u = (
-                g_x - s_x
-            ) / self.meters_per_pixel  # relative u shift of body frame with respect to satellite image center
+                (g_x - s_x) / self.meters_per_pixel
+            )  # relative u shift of body frame with respect to satellite image center
             b_delta_v = (
                 -(g_y - s_y) / self.meters_per_pixel
             )  # relative v shift of body frame with respect to satellite image center
@@ -349,8 +350,8 @@ class Ford(torch.utils.data.Dataset):
             # x, y here are the x, y under gps/utm coordinates, x pointing right and y pointing up
 
             b_delta_u = (
-                g_x - s_x
-            ) / self.meters_per_pixel  # relative u shift of body frame with respect to satellite image center
+                (g_x - s_x) / self.meters_per_pixel
+            )  # relative u shift of body frame with respect to satellite image center
             b_delta_v = (
                 -(g_y - s_y) / self.meters_per_pixel
             )  # relative v shift of body frame with respect to satellite image center

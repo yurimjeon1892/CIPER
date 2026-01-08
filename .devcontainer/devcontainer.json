@@ -1,7 +1,7 @@
 {
 	"name": "ciper",
 	"build": {
-		"dockerfile": "ciper.Dockerfile",
+		"dockerfile": "Dockerfile",
 		"context": "..",
 		"args": {
 			"USERNAME": "${localEnv:USER}",
