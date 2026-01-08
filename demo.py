@@ -1,18 +1,17 @@
-import yaml
 import argparse
-import torch
-import sys, os
+import os
+import sys
 
 import numpy as np
-
-from tqdm import tqdm
+import torch
+import yaml
+from prompt_toolkit import prompt
+from prompt_toolkit.completion import PathCompleter
 from torch.utils.data import DataLoader
+from tqdm import tqdm
 
 from datasets import build_dataset
 from models import build
-
-from prompt_toolkit import prompt
-from prompt_toolkit.completion import PathCompleter
 
 sys.path.append("../")
 
@@ -89,7 +88,6 @@ def stage_two(
     arl_candidates: list,
     infos: dict,
 ):
-
     model.eval()
 
     print("[i] pose estimation, with top", len(arl_candidates), "candidates")
@@ -97,7 +95,6 @@ def stage_two(
     pred_poses = []
 
     for i, arl_img in enumerate(arl_candidates):
-
         img_grd = grd_qry.to(infos["device"])
         img_arl = arl_img.to(infos["device"])
 
@@ -184,7 +181,8 @@ def main():
 
     while True:
         query_path = prompt(
-            "query file path (Ender 'q' to exit) (ex: demo/demo_sample_1.png): ", completer=PathCompleter()
+            "query file path (Ender 'q' to exit) (ex: demo/demo_sample_1.png): ",
+            completer=PathCompleter(),
         )
         if query_path == "q":
             return
@@ -192,9 +190,8 @@ def main():
             continue
         if query_path.split(".")[-1] not in ["png", "jpg"]:
             continue
-        args["qry_path"] = query_path       
+        args["qry_path"] = query_path
         inference()
-        
 
     # import natsort
     # demo_files = natsort.natsorted(os.listdir("./demo"))

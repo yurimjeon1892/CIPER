@@ -1,8 +1,8 @@
-import torch
-from torch import nn
 from typing import Type
 
+import torch
 import torch.nn.functional as F
+from torch import nn
 
 
 class MLP(nn.Module):

@@ -16,7 +16,7 @@ start_epoch: 1
 
 # ----- data config
 data_name: ford
-data_root: /data/public/ford 
+data_root: /data/ford 
 
 grd_img_size: [256, 1024]
 arl_img_size: [512, 512]

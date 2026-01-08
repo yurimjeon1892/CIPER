@@ -1,378 +1,375 @@
-import os, sys, yaml
 import argparse
-import torch
-from torch.utils.data import DataLoader
-
+import os
 import sys
+
+import torch
+import yaml
+from torch.utils.data import DataLoader
 
 sys.path.append("../")
 
-from common.utils import (
-	adjust_learning_rate,
-	save_state,
-	print_pigeon_train,
-	print_pigeon_evaluation,
-)
-from datasets import build_dataset
-from models import build, SAM
-from engine import train_one_epoch, valid_one_epoch, evaluate_one
-
 import wandb
+from common.utils import (adjust_learning_rate, print_pigeon_evaluation,
+                          print_pigeon_train, save_state)
+from datasets import build_dataset
+from engine import evaluate_one, train_one_epoch, valid_one_epoch
+from models import SAM, build
 
 
 def iterate(debug):
-	## init model
-	model, criterion, postprocessors = build(args)
+    ## init model
+    model, criterion, postprocessors = build(args)
 
-	## init wandb
-	if not debug:
-		wandb.init(
-			# set the wandb project where this run will be logged
-			project="ciper-v2",
-			config=args,
-			name=sys.argv[2].split("/")[-1].split(".")[0],
-			# resume=(args["resume"] != False),
-			settings=wandb.Settings(start_method="fork"),
-		)
+    ## init wandb
+    if not debug:
+        wandb.init(
+            # set the wandb project where this run will be logged
+            project="ciper-v2",
+            config=args,
+            name=sys.argv[2].split("/")[-1].split(".")[0],
+            # resume=(args["resume"] != False),
+            settings=wandb.Settings(start_method="fork"),
+        )
 
-	## pretrained model
-	if args["pretrained"] != False:
-		checkpoint = torch.load(args["pretrained"], map_location="cpu")
-		
-		state_dict = checkpoint["state_dict"].copy()
-		new_state_dict = {}
-		
-		for k in state_dict.keys():
-			if "pos_embed" in k : 
-				continue
-			if "patch_embed" in k :
-				continue
-			if "module." in k:
-				new_state_dict[k[7:]] = state_dict[k]
-					
-		model.load_state_dict(new_state_dict, strict=False)
+    ## pretrained model
+    if args["pretrained"] != False:
+        checkpoint = torch.load(args["pretrained"], map_location="cpu")
 
-		for name, param in model.named_parameters():
-			if name in new_state_dict.keys(): param.requires_grad = False
+        state_dict = checkpoint["state_dict"].copy()
+        new_state_dict = {}
 
-	elif args["resume"] != False:
-		checkpoint = torch.load(args["resume"], map_location="cpu")
-		model.load_state_dict(checkpoint["model"], strict=True)
-		
-		if "optimizer" in checkpoint and "epoch" in checkpoint:
-			args["start_epoch"] = checkpoint["epoch"] + 1
-			print("[i] load checkpoint from:", args["resume"], "for train")
-		else:
-			print("[i] failed to load checkpoint from:", args["resume"])
-			return
+        for k in state_dict.keys():
+            if "pos_embed" in k:
+                continue
+            if "patch_embed" in k:
+                continue
+            if "module." in k:
+                new_state_dict[k[7:]] = state_dict[k]
 
-	## set optimizer and ir_scheduler
-	param_dicts = list(filter(lambda p: p.requires_grad, model.parameters()))
-	if args["optimizer"] == "adam":
-		optimizer = torch.optim.Adam(
-			param_dicts,
-			lr=args["lr"],
-			betas=(0.9, 0.999),
-			eps=1e-08,
-			weight_decay=args["weight_decay"],
-		)
-	elif args["optimizer"] == "adamw":
-		optimizer = torch.optim.AdamW(
-			param_dicts,
-			lr=args["lr"],
-			betas=(0.9, 0.999),
-			eps=1e-08,
-			weight_decay=args["weight_decay"],
-			amsgrad=False,
-		)
-	elif args["optimizer"] == "sam":
-		base_optimizer = torch.optim.AdamW
-		optimizer = SAM(
-			param_dicts,
-			base_optimizer,
-			lr=args["lr"],
-			betas=(0.9, 0.999),
-			eps=1e-08,
-			weight_decay=args["weight_decay"],
-			amsgrad=False,
-			rho=2.5,
-			adaptive=True,
-		)
+        model.load_state_dict(new_state_dict, strict=False)
 
-	n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
-	print("[i] number of params:", n_parameters // 10**6, "M")
+        for name, param in model.named_parameters():
+            if name in new_state_dict.keys():
+                param.requires_grad = False
 
-	## set data_loader for train
-	dataset_train = build_dataset(mode="train", args=args)
+    elif args["resume"] != False:
+        checkpoint = torch.load(args["resume"], map_location="cpu")
+        model.load_state_dict(checkpoint["model"], strict=True)
 
-	sampler_train = None
-	data_loader_train = DataLoader(
-		dataset_train,
-		batch_size=args["batch_size"],
-		shuffle=(sampler_train is None),
-		num_workers=args["num_workers"],
-		pin_memory=True,
-		sampler=sampler_train,
-		drop_last=True,
-	)
+        if "optimizer" in checkpoint and "epoch" in checkpoint:
+            args["start_epoch"] = checkpoint["epoch"] + 1
+            print("[i] load checkpoint from:", args["resume"], "for train")
+        else:
+            print("[i] failed to load checkpoint from:", args["resume"])
+            return
 
-	## set data loader for image retrieval validation
-	dataset_val_s_q = build_dataset(mode="valid_same_qry", args=args)
-	dataset_val_s_r = build_dataset(mode="valid_same_ref", args=args)
+    ## set optimizer and ir_scheduler
+    param_dicts = list(filter(lambda p: p.requires_grad, model.parameters()))
+    if args["optimizer"] == "adam":
+        optimizer = torch.optim.Adam(
+            param_dicts,
+            lr=args["lr"],
+            betas=(0.9, 0.999),
+            eps=1e-08,
+            weight_decay=args["weight_decay"],
+        )
+    elif args["optimizer"] == "adamw":
+        optimizer = torch.optim.AdamW(
+            param_dicts,
+            lr=args["lr"],
+            betas=(0.9, 0.999),
+            eps=1e-08,
+            weight_decay=args["weight_decay"],
+            amsgrad=False,
+        )
+    elif args["optimizer"] == "sam":
+        base_optimizer = torch.optim.AdamW
+        optimizer = SAM(
+            param_dicts,
+            base_optimizer,
+            lr=args["lr"],
+            betas=(0.9, 0.999),
+            eps=1e-08,
+            weight_decay=args["weight_decay"],
+            amsgrad=False,
+            rho=2.5,
+            adaptive=True,
+        )
 
-	data_loader_val_s_q = DataLoader(
-		dataset_val_s_q,
-		batch_size=32,
-		shuffle=False,
-		num_workers=args["num_workers"],
-		pin_memory=True,
-	)
-	data_loader_val_s_r = DataLoader(
-		dataset_val_s_r,
-		batch_size=64,
-		shuffle=False,
-		num_workers=args["num_workers"],
-		pin_memory=True,
-	)
+    n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    print("[i] number of params:", n_parameters // 10**6, "M")
 
-	data_loader_valid_same = {
-		"qry": data_loader_val_s_q,
-		"ref": data_loader_val_s_r,
-	}
+    ## set data_loader for train
+    dataset_train = build_dataset(mode="train", args=args)
 
-	if args["data_name"] == "kitti":
-		dataset_val_c_q = build_dataset(mode="valid_cross_qry", args=args)
-		dataset_val_c_r = build_dataset(mode="valid_cross_ref", args=args)
-		data_loader_val_c_q = DataLoader(
-			dataset_val_c_q,
-			batch_size=32,
-			shuffle=False,
-			num_workers=args["num_workers"],
-			pin_memory=True,
-		)
-		data_loader_val_c_r = DataLoader(
-			dataset_val_c_r,
-			batch_size=64,
-			shuffle=False,
-			num_workers=args["num_workers"],
-			pin_memory=True,
-		)
+    sampler_train = None
+    data_loader_train = DataLoader(
+        dataset_train,
+        batch_size=args["batch_size"],
+        shuffle=(sampler_train is None),
+        num_workers=args["num_workers"],
+        pin_memory=True,
+        sampler=sampler_train,
+        drop_last=True,
+    )
 
-		data_loader_valid_cross = {
-			"qry": data_loader_val_c_q,
-			"ref": data_loader_val_c_r,
-		}
+    ## set data loader for image retrieval validation
+    dataset_val_s_q = build_dataset(mode="valid_same_qry", args=args)
+    dataset_val_s_r = build_dataset(mode="valid_same_ref", args=args)
 
-	## set data loader for pose estimation validation
-	dataset_val_same = build_dataset(mode="valid_same", args=args)
-	data_loader_val_same = DataLoader(
-		dataset_val_same,
-		batch_size=args["batch_size"],
-		shuffle=False,
-		drop_last=False,
-		num_workers=args["num_workers"],
-	)
-	data_loader_valid_same["val"] = data_loader_val_same
+    data_loader_val_s_q = DataLoader(
+        dataset_val_s_q,
+        batch_size=32,
+        shuffle=False,
+        num_workers=args["num_workers"],
+        pin_memory=True,
+    )
+    data_loader_val_s_r = DataLoader(
+        dataset_val_s_r,
+        batch_size=64,
+        shuffle=False,
+        num_workers=args["num_workers"],
+        pin_memory=True,
+    )
 
-	if args["data_name"] == "kitti":
-		dataset_val_cross = build_dataset(mode="valid_cross", args=args)
-		data_loader_val_cross = DataLoader(
-			dataset_val_cross,
-			batch_size=args["batch_size"],
-			shuffle=False,
-			drop_last=False,
-			num_workers=args["num_workers"],
-		)
-		data_loader_valid_cross["val"] = data_loader_val_cross
+    data_loader_valid_same = {
+        "qry": data_loader_val_s_q,
+        "ref": data_loader_val_s_r,
+    }
 
-	## set infos for train / validation
-	print("[i] start training ~")
-	train_infos = {
-		"iter": 0,
-		"epoch": -1,
-		"device": args["device"],
-		# "clip_max_norm": args["clip_max_norm"],
-		"optimizer": args["optimizer"],
-	}
-	valid_infos = {
-		"epoch": -1,
-		"device": args["device"],
-		"best_metric": -1,
-		"dim_feature": args["dim_feature"],
-	}
+    if args["data_name"] == "kitti":
+        dataset_val_c_q = build_dataset(mode="valid_cross_qry", args=args)
+        dataset_val_c_r = build_dataset(mode="valid_cross_ref", args=args)
+        data_loader_val_c_q = DataLoader(
+            dataset_val_c_q,
+            batch_size=32,
+            shuffle=False,
+            num_workers=args["num_workers"],
+            pin_memory=True,
+        )
+        data_loader_val_c_r = DataLoader(
+            dataset_val_c_r,
+            batch_size=64,
+            shuffle=False,
+            num_workers=args["num_workers"],
+            pin_memory=True,
+        )
 
-	for epoch in range(args["start_epoch"], args["epochs"] + 1):
-		adjust_learning_rate(optimizer, epoch, args)
+        data_loader_valid_cross = {
+            "qry": data_loader_val_c_q,
+            "ref": data_loader_val_c_r,
+        }
 
-		train_infos["epoch"] = epoch
-		train_infos = train_one_epoch(
-			model, criterion, postprocessors, data_loader_train, optimizer, train_infos
-		)
+    ## set data loader for pose estimation validation
+    dataset_val_same = build_dataset(mode="valid_same", args=args)
+    data_loader_val_same = DataLoader(
+        dataset_val_same,
+        batch_size=args["batch_size"],
+        shuffle=False,
+        drop_last=False,
+        num_workers=args["num_workers"],
+    )
+    data_loader_valid_same["val"] = data_loader_val_same
 
-		valid_infos["epoch"] = epoch
+    if args["data_name"] == "kitti":
+        dataset_val_cross = build_dataset(mode="valid_cross", args=args)
+        data_loader_val_cross = DataLoader(
+            dataset_val_cross,
+            batch_size=args["batch_size"],
+            shuffle=False,
+            drop_last=False,
+            num_workers=args["num_workers"],
+        )
+        data_loader_valid_cross["val"] = data_loader_val_cross
 
-		valid_infos = valid_one_epoch(
-			model,
-			criterion,
-			postprocessors,
-			data_loader_valid_same,
-			({**valid_infos, **dict(valid="same")}),
-		)
+    ## set infos for train / validation
+    print("[i] start training ~")
+    train_infos = {
+        "iter": 0,
+        "epoch": -1,
+        "device": args["device"],
+        # "clip_max_norm": args["clip_max_norm"],
+        "optimizer": args["optimizer"],
+    }
+    valid_infos = {
+        "epoch": -1,
+        "device": args["device"],
+        "best_metric": -1,
+        "dim_feature": args["dim_feature"],
+    }
 
-		if args["data_name"] == "kitti":
-			valid_infos = valid_one_epoch(
-				model,
-				criterion,
-				postprocessors,
-				data_loader_valid_cross,
-				({**valid_infos, **dict(valid="cross")}),
-			)
+    for epoch in range(args["start_epoch"], args["epochs"] + 1):
+        adjust_learning_rate(optimizer, epoch, args)
 
-		is_best = False
-		if valid_infos["metric"] > valid_infos["best_metric"]:
-			valid_infos["best_metric"] = valid_infos["metric"]
-			is_best = True
+        train_infos["epoch"] = epoch
+        train_infos = train_one_epoch(
+            model, criterion, postprocessors, data_loader_train, optimizer, train_infos
+        )
 
-		save_state(model, optimizer, epoch, is_best)
+        valid_infos["epoch"] = epoch
 
-	if wandb.run is not None:
-		wandb.finish()
+        valid_infos = valid_one_epoch(
+            model,
+            criterion,
+            postprocessors,
+            data_loader_valid_same,
+            ({**valid_infos, **dict(valid="same")}),
+        )
 
-	return
+        if args["data_name"] == "kitti":
+            valid_infos = valid_one_epoch(
+                model,
+                criterion,
+                postprocessors,
+                data_loader_valid_cross,
+                ({**valid_infos, **dict(valid="cross")}),
+            )
+
+        is_best = False
+        if valid_infos["metric"] > valid_infos["best_metric"]:
+            valid_infos["best_metric"] = valid_infos["metric"]
+            is_best = True
+
+        save_state(model, optimizer, epoch, is_best)
+
+    if wandb.run is not None:
+        wandb.finish()
+
+    return
 
 
 def evaluate():
-	## init model
-	model, _, postprocessors = build(args)
+    ## init model
+    model, _, postprocessors = build(args)
 
-	n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
-	print("[i] number of params:", n_parameters // 10**6, "M")
+    n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    print("[i] number of params:", n_parameters // 10**6, "M")
 
-	## load pretrained
-	checkpoint = torch.load(args["pretrained"], map_location="cpu")
-	model.load_state_dict(checkpoint["model"])
-	print("[i] load checkpoint from:", args["pretrained"], "for evaluation")
+    ## load pretrained
+    checkpoint = torch.load(args["pretrained"], map_location="cpu")
+    model.load_state_dict(checkpoint["model"])
+    print("[i] load checkpoint from:", args["pretrained"], "for evaluation")
 
-	## set data loader for image retrieval validation
-	dataset_val_s_q = build_dataset(mode="valid_same_qry", args=args)
-	dataset_val_s_r = build_dataset(mode="valid_same_ref", args=args)
+    ## set data loader for image retrieval validation
+    dataset_val_s_q = build_dataset(mode="valid_same_qry", args=args)
+    dataset_val_s_r = build_dataset(mode="valid_same_ref", args=args)
 
-	data_loader_val_s_q = DataLoader(
-		dataset_val_s_q,
-		batch_size=32,
-		shuffle=False,
-		num_workers=args["num_workers"],
-		pin_memory=True,
-	)
-	data_loader_val_s_r = DataLoader(
-		dataset_val_s_r,
-		batch_size=64,
-		shuffle=False,
-		num_workers=args["num_workers"],
-		pin_memory=True,
-	)
+    data_loader_val_s_q = DataLoader(
+        dataset_val_s_q,
+        batch_size=32,
+        shuffle=False,
+        num_workers=args["num_workers"],
+        pin_memory=True,
+    )
+    data_loader_val_s_r = DataLoader(
+        dataset_val_s_r,
+        batch_size=64,
+        shuffle=False,
+        num_workers=args["num_workers"],
+        pin_memory=True,
+    )
 
-	data_loader_valid_same = {
-		"qry": data_loader_val_s_q,
-		"ref": data_loader_val_s_r,
-	}
+    data_loader_valid_same = {
+        "qry": data_loader_val_s_q,
+        "ref": data_loader_val_s_r,
+    }
 
-	if args["data_name"] == "kitti":
-		dataset_val_c_q = build_dataset(mode="valid_cross_qry", args=args)
-		dataset_val_c_r = build_dataset(mode="valid_cross_ref", args=args)
-		data_loader_val_c_q = DataLoader(
-			dataset_val_c_q,
-			batch_size=32,
-			shuffle=False,
-			num_workers=args["num_workers"],
-			pin_memory=True,
-		)
-		data_loader_val_c_r = DataLoader(
-			dataset_val_c_r,
-			batch_size=64,
-			shuffle=False,
-			num_workers=args["num_workers"],
-			pin_memory=True,
-		)
+    if args["data_name"] == "kitti":
+        dataset_val_c_q = build_dataset(mode="valid_cross_qry", args=args)
+        dataset_val_c_r = build_dataset(mode="valid_cross_ref", args=args)
+        data_loader_val_c_q = DataLoader(
+            dataset_val_c_q,
+            batch_size=32,
+            shuffle=False,
+            num_workers=args["num_workers"],
+            pin_memory=True,
+        )
+        data_loader_val_c_r = DataLoader(
+            dataset_val_c_r,
+            batch_size=64,
+            shuffle=False,
+            num_workers=args["num_workers"],
+            pin_memory=True,
+        )
 
-		data_loader_valid_cross = {
-			"qry": data_loader_val_c_q,
-			"ref": data_loader_val_c_r,
-		}
+        data_loader_valid_cross = {
+            "qry": data_loader_val_c_q,
+            "ref": data_loader_val_c_r,
+        }
 
-	## set data loader for pose estimation validation
-	dataset_val_same = build_dataset(mode="valid_same", args=args)
-	data_loader_val_same = DataLoader(
-		dataset_val_same,
-		batch_size=args["batch_size"],
-		shuffle=False,
-		drop_last=False,
-		num_workers=args["num_workers"],
-	)
-	data_loader_valid_same["val"] = data_loader_val_same
+    ## set data loader for pose estimation validation
+    dataset_val_same = build_dataset(mode="valid_same", args=args)
+    data_loader_val_same = DataLoader(
+        dataset_val_same,
+        batch_size=args["batch_size"],
+        shuffle=False,
+        drop_last=False,
+        num_workers=args["num_workers"],
+    )
+    data_loader_valid_same["val"] = data_loader_val_same
 
-	if args["data_name"] == "kitti":
-		dataset_val_cross = build_dataset(mode="valid_cross", args=args)
-		data_loader_val_cross = DataLoader(
-			dataset_val_cross,
-			batch_size=args["batch_size"],
-			shuffle=False,
-			drop_last=False,
-			num_workers=args["num_workers"],
-		)
-		data_loader_valid_cross["val"] = data_loader_val_cross
+    if args["data_name"] == "kitti":
+        dataset_val_cross = build_dataset(mode="valid_cross", args=args)
+        data_loader_val_cross = DataLoader(
+            dataset_val_cross,
+            batch_size=args["batch_size"],
+            shuffle=False,
+            drop_last=False,
+            num_workers=args["num_workers"],
+        )
+        data_loader_valid_cross["val"] = data_loader_val_cross
 
-	## set infos for evaluation
-	print("[i] start evaluation ~")
+    ## set infos for evaluation
+    print("[i] start evaluation ~")
 
-	eval_infos = {
-		"device": args["device"],
-		"dim_feature": args["dim_feature"],
-		"data_name": args["data_name"],
-		"eval_name": args["eval_name"],
-	}
-	evaluate_one(
-		model,
-		postprocessors,
-		data_loader_valid_same,
-		({**eval_infos, **dict(valid="same")}),
-	)
-	if args["data_name"] == "kitti":
-		evaluate_one(
-			model,
-			postprocessors,
-			data_loader_valid_cross,
-			({**eval_infos, **dict(valid="cross")}),
-		)
-	return
+    eval_infos = {
+        "device": args["device"],
+        "dim_feature": args["dim_feature"],
+        "data_name": args["data_name"],
+        "eval_name": args["eval_name"],
+    }
+    evaluate_one(
+        model,
+        postprocessors,
+        data_loader_valid_same,
+        ({**eval_infos, **dict(valid="same")}),
+    )
+    if args["data_name"] == "kitti":
+        evaluate_one(
+            model,
+            postprocessors,
+            data_loader_valid_cross,
+            ({**eval_infos, **dict(valid="cross")}),
+        )
+    return
 
 
 def parse_args():
-	parser = argparse.ArgumentParser(description="Train a CIPER")
-	parser.add_argument("--config", help="config file path")
-	parser.add_argument(
-		"--debug", action="store_true", help="debug flag for disble logger"
-	)
-	args = parser.parse_args()
-	return args
+    parser = argparse.ArgumentParser(description="Train a CIPER")
+    parser.add_argument("--config", help="config file path")
+    parser.add_argument(
+        "--debug", action="store_true", help="debug flag for disble logger"
+    )
+    args = parser.parse_args()
+    return args
 
 
 def main():
-	cmd_args = parse_args()
+    cmd_args = parse_args()
 
-	global args
-	with open(cmd_args.config, "r") as stream:
-		args = yaml.safe_load(stream)
+    global args
+    with open(cmd_args.config, "r") as stream:
+        args = yaml.safe_load(stream)
 
-	if args["eval"]:
-		print_pigeon_evaluation()
-		evaluate()
-	else:
-		print_pigeon_train()
-		iterate(cmd_args.debug)
+    if args["eval"]:
+        print_pigeon_evaluation()
+        evaluate()
+    else:
+        print_pigeon_train()
+        iterate(cmd_args.debug)
 
-	return
+    return
 
 
 if __name__ == "__main__":
-	main()
+    main()

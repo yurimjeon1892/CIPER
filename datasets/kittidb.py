@@ -1,11 +1,12 @@
-import torch
-
-from PIL import Image
-import numpy as np
 import os
+
 import natsort
+import numpy as np
+import torch
+from PIL import Image
 
 from common.utils_loader import input_transform
+
 from .kitti_func import get_meter_per_pixel
 
 
@@ -22,7 +23,6 @@ class KITTIDB(torch.utils.data.Dataset):
         self.make_sample_list()
 
     def make_sample_list(self):
-
         self.sample_list = []
 
         date_dirs = natsort.natsorted(os.listdir(os.path.join(self.root, "satellite")))
@@ -58,7 +58,6 @@ class KITTIDB(torch.utils.data.Dataset):
         print("[i] database loaded, size: {}".format(len(self.sample_list)))
 
     def __getitem__(self, index):
-
         file_name = self.sample_list[index]
         arl_img_name = os.path.join(self.root, file_name)
         try:
