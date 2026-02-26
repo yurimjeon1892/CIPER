@@ -70,10 +70,8 @@ class KITTI(torch.utils.data.Dataset):
             # print("file1", file_[:37])
             # print("file2", file_[:52])
             if file_[:37] in ignore_drive_list:
-                
                 continue
             if file_[:52] in ignore_file_list:
-                
                 continue
             self.sample_list.append(file_)
         FileNotFoundError(
@@ -283,7 +281,7 @@ class KITTI(torch.utils.data.Dataset):
             arl_img = TF.center_crop(arl_rand_rot_rand_shift, self.arl_img_size[0])
             arl_img = self.transform_reference(arl_img)
 
-            return arl_img, torch.tensor(index), 0
+            return arl_img, torch.tensor(index), 0, file_name
 
         elif self.mode == "valid_same_qry" or self.mode == "valid_cross_qry":
             line = self.sample_list[index]
@@ -309,7 +307,7 @@ class KITTI(torch.utils.data.Dataset):
 
             grd_img = self.transform_query(grd_img)
 
-            return grd_img, torch.tensor(index), torch.tensor(index)
+            return grd_img, torch.tensor(index), torch.tensor(index), file_name
         else:
             NotImplementedError()
 

@@ -18,10 +18,14 @@ class VIGORDB(torch.utils.data.Dataset):
 
         self.same_area = args["same_area"]
 
+        # if self.same_area:
+        #     self.city_list = ["NewYork", "Seattle", "SanFrancisco", "Chicago"]
+        # else:
+        #     self.city_list = ["SanFrancisco", "Chicago"]
         if self.same_area:
-            self.city_list = ["NewYork", "Seattle", "SanFrancisco", "Chicago"]
+            self.city_list = ["NewYork", "SanFrancisco"]
         else:
-            self.city_list = ["SanFrancisco", "Chicago"]
+            self.city_list = ["SanFrancisco"]
 
         self.arl_img_size = args["arl_img_size"]
         self.raw_arl_img_size = (640, 640)
