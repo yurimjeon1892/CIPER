@@ -28,14 +28,18 @@ class VIGOR(torch.utils.data.Dataset):
 
         if self.same_area:
             if self.mode == "train":
-                self.city_list = ["NewYork", "Seattle", "SanFrancisco", "Chicago"]
+                # self.city_list = ["NewYork", "Seattle", "SanFrancisco", "Chicago"]
+                self.city_list = ["NewYork", "SanFrancisco"]
             else:
-                self.city_list = ["NewYork", "Seattle", "SanFrancisco", "Chicago"]
+                # self.city_list = ["NewYork", "Seattle", "SanFrancisco", "Chicago"]
+                self.city_list = ["NewYork", "SanFrancisco"]
         else:
             if self.mode == "train":
-                self.city_list = ["NewYork", "Seattle"]
+                # self.city_list = ["NewYork", "Seattle"]
+                self.city_list = ["NewYork"]
             else:
-                self.city_list = ["SanFrancisco", "Chicago"]
+                # self.city_list = ["SanFrancisco", "Chicago"]
+                self.city_list = ["SanFrancisco"]
 
         self.arl_img_size = args["arl_img_size"]
         self.raw_arl_img_size = (640, 640)
@@ -167,17 +171,44 @@ class VIGOR(torch.utils.data.Dataset):
 
             return img_qry, img_ref, target
 
+        # elif self.mode == "valid_same":
+        # 	idx = random.choice(
+        # 		self.sat_cover_dict[
+        # 			self.sat_cover_list[index % len(self.sat_cover_list)]
+        # 		]
+        # 	)
+
+        # 	grd_img = Image.open(os.path.join(self.root, self.list[idx]))
+        # 	arl_img = Image.open(self.sat_list[self.label[idx][0]]).convert("RGB")
+
+        # 	gt_shift_x = -self.delta[idx, 0][1]
+        # 	gt_shift_y = self.delta[idx, 0][0]
+
+        # 	theta, meter_per_pixel = 0, self.meter_per_pixel_list[idx]
+
+        # 	img_qry = self.transform_query(grd_img)
+        # 	img_ref = self.transform_reference(arl_img)
+
+        # 	target = self.prep_gt(gt_shift_x, gt_shift_y, theta, meter_per_pixel)
+
+        # 	return img_qry, img_ref, target, self.list[idx]
+
         elif self.mode == "valid_same_ref":
             arl_img = Image.open(self.sat_list[index]).convert("RGB")
             img_ref = self.transform_reference(arl_img)
 
-            return img_ref, torch.tensor(index), 0
+            return img_ref, torch.tensor(index), 0, self.sat_list[index]
 
         elif self.mode == "valid_same_qry":
             grd_img = Image.open(self.list[index])
             img_qry = self.transform_query(grd_img)
 
-            return img_qry, torch.tensor(index), torch.tensor(self.label[index][0])
+            return (
+                img_qry,
+                torch.tensor(index),
+                torch.tensor(self.label[index][0]),
+                self.list[index],
+            )
         else:
             print("not implemented!!")
             raise Exception

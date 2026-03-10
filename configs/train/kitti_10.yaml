@@ -1,5 +1,22 @@
 # configuration file for training
 # ----- base config
+seed: 42
+use_amp: true
+clip_max_norm: 0.0       # 0이면 off, 예: 1.0
+wandb_project: ciper-v3
+
+# pretrained partial load behavior
+pretrained_skip_keys: ["pos_embed", "patch_embed"]
+freeze_pretrained: true
+
+# validation batch sizes (optional)
+val_qry_bs: 32
+val_ref_bs: 64
+
+# SAM optimizer options (optional)
+sam_rho: 2.5
+sam_adaptive: true
+
 eval: False
 pretrained: False
 resume: False

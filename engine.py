@@ -183,7 +183,7 @@ def valid_retr(
     with torch.no_grad():
         # query features
         description = "[i] valid qry"
-        for _, (img_grd, idx_grd, labels) in enumerate(
+        for _, (img_grd, idx_grd, labels, file_name) in enumerate(
             tqdm(qry_loader, desc=description, unit="batches")
         ):
             img_grd = img_grd.to(valid_infos["device"])
@@ -196,7 +196,7 @@ def valid_retr(
 
         # reference features
         description = "[i] valid ref"
-        for i, (img_arl, idx_arl, _) in enumerate(
+        for i, (img_arl, idx_arl, _, _) in enumerate(
             tqdm(ref_loader, desc=description, unit="batches")
         ):
             img_arl = img_arl.to(valid_infos["device"])
@@ -397,7 +397,7 @@ def evaluate_one(
     ref_feat = np.zeros([len(loader_dict["ref"].dataset), eval_infos["dim_feature"]])
 
     description = "[i] eval qry"
-    for i, (img_grd, idx_grd, labels) in enumerate(
+    for i, (img_grd, idx_grd, labels, file_name) in enumerate(
         tqdm(loader_dict["qry"], desc=description, unit="batches")
     ):
         img_grd = img_grd.to(eval_infos["device"])
@@ -409,7 +409,7 @@ def evaluate_one(
         qry_label[idx_grd.cpu().numpy()] = labels.cpu().numpy()
 
     description = "[i] eval ref"
-    for i, (img_arl, idx_arl, _) in enumerate(
+    for i, (img_arl, idx_arl, _, _) in enumerate(
         tqdm(loader_dict["ref"], desc=description, unit="batches")
     ):
         img_arl = img_arl.to(eval_infos["device"])
