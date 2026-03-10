@@ -70,10 +70,8 @@ class KITTI(torch.utils.data.Dataset):
             # print("file1", file_[:37])
             # print("file2", file_[:52])
             if file_[:37] in ignore_drive_list:
-                
                 continue
             if file_[:52] in ignore_file_list:
-                
                 continue
             self.sample_list.append(file_)
         FileNotFoundError(
